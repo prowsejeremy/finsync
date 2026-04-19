@@ -1,0 +1,81 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="Theme.Finsync" parent="Theme.Material3.DayNight.NoActionBar">
+        <!-- Primary brand colour — matches the Finsync icon gradient midpoint -->
+        <item name="colorPrimary">@color/text_primary</item>
+        <item name="colorPrimaryVariant">@color/accent_green</item>
+        <item name="colorOnPrimary">@color/bg_primary</item>
+        <item name="colorSurface">@color/surface_1</item>
+        <item name="colorOnSurface">@color/text_primary</item>
+        <item name="colorSurfaceVariant">@color/surface_2</item>
+        <item name="colorOnSurfaceVariant">@color/muted</item>
+        <item name="colorOutline">@color/muted</item>
+        <!-- Prevents the white flash on startup before the activity renders -->
+        <item name="android:windowBackground">@color/bg_primary</item>
+        <item name="android:statusBarColor">@color/surface_2</item>
+
+        <!-- Default Font -->
+        <item name="android:fontFamily">@font/hk_regular</item>
+    </style>
+
+    <!-- Dark theme for MainActivity and all main app screens -->
+    <style name="Theme.Finsync.Main" parent="Theme.Material3.Dark.NoActionBar">
+        <item name="colorPrimary">@color/accent_green</item>
+        <item name="colorOnPrimary">@color/bg_primary</item>
+        <item name="android:windowBackground">@color/bg_primary</item>
+        <item name="android:windowLightStatusBar">false</item>
+        <item name="colorSurface">@color/surface_1</item>
+        <item name="colorOnSurface">@color/text_primary</item>
+        <item name="colorSurfaceVariant">@color/surface_2</item>
+        <item name="colorOnSurfaceVariant">@color/muted</item>
+        <item name="colorOutline">@color/muted</item>
+        <item name="elevationOverlayEnabled">false</item>
+        <item name="android:statusBarColor">@color/surface_2</item>
+
+        <!-- Default Font -->
+        <item name="android:fontFamily">@font/hk_regular</item>
+    </style>
+
+    <!-- Bottom sheet dialog theme used by ServerBottomSheet -->
+    <style name="Theme.Finsync.BottomSheet" parent="Theme.Material3.Dark.BottomSheetDialog">
+        <item name="android:windowBackground">@android:color/transparent</item>
+        <item name="colorSurface">@color/surface_1</item>
+        <item name="colorOnSurface">@color/text_primary</item>
+        <item name="colorOnSurfaceVariant">@color/muted</item>
+        <item name="elevationOverlayEnabled">false</item>
+        <item name="bottomSheetStyle">@style/Widget.Finsync.BottomSheet</item>
+
+        <!-- Default Font -->
+        <item name="android:fontFamily">@font/hk_regular</item>
+    </style>
+    <style name="Widget.Finsync.BottomSheet" parent="Widget.Material3.BottomSheet.Modal">
+        <item name="backgroundTint">@color/surface_1</item>
+        <item name="shapeAppearance">@style/ShapeAppearance.Finsync.BottomSheet</item>
+    </style>
+    <style name="ShapeAppearance.Finsync.BottomSheet" parent="">
+        <item name="cornerFamily">rounded</item>
+        <item name="cornerSizeTopLeft">24dp</item>
+        <item name="cornerSizeTopRight">24dp</item>
+        <item name="cornerSizeBottomLeft">0dp</item>
+        <item name="cornerSizeBottomRight">0dp</item>
+    </style>
+
+    <!-- Dark theme used exclusively by LoginActivity -->
+    <style name="Theme.Finsync.Login" parent="Theme.Material3.Dark.NoActionBar">
+        <!-- Accent green drives focused outlines and the progress indicator -->
+        <item name="colorPrimary">@color/accent_green</item>
+        <item name="colorOnPrimary">@color/bg_primary</item>
+        <item name="android:windowBackground">@color/bg_primary</item>
+        <item name="colorSurface">@color/bg_primary</item>
+        <item name="colorOnSurface">@color/text_primary</item>
+        <item name="colorSurfaceVariant">@color/surface_1</item>
+        <item name="colorOnSurfaceVariant">@color/muted</item>
+        <!-- colorOutline drives the unfocused TextInputLayout border -->
+        <item name="colorOutline">@color/muted</item>
+        <item name="elevationOverlayEnabled">false</item>
+        <item name="android:statusBarColor">@color/surface_2</item>
+
+        <!-- Default Font -->
+        <item name="android:fontFamily">@font/hk_regular</item>
+    </style>
+</resources>

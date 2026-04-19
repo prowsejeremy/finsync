@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Finsync brand colours — taken from the icon gradient -->
+    <color name="finsync_purple">#AA5CC3</color>
+    <color name="finsync_blue">#00A4DC</color>
+    <color name="white">#FFFFFF</color>
+    <color name="black">#000000</color>
+
+    <!-- ── Style guide palette ────────────────────────────────────── -->
+
+    <!-- Backgrounds (darkest → lightest) -->
+    <color name="bg_primary">#030505</color>
+    <color name="surface_1">#111416</color>
+    <color name="surface_2">#1F262B</color>
+    <!-- Accent -->
+    <color name="accent_green">#00FFAA</color>
+    <!-- Muted / secondary -->
+    <color name="muted">#506575</color>
+    <!-- Primary text on dark backgrounds -->
+    <color name="text_primary">#F0F7FC</color>
+</resources>

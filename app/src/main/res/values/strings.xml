@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Finsync</string>
+    <string name="title_login">Finsync – Sign In</string>
+    <string name="title_library">Finsync – Library</string>
+    <string name="title_settings">Finsync – Settings</string>
+
+    <!-- Login screen -->
+    <string name="hint_server_url">Server URL (e.g. https://jellyfin.jpd.com)</string>
+    <string name="hint_username">Username</string>
+    <string name="hint_password">Password</string>
+    <string name="btn_login">Sign In</string>
+    <string name="error_empty_fields">Please fill in all fields</string>
+    <string name="error_login_failed">Login failed. Check your server URL and credentials.</string>
+
+    <!-- Main screen -->
+    <string name="btn_sync_now">Sync Now</string>
+    <string name="btn_stop_sync">Stop Sync</string>
+    <string name="status_not_synced">Not synced yet</string>
+    <string name="status_syncing">Syncing…</string>
+    <string name="status_up_to_date">Up to date</string>
+    <string name="status_sync_failed">Sync failed</string>
+
+    <!-- Notifications -->
+    <string name="notification_channel_name">Finsync</string>
+    <string name="notification_channel_desc">Syncing music library from Jellyfin</string>
+    <string name="notification_sync_title">Finsync</string>
+    <string name="notification_stop">Stop</string>
+    <string name="notification_sync_complete">Sync complete</string>
+</resources>

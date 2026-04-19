@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(pdfinfo /Users/jeremyprowse/Sites/_personal/finsync-redesign/design-assets/export/finsync-design.pdf)",
+      "Bash(mkdir -p /tmp/finsync-pdf)",
+      "Bash(pdftoppm -r 150 -png /Users/jeremyprowse/Sites/_personal/finsync-redesign/design-assets/export/finsync-design.pdf /tmp/finsync-pdf/page)",
+      "Read(//tmp/**)",
+      "Bash(pdftoppm -r 150 -png /Users/jeremyprowse/Sites/_personal/finsync-redesign/design-assets/export/finsync-design.pdf /tmp/finsync-page)",
+      "Read(//private/tmp/**)"
+    ]
+  }
+}
