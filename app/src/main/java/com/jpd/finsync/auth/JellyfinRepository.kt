@@ -10,7 +10,6 @@ import com.jpd.finsync.model.ServerInfo
 import com.jpd.finsync.db.SyncDatabase
 import okhttp3.Call
 import okhttp3.OkHttpClient
-import okhttp3.Request
 import okhttp3.ResponseBody
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicReference
@@ -56,6 +55,9 @@ class JellyfinRepository(private val context: Context) {
         _readApi = JellyfinClient.create(serverUrl, allowLoginPost = false, debug = true)
         _currentUrl = serverUrl
     }
+
+    private fun authorization(config: ServerConfig) =
+        JellyfinClient.buildAuthHeader(token = config.accessToken)
 
     suspend fun testServer(serverUrl: String): Result<ServerInfo> = safeCall {
         val response = readApi(serverUrl).getPublicServerInfo()
@@ -109,10 +111,10 @@ class JellyfinRepository(private val context: Context) {
 
         while (true) {
             val response = api.getAudioItems(
-                userId     = config.userId,
-                token      = config.accessToken,
-                startIndex = start,
-                limit      = 500
+                userId        = config.userId,
+                authorization = authorization(config),
+                startIndex    = start,
+                limit         = 500
             )
             if (!response.isSuccessful) {
                 return@safeCall Result.Error("Failed to fetch items: ${response.code()}")
@@ -126,19 +128,18 @@ class JellyfinRepository(private val context: Context) {
     }
 
     suspend fun getAlbums(config: ServerConfig): Result<ItemsResponse> = safeCall {
-        val response = readApi(config.serverUrl).getAlbums(config.userId, config.accessToken)
+        val response = readApi(config.serverUrl).getAlbums(config.userId, authorization(config))
         if (response.isSuccessful) Result.Success(response.body()!!)
         else Result.Error("Failed to fetch albums: ${response.code()}")
     }
 
     suspend fun getAlbumTracks(config: ServerConfig, albumId: String): Result<ItemsResponse> = safeCall {
-        val response = readApi(config.serverUrl).getAlbumTracks(config.userId, config.accessToken, albumId)
+        val response = readApi(config.serverUrl).getAlbumTracks(config.userId, authorization(config), albumId)
         if (response.isSuccessful) Result.Success(response.body()!!)
         else Result.Error("Failed to fetch tracks: ${response.code()}")
     }
 
     suspend fun downloadAudio(config: ServerConfig, itemId: String): okhttp3.Response {
-        val baseUrl = if (config.serverUrl.endsWith("/")) config.serverUrl else "${config.serverUrl}/"
         val client = OkHttpClient.Builder()
             .connectTimeout(15, TimeUnit.SECONDS)
             .readTimeout(0, TimeUnit.SECONDS)
@@ -146,11 +147,11 @@ class JellyfinRepository(private val context: Context) {
             .followSslRedirects(true)
             .build()
 
-        val url = "${baseUrl}Audio/${itemId}/stream?static=true&api_key=${config.accessToken}"
-        val request = Request.Builder()
-            .url(url)
-            .get()
-            .build()
+        val request = JellyfinClient.buildAudioStreamRequest(
+            baseUrl = config.serverUrl,
+            itemId  = itemId,
+            token   = config.accessToken
+        )
 
         val call = client.newCall(request)
         activeAudioCall.set(call)
@@ -166,7 +167,7 @@ class JellyfinRepository(private val context: Context) {
         albumId: String,
         maxWidth: Int = 600
     ): retrofit2.Response<ResponseBody> =
-        readApi(config.serverUrl).getAlbumArt(albumId, config.accessToken, maxWidth = maxWidth)
+        readApi(config.serverUrl).getAlbumArt(albumId, authorization(config), maxWidth = maxWidth)
 
     private inline fun <T> safeCall(block: () -> Result<T>): Result<T> = try {
         block()

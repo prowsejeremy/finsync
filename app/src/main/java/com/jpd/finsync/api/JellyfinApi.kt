@@ -15,7 +15,7 @@ interface JellyfinApi {
     @POST("Users/AuthenticateByName")
     @Headers("Content-Type: application/json")
     suspend fun authenticateByName(
-        @Header("X-Emby-Authorization") authHeader: String,
+        @Header("Authorization") authorization: String,
         @Body body: AuthenticateRequest
     ): Response<AuthenticateResponse>
 
@@ -25,7 +25,7 @@ interface JellyfinApi {
     @GET("Users/{userId}/Items")
     suspend fun getAudioItems(
         @Path("userId") userId: String,
-        @Header("X-MediaBrowser-Token") token: String,
+        @Header("Authorization") authorization: String,
         @Query("IncludeItemTypes") includeItemTypes: String = "Audio",
         @Query("Recursive") recursive: Boolean = true,
         @Query("Fields") fields: String = "Path,MediaSources,Genres,Artists,ArtistItems,AlbumArtist,UserData,DateCreated,PremiereDate,DateModified",
@@ -38,7 +38,7 @@ interface JellyfinApi {
     @GET("Users/{userId}/Items")
     suspend fun getAlbums(
         @Path("userId") userId: String,
-        @Header("X-MediaBrowser-Token") token: String,
+        @Header("Authorization") authorization: String,
         @Query("IncludeItemTypes") includeItemTypes: String = "MusicAlbum",
         @Query("Recursive") recursive: Boolean = true,
         @Query("Fields") fields: String = "AlbumArtist,ChildCount,DateCreated,PremiereDate",
@@ -51,7 +51,7 @@ interface JellyfinApi {
     @GET("Users/{userId}/Items")
     suspend fun getAlbumTracks(
         @Path("userId") userId: String,
-        @Header("X-MediaBrowser-Token") token: String,
+        @Header("Authorization") authorization: String,
         @Query("ParentId") albumId: String,
         @Query("IncludeItemTypes") includeItemTypes: String = "Audio",
         @Query("Fields") fields: String = "Path,MediaSources,Artists,UserData",
@@ -64,14 +64,14 @@ interface JellyfinApi {
     suspend fun downloadAudio(
         @Path("userId") userId: String,
         @Path("itemId") itemId: String,
-        @Header("X-MediaBrowser-Token") token: String
+        @Header("Authorization") authorization: String
     ): Response<ResponseBody>
 
     @GET("Items/{itemId}/Images/Primary")
     @Streaming
     suspend fun getAlbumArt(
         @Path("itemId") itemId: String,
-        @Header("X-MediaBrowser-Token") token: String,
+        @Header("Authorization") authorization: String,
         @Query("quality") quality: Int = 90,
         @Query("maxWidth") maxWidth: Int = 600
     ): Response<ResponseBody>

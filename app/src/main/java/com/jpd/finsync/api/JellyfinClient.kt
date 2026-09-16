@@ -2,6 +2,7 @@ package com.jpd.finsync.api
 
 import okhttp3.Interceptor
 import okhttp3.OkHttpClient
+import okhttp3.Request
 import okhttp3.Response
 import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
@@ -13,13 +14,32 @@ object JellyfinClient {
     private const val CONNECT_TIMEOUT_SEC  = 15L
     private const val READ_TIMEOUT_SEC     = 0L
 
+    /**
+     * Value for the standard `Authorization` header using Jellyfin's `MediaBrowser` scheme.
+     *
+     * Jellyfin 12 disabled the Emby-era `X-Emby-Authorization`, `X-MediaBrowser-Token` and
+     * `api_key` mechanisms by default, so this header is the only supported way to identify
+     * the client and, once logged in, to carry the access token.
+     */
     fun buildAuthHeader(
         clientName: String = "Finsync",
         deviceName: String = "Android",
         deviceId:   String = "finsync-android-001",
-        version:    String = "1.0.0"
-    ) = "MediaBrowser Client=\"$clientName\", Device=\"$deviceName\", " +
-        "DeviceId=\"$deviceId\", Version=\"$version\""
+        version:    String = "1.0.0",
+        token:      String? = null
+    ): String {
+        val identity = "MediaBrowser Client=\"$clientName\", Device=\"$deviceName\", " +
+            "DeviceId=\"$deviceId\", Version=\"$version\""
+        return if (token.isNullOrBlank()) identity else "$identity, Token=\"$token\""
+    }
+
+    /** Raw audio download request, authenticated via header so the token never appears in a URL. */
+    fun buildAudioStreamRequest(baseUrl: String, itemId: String, token: String): Request =
+        Request.Builder()
+            .url("${normalizeBaseUrl(baseUrl)}Audio/$itemId/stream?static=true")
+            .header("Authorization", buildAuthHeader(token = token))
+            .get()
+            .build()
 
     fun create(baseUrl: String, allowLoginPost: Boolean = false, debug: Boolean = false): JellyfinApi {
         val logging = HttpLoggingInterceptor().apply {
@@ -34,15 +54,16 @@ object JellyfinClient {
             .addInterceptor(logging)
             .build()
 
-        val normalizedUrl = if (baseUrl.endsWith("/")) baseUrl else "$baseUrl/"
-
         return Retrofit.Builder()
-            .baseUrl(normalizedUrl)
+            .baseUrl(normalizeBaseUrl(baseUrl))
             .client(client)
             .addConverterFactory(GsonConverterFactory.create())
             .build()
             .create(JellyfinApi::class.java)
     }
+
+    private fun normalizeBaseUrl(baseUrl: String) =
+        if (baseUrl.endsWith("/")) baseUrl else "$baseUrl/"
 }
 
 class ReadOnlyInterceptor(private val allowLoginPost: Boolean) : Interceptor {
