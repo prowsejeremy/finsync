@@ -8,6 +8,7 @@ import androidx.lifecycle.asLiveData
 import androidx.lifecycle.viewModelScope
 import com.jpd.finsync.library.LibraryRepository
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
@@ -23,15 +24,33 @@ class LibraryViewModel(app: Application) : AndroidViewModel(app) {
 
     val homeState: LiveData<HomeLibraryState> = combine(
         library.isCatalogueEmpty(),
-        library.albumCount(),
+        categoryCounts(),
         refreshStatus
-    ) { empty, count, status -> homeLibraryStateOf(empty, count, status) }.asLiveData()
+    ) { empty, counts, status ->
+        homeLibraryStateOf(
+            catalogueEmpty = empty,
+            albumCount = counts.albums,
+            refresh = status,
+            albumArtistCount = counts.albumArtists,
+            genreCount = counts.genres,
+            songCount = counts.songs
+        )
+    }.asLiveData()
 
     init {
         refreshIfEmpty()
     }
 
     fun retry() = refreshIfEmpty()
+
+    private fun categoryCounts(): Flow<CategoryCounts> = combine(
+        library.albumCount(),
+        library.albumArtistCount(),
+        library.genreCount(),
+        library.songCount()
+    ) { albums, albumArtists, genres, songs ->
+        CategoryCounts(albums, albumArtists, genres, songs)
+    }
 
     private fun refreshIfEmpty() {
         if (refreshStatus.value == RefreshStatus.RUNNING) return
@@ -50,4 +69,11 @@ class LibraryViewModel(app: Application) : AndroidViewModel(app) {
             refreshStatus.value = if (succeeded) RefreshStatus.DONE else RefreshStatus.FAILED
         }
     }
+
+    private data class CategoryCounts(
+        val albums: Int,
+        val albumArtists: Int,
+        val genres: Int,
+        val songs: Int
+    )
 }

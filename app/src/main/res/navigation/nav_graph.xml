@@ -14,6 +14,15 @@
         <action
             android:id="@+id/action_home_to_albums"
             app:destination="@id/albumsFragment" />
+        <action
+            android:id="@+id/action_home_to_album_artists"
+            app:destination="@id/albumArtistsFragment" />
+        <action
+            android:id="@+id/action_home_to_genres"
+            app:destination="@id/genresFragment" />
+        <action
+            android:id="@+id/action_home_to_songs"
+            app:destination="@id/songsFragment" />
     </fragment>
 
     <fragment
@@ -29,6 +38,55 @@
         android:name="com.jpd.finsync.ui.AlbumFragment">
         <argument
             android:name="albumId"
+            app:argType="string" />
+    </fragment>
+
+    <fragment
+        android:id="@+id/albumArtistsFragment"
+        android:name="com.jpd.finsync.ui.AlbumArtistsFragment">
+        <action
+            android:id="@+id/action_album_artists_to_group"
+            app:destination="@id/groupFragment" />
+    </fragment>
+
+    <fragment
+        android:id="@+id/genresFragment"
+        android:name="com.jpd.finsync.ui.GenresFragment">
+        <action
+            android:id="@+id/action_genres_to_group"
+            app:destination="@id/groupFragment" />
+    </fragment>
+
+    <fragment
+        android:id="@+id/songsFragment"
+        android:name="com.jpd.finsync.ui.SongsFragment" />
+
+    <!-- An artist's or genre's page; groupType is "artist" or "genre" -->
+    <fragment
+        android:id="@+id/groupFragment"
+        android:name="com.jpd.finsync.ui.GroupFragment">
+        <argument
+            android:name="groupType"
+            app:argType="string" />
+        <argument
+            android:name="groupId"
+            app:argType="string" />
+        <action
+            android:id="@+id/action_group_to_all_songs"
+            app:destination="@id/allSongsFragment" />
+        <action
+            android:id="@+id/action_group_to_album"
+            app:destination="@id/albumFragment" />
+    </fragment>
+
+    <fragment
+        android:id="@+id/allSongsFragment"
+        android:name="com.jpd.finsync.ui.AllSongsFragment">
+        <argument
+            android:name="groupType"
+            app:argType="string" />
+        <argument
+            android:name="groupId"
             app:argType="string" />
     </fragment>
 

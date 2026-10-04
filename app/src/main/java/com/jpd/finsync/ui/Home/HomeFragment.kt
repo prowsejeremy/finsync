@@ -34,6 +34,15 @@ class HomeFragment : Fragment() {
         binding.cardAlbums.setOnClickListener {
             navigateSafely(R.id.homeFragment, R.id.action_home_to_albums)
         }
+        binding.cardAlbumArtists.setOnClickListener {
+            navigateSafely(R.id.homeFragment, R.id.action_home_to_album_artists)
+        }
+        binding.cardGenres.setOnClickListener {
+            navigateSafely(R.id.homeFragment, R.id.action_home_to_genres)
+        }
+        binding.cardSongs.setOnClickListener {
+            navigateSafely(R.id.homeFragment, R.id.action_home_to_songs)
+        }
         binding.btnRetry.setOnClickListener { libraryViewModel.retry() }
         viewModel.uiState.observe(viewLifecycleOwner) { renderSyncRing(SyncDisplay.from(it)) }
         libraryViewModel.homeState.observe(viewLifecycleOwner) { renderLibrary(it) }
@@ -54,14 +63,19 @@ class HomeFragment : Fragment() {
 
     private fun renderLibrary(state: HomeLibraryState) {
         val ready = state as? HomeLibraryState.Ready
-        binding.cardAlbums.visibility = if (ready != null) View.VISIBLE else View.GONE
-        binding.tvAlbumsHint.visibility = if (ready?.albumCount == 0) View.VISIBLE else View.GONE
+        binding.libraryCards.visibility = if (ready != null) View.VISIBLE else View.GONE
+        binding.tvAlbumsHint.visibility =
+            if (ready?.nothingVisible == true) View.VISIBLE else View.GONE
         binding.libraryStatus.visibility = if (ready == null) View.VISIBLE else View.GONE
         val failed = state == HomeLibraryState.Failed
         binding.btnRetry.visibility = if (failed) View.VISIBLE else View.GONE
         binding.tvLibraryStatus.setText(
             if (failed) R.string.home_library_failed else R.string.home_library_building
         )
-        if (ready != null) binding.tvAlbumsCount.text = ready.albumCount.toString()
+        if (ready == null) return
+        binding.tvAlbumsCount.text = ready.albumCount.toString()
+        binding.tvAlbumArtistsCount.text = ready.albumArtistCount.toString()
+        binding.tvGenresCount.text = ready.genreCount.toString()
+        binding.tvSongsCount.text = ready.songCount.toString()
     }
 }

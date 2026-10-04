@@ -6,20 +6,36 @@ enum class RefreshStatus { IDLE, RUNNING, FAILED, DONE }
 sealed class HomeLibraryState {
     object Building : HomeLibraryState()
     object Failed : HomeLibraryState()
-    data class Ready(val albumCount: Int) : HomeLibraryState()
+
+    /** The four cards' counts: visible albums, album artists, genres and songs. */
+    data class Ready(
+        val albumCount: Int,
+        val albumArtistCount: Int = 0,
+        val genreCount: Int = 0,
+        val songCount: Int = 0
+    ) : HomeLibraryState() {
+        /** Nothing downloaded passes the selection, so Home shows the "Choose albums" hint. */
+        val nothingVisible: Boolean get() = albumCount == 0 && songCount == 0
+    }
 }
 
 /**
  * With an empty catalogue, Home is building or has failed. A catalogue still empty after a
- * successful refresh (an empty server) shows the Albums card with 0 rather than spinning forever.
+ * successful refresh (an empty server) shows the cards with 0 rather than spinning forever.
  */
 fun homeLibraryStateOf(
     catalogueEmpty: Boolean,
     albumCount: Int,
-    refresh: RefreshStatus
-): HomeLibraryState = when {
-    !catalogueEmpty -> HomeLibraryState.Ready(albumCount)
-    refresh == RefreshStatus.FAILED -> HomeLibraryState.Failed
-    refresh == RefreshStatus.DONE -> HomeLibraryState.Ready(albumCount)
-    else -> HomeLibraryState.Building
+    refresh: RefreshStatus,
+    albumArtistCount: Int = 0,
+    genreCount: Int = 0,
+    songCount: Int = 0
+): HomeLibraryState {
+    val ready = HomeLibraryState.Ready(albumCount, albumArtistCount, genreCount, songCount)
+    return when {
+        !catalogueEmpty -> ready
+        refresh == RefreshStatus.FAILED -> HomeLibraryState.Failed
+        refresh == RefreshStatus.DONE -> ready
+        else -> HomeLibraryState.Building
+    }
 }

@@ -39,6 +39,9 @@
     <string name="btn_retry">Retry</string>
     <string name="home_albums">Albums</string>
     <string name="home_albums_hint">Choose albums to sync in Settings</string>
+    <string name="home_album_artists">Album Artists</string>
+    <string name="home_genres">Genres</string>
+    <string name="home_songs">Songs</string>
 
     <!-- Albums and album detail -->
     <string name="header_albums">Albums</string>
@@ -52,6 +55,26 @@
     <plurals name="track_count">
         <item quantity="one">%d track</item>
         <item quantity="other">%d tracks</item>
+    </plurals>
+
+    <!-- Album Artists, Genres, Songs and the artist and genre pages -->
+    <string name="header_album_artists">Album Artists</string>
+    <string name="header_genres">Genres</string>
+    <string name="header_songs">Songs</string>
+    <string name="songs_empty">No downloaded songs</string>
+    <string name="btn_shuffle_all">Shuffle all</string>
+    <string name="group_not_downloaded">Not downloaded</string>
+    <string name="group_all_songs">All songs</string>
+    <string name="group_albums_label">Albums</string>
+    <string name="list_length_hours">%1$d h</string>
+    <string name="list_length_hours_minutes">%1$d h %2$d min</string>
+    <plurals name="album_count">
+        <item quantity="one">%d album</item>
+        <item quantity="other">%d albums</item>
+    </plurals>
+    <plurals name="song_count">
+        <item quantity="one">%d song</item>
+        <item quantity="other">%d songs</item>
     </plurals>
 
     <!-- Settings -->

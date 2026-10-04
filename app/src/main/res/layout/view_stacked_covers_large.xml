@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The first three albums' covers, stacked; the first album's is in front (drawn last) -->
+<FrameLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="96dp"
+    android:layout_height="96dp"
+    android:importantForAccessibility="noHideDescendants">
+
+    <com.google.android.material.card.MaterialCardView
+        android:layout_width="76dp"
+        android:layout_height="76dp"
+        android:layout_marginStart="20dp"
+        app:cardBackgroundColor="@color/surface_2"
+        app:cardCornerRadius="10dp"
+        app:cardElevation="0dp"
+        app:strokeColor="@color/bg_primary"
+        app:strokeWidth="1dp">
+
+        <ImageView
+            android:id="@+id/ivCoverBack"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:scaleType="centerCrop" />
+
+    </com.google.android.material.card.MaterialCardView>
+
+    <com.google.android.material.card.MaterialCardView
+        android:layout_width="76dp"
+        android:layout_height="76dp"
+        android:layout_marginStart="10dp"
+        android:layout_marginTop="10dp"
+        app:cardBackgroundColor="@color/surface_2"
+        app:cardCornerRadius="10dp"
+        app:cardElevation="0dp"
+        app:strokeColor="@color/bg_primary"
+        app:strokeWidth="1dp">
+
+        <ImageView
+            android:id="@+id/ivCoverMiddle"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:scaleType="centerCrop" />
+
+    </com.google.android.material.card.MaterialCardView>
+
+    <com.google.android.material.card.MaterialCardView
+        android:layout_width="76dp"
+        android:layout_height="76dp"
+        android:layout_marginTop="20dp"
+        app:cardBackgroundColor="@color/surface_2"
+        app:cardCornerRadius="10dp"
+        app:cardElevation="0dp"
+        app:strokeColor="@color/bg_primary"
+        app:strokeWidth="1dp">
+
+        <ImageView
+            android:id="@+id/ivCoverFront"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:scaleType="centerCrop" />
+
+    </com.google.android.material.card.MaterialCardView>
+
+</FrameLayout>

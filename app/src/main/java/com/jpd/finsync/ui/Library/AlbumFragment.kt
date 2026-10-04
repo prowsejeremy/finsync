@@ -40,16 +40,16 @@ class AlbumFragment : Fragment() {
         binding.header.btnBack.setOnClickListener { backDispatcher.onBackPressed() }
 
         adapter = AlbumTracksAdapter { row ->
-            playbackViewModel.playAlbum(trackIds, row.queueIndex, shuffle = false)
+            playbackViewModel.playTracks(trackIds, row.queueIndex, shuffle = false)
         }
         binding.recyclerView.layoutManager = LinearLayoutManager(requireContext())
         binding.recyclerView.adapter = adapter
 
         binding.btnPlay.setOnClickListener {
-            playbackViewModel.playAlbum(trackIds, 0, shuffle = false)
+            playbackViewModel.playTracks(trackIds, 0, shuffle = false)
         }
         binding.btnShuffle.setOnClickListener {
-            playbackViewModel.playAlbum(trackIds, 0, shuffle = true)
+            playbackViewModel.playTracks(trackIds, 0, shuffle = true)
         }
 
         viewModel.album.observe(viewLifecycleOwner) { render(it) }

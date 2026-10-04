@@ -112,10 +112,10 @@ class PlaybackViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     /**
-     * Plays an album's downloaded tracks ([itemIds] in album order). Play and track taps pass
-     * shuffle off; Shuffle starts at a random track with shuffle on.
+     * Plays any list of downloaded tracks ([itemIds] in list order): an album, All songs or
+     * Songs. Play and row taps pass shuffle off; Shuffle starts at a random track with shuffle on.
      */
-    fun playAlbum(itemIds: List<String>, startIndex: Int, shuffle: Boolean) {
+    fun playTracks(itemIds: List<String>, startIndex: Int, shuffle: Boolean) {
         viewModelScope.launch {
             val playable = resolver.playableIds(itemIds)
             val kept = itemIds.map { it in playable }
