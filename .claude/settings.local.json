@@ -65,7 +65,11 @@
       "Bash(awk '/^### Task 12/{print NR\": \"$0} /^## /{print NR\": \"$0}' docs/superpowers/plans/2026-10-03-app-shell-settings.md)",
       "Bash(sed -n '2475,2600{=;l;}' docs/superpowers/plans/2026-10-03-app-shell-settings.md)",
       "Bash(./gradlew :app:assembleDebug :app:assembleRelease --console=plain)",
-      "Bash(./gradlew -I /private/tmp/claude-501/-Users-jeremyprowse-Sites--personal-finsync/0ec9a5af-f8b7-40b9-82a0-fbc67a84547b/scratchpad/alpha.init.gradle :app:assembleDebug --console=plain)"
+      "Bash(./gradlew -I /private/tmp/claude-501/-Users-jeremyprowse-Sites--personal-finsync/0ec9a5af-f8b7-40b9-82a0-fbc67a84547b/scratchpad/alpha.init.gradle :app:assembleDebug --console=plain)",
+      "Bash(grep -n -E '\"Bash\\\\\\(|\"hooks\"|\"sandbox\"|PreToolUse|scope-|defaultMode' /Users/jeremyprowse/.claude/settings.json)",
+      "Bash(ls -la /Users/jeremyprowse/.claude/hooks /Users/jeremyprowse/.claude/scope)",
+      "Bash(ls -d /Users/jeremyprowse/.vscode/extensions/anthropic*)",
+      "Read(//Users/jeremyprowse/.vscode/extensions/**)"
     ],
     "additionalDirectories": [
       "/Users/jeremyprowse/Sites/_personal/finsync/app/src/test/java/com/jpd/finsync",
