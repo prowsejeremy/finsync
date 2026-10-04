@@ -1,5 +1,7 @@
 ### Android/IntelliJ/Gradle build files ###
 .gradle/
+.superpowers/
+docs/
 /.idea/
 */.idea/
 local.properties
