@@ -18,6 +18,7 @@ import com.jpd.finsync.model.SyncState
 import com.jpd.finsync.service.SyncScheduler
 import com.jpd.finsync.service.SyncService
 import com.jpd.finsync.sync.SyncEngine
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 
@@ -26,7 +27,11 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         val cfg = _config.value ?: return
         viewModelScope.launch {
             val healthy = repo.isServerHealthy(cfg.serverUrl)
+            // isServerHealthy() returns false when cancelled, which mustn't stop a running sync.
+            ensureActive()
             _serverConnected.postValue(healthy)
+            // Only a running sync needs stopping; stopping an idle one would mark it "stopped".
+            if (!healthy && SyncEngine.syncState.value.isRunning) stopSync()
         }
     }
 
@@ -144,6 +149,10 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             action = SyncService.ACTION_STOP
         }
         getApplication<Application>().startService(intent)
+    }
+
+    fun toggleSync() {
+        if (SyncEngine.syncState.value.isRunning) stopSync() else startSync()
     }
 
     fun scheduleAutoSync(intervalHours: Long = 6) =

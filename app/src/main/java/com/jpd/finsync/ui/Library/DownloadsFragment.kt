@@ -1,18 +1,20 @@
 package com.jpd.finsync.ui
 
+import android.content.Context
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import androidx.activity.OnBackPressedCallback
-import androidx.appcompat.app.AppCompatActivity
+import androidx.fragment.app.Fragment
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.bumptech.glide.Glide
 import com.jpd.finsync.R
-import com.jpd.finsync.databinding.ActivityLibraryBinding
+import com.jpd.finsync.databinding.FragmentDownloadsBinding
 import com.jpd.finsync.databinding.ItemAlbumBinding
+import com.jpd.finsync.db.SyncDao
 import com.jpd.finsync.db.SyncDatabase
 import com.jpd.finsync.db.SyncedAlbum
 import kotlinx.coroutines.Dispatchers
@@ -20,92 +22,98 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
 
-class LibraryActivity : AppCompatActivity() {
+private val FOLDER_ART_NAMES = listOf("folder.jpg", "folder.png")
 
-    private lateinit var binding: ActivityLibraryBinding
+class DownloadsFragment : Fragment() {
+
+    private var _binding: FragmentDownloadsBinding? = null
+    private val binding get() = _binding!!
     private lateinit var adapter: AlbumAdapter
-    private val db by lazy { SyncDatabase.getInstance(this) }
 
-    override fun onCreate(savedInstanceState: Bundle?) {
-        super.onCreate(savedInstanceState)
-        binding = ActivityLibraryBinding.inflate(layoutInflater)
-        setContentView(binding.root)
+    // Enabled only while the album sheet is open, so back closes the sheet before leaving.
+    private val closeAlbumDetailCallback = object : OnBackPressedCallback(false) {
+        override fun handleOnBackPressed() = hideAlbumDetail()
+    }
 
-        onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
-            override fun handleOnBackPressed() {
-                if (binding.albumDetailContainer.visibility == View.VISIBLE) {
-                    hideAlbumDetail()
-                } else {
-                    finish()
-                }
-            }
-        })
+    override fun onCreateView(
+        inflater: LayoutInflater,
+        container: ViewGroup?,
+        savedInstanceState: Bundle?
+    ): View {
+        _binding = FragmentDownloadsBinding.inflate(inflater, container, false)
+        return binding.root
+    }
 
-        binding.btnBack.setOnClickListener { onBackPressedDispatcher.onBackPressed() }
+    override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
+        super.onViewCreated(view, savedInstanceState)
+        val backDispatcher = requireActivity().onBackPressedDispatcher
+        backDispatcher.addCallback(viewLifecycleOwner, closeAlbumDetailCallback)
+        binding.header.tvTitle.setText(R.string.header_downloads)
+        binding.header.btnBack.setOnClickListener { backDispatcher.onBackPressed() }
 
-        if (savedInstanceState == null) {
-            supportFragmentManager.beginTransaction()
-                .replace(R.id.navBar, NavBarFragment.newInstance(NavBarFragment.Tab.DOWNLOADS))
-                .commit()
-        }
+        // A recreated fragment gets its open album sheet back from the child fragment manager,
+        // but the container starts hidden and the back callback disabled, so match them to it.
+        val openSheet = childFragmentManager.findFragmentById(binding.albumDetailContainer.id)
+        binding.albumDetailContainer.visibility = if (openSheet != null) View.VISIBLE else View.GONE
+        closeAlbumDetailCallback.isEnabled = openSheet != null
 
         adapter = AlbumAdapter { item -> showAlbumDetail(item) }
-        binding.recyclerView.layoutManager = LinearLayoutManager(this)
+        binding.recyclerView.layoutManager = LinearLayoutManager(requireContext())
         binding.recyclerView.adapter = adapter
 
         loadAlbums()
     }
 
-    override fun finish() {
-        super.finish()
-        overridePendingTransition(0, 0)
+    override fun onDestroyView() {
+        super.onDestroyView()
+        _binding = null
     }
 
     fun reloadAlbums() = loadAlbums()
 
     private fun loadAlbums() {
-        lifecycleScope.launch {
+        val context = requireContext().applicationContext
+        viewLifecycleOwner.lifecycleScope.launch {
             val items = withContext(Dispatchers.IO) {
-                val dao = db.syncDao()
-                val selectedIds = getSharedPreferences("settings", MODE_PRIVATE)
+                val dao = SyncDatabase.getInstance(context).syncDao()
+                val selectedIds = context.getSharedPreferences("settings", Context.MODE_PRIVATE)
                     .getStringSet("selected_albums", emptySet()) ?: emptySet()
-                val showAll = selectedIds.isEmpty() || selectedIds.contains("all")
-
-                dao.getAllAlbums()
-                    .filter { album -> showAll || selectedIds.contains(album.albumId) }
-                    .map { album ->
-                        val synced = dao.getSyncedTrackCountForAlbum(album.albumId)
-                        val artworkPath = album.artworkPath
-                            ?: run {
-                                val trackPath = dao.getTracksForAlbum(album.albumId).firstOrNull()?.localPath
-                                    ?: return@run null
-                                val folder = File(trackPath).parentFile ?: return@run null
-                                listOf("folder.jpg", "folder.png")
-                                    .map { File(folder, it) }
-                                    .firstOrNull { it.exists() }
-                                    ?.absolutePath
-                            }
-                        AlbumItem(album, synced, artworkPath)
-                    }
+                visibleDownloadedAlbums(dao.getAllAlbums(), selectedIds)
+                    .map { album -> toAlbumItem(dao, album) }
             }
             adapter.submit(items)
             binding.tvEmpty.visibility = if (items.isEmpty()) View.VISIBLE else View.GONE
         }
     }
 
+    private suspend fun toAlbumItem(dao: SyncDao, album: SyncedAlbum): AlbumItem {
+        val synced = dao.getSyncedTrackCountForAlbum(album.albumId)
+        val artworkPath = album.artworkPath ?: findFolderArtwork(dao, album.albumId)
+        return AlbumItem(album, synced, artworkPath)
+    }
+
+    // The database doesn't always record an artwork path, so check the album folder as well.
+    private suspend fun findFolderArtwork(dao: SyncDao, albumId: String): String? {
+        val trackPath = dao.getTracksForAlbum(albumId).firstOrNull()?.localPath ?: return null
+        val folder = File(trackPath).parentFile ?: return null
+        return FOLDER_ART_NAMES.map { File(folder, it) }.firstOrNull { it.exists() }?.absolutePath
+    }
+
     // ── Album detail overlay ──────────────────────────────────────────────────
 
     fun showAlbumDetail(item: AlbumItem) {
         binding.albumDetailContainer.visibility = View.VISIBLE
-        supportFragmentManager.beginTransaction()
+        closeAlbumDetailCallback.isEnabled = true
+        childFragmentManager.beginTransaction()
             .replace(binding.albumDetailContainer.id, AlbumDetailFragment.newInstance(item.album))
             .commit()
     }
 
     fun hideAlbumDetail() {
         binding.albumDetailContainer.visibility = View.GONE
-        supportFragmentManager.findFragmentById(binding.albumDetailContainer.id)?.let { frag ->
-            supportFragmentManager.beginTransaction().remove(frag).commitAllowingStateLoss()
+        closeAlbumDetailCallback.isEnabled = false
+        childFragmentManager.findFragmentById(binding.albumDetailContainer.id)?.let { frag ->
+            childFragmentManager.beginTransaction().remove(frag).commitAllowingStateLoss()
         }
     }
 

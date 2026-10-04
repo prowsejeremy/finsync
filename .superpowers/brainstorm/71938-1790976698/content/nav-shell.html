@@ -1,0 +1,115 @@
+<svg width="0" height="0" style="position:absolute">
+  <symbol id="i-home" viewBox="0 0 24 24"><path d="M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6h-6v6H4a1 1 0 0 1-1-1z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></symbol>
+  <symbol id="i-search" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></g></symbol>
+  <symbol id="i-gear" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="3.5"/><path d="M12 2.5v3M12 18.5v3M2.5 12h3M18.5 12h3M5.3 5.3l2.1 2.1M16.6 16.6l2.1 2.1M5.3 18.7l2.1-2.1M16.6 7.4l2.1-2.1"/></g></symbol>
+  <symbol id="i-pause" viewBox="0 0 24 24"><g fill="currentColor"><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></g></symbol>
+  <symbol id="i-next" viewBox="0 0 24 24"><g fill="currentColor"><path d="M5 5l10 7-10 7z"/><rect x="16.5" y="5" width="2.5" height="14" rx="1"/></g></symbol>
+</svg>
+
+<style>
+  .phone { width: 260px; height: 540px; margin: 0 auto; background: #030505; border: 6px solid #2A3036;
+    border-radius: 30px; overflow: hidden; display: flex; flex-direction: column; color: #F0F7FC;
+    font-family: "Hanken Grotesk", system-ui, sans-serif; text-align: left; }
+  .sb { height: 20px; background: #1F262B; flex: none; }
+  .hdr { display: flex; align-items: center; justify-content: space-between; padding: 14px 16px 10px; flex: none; }
+  .hdr b { font-size: 20px; font-weight: 500; }
+  .btns { display: flex; gap: 8px; }
+  .round { width: 34px; height: 34px; border-radius: 50%; background: #1F262B; display: flex; align-items: center; justify-content: center; }
+  .rows { flex: 1; padding: 0 12px; overflow: hidden; }
+  .row { display: flex; align-items: center; gap: 10px; background: #111416; border-radius: 12px; padding: 9px 12px; margin-bottom: 6px; font-size: 13.5px; }
+  .row i { width: 22px; height: 22px; border-radius: 6px; background: #1F262B; flex: none; }
+  .row em { margin-left: auto; color: #506575; font-style: normal; }
+  .mini { margin: 0 8px 8px; background: #1F262B; border-radius: 12px; padding: 8px 10px 0; flex: none; overflow: hidden; }
+  .mini-in { display: flex; align-items: center; gap: 10px; padding-bottom: 8px; }
+  .art { width: 34px; height: 34px; border-radius: 6px; background: linear-gradient(135deg, #AA5CC3, #00A4DC); flex: none; }
+  .tt { font-size: 12px; line-height: 1.3; }
+  .tt span { display: block; color: #506575; }
+  .ctl { margin-left: auto; display: flex; gap: 14px; }
+  .bar { height: 2px; background: #2E383F; margin: 0 -10px; }
+  .bar div { width: 38%; height: 100%; background: #00FFAA; }
+  .nav { background: #111416; display: flex; justify-content: space-around; padding: 8px 0 6px; flex: none; }
+  .tab { display: flex; flex-direction: column; align-items: center; gap: 2px; font-size: 10.5px; color: #506575; }
+  .tab .pill { width: 50px; height: 26px; border-radius: 13px; display: flex; align-items: center; justify-content: center; }
+  .tab.on { color: #F0F7FC; }
+  .tab.on .pill { background: #1F262B; }
+  .gest { height: 4px; width: 86px; background: #F0F7FC; opacity: 0.85; border-radius: 2px; margin: 6px auto; flex: none; }
+  svg.ic { width: 18px; height: 18px; }
+</style>
+
+<h2>How do you get between Home, Search, Settings and the Player?</h2>
+<p class="subtitle">In both, tapping the mini-player opens the full Player screen, and the server pill moves into Settings with sync.</p>
+
+<div class="cards">
+  <div class="card" data-choice="tabs" onclick="toggleSelect(this)">
+    <div class="card-image" style="aspect-ratio:auto;padding:1.25rem 0">
+      <div class="phone">
+        <div class="sb"></div>
+        <div class="hdr"><b>Home</b></div>
+        <div class="rows">
+          <div class="row"><i></i>Albums<em>&rsaquo;</em></div>
+          <div class="row"><i></i>Artists<em>&rsaquo;</em></div>
+          <div class="row"><i></i>Album Artists<em>&rsaquo;</em></div>
+          <div class="row"><i></i>Genres<em>&rsaquo;</em></div>
+          <div class="row"><i></i>Songs<em>&rsaquo;</em></div>
+          <div class="row"><i></i>Playlists<em>&rsaquo;</em></div>
+          <div class="row"><i></i>Audio Books<em>&rsaquo;</em></div>
+        </div>
+        <div class="mini">
+          <div class="mini-in">
+            <div class="art"></div>
+            <div class="tt">Blackbird<span>Fat Freddy's Drop</span></div>
+            <div class="ctl"><svg class="ic"><use href="#i-pause"/></svg><svg class="ic"><use href="#i-next"/></svg></div>
+          </div>
+          <div class="bar"><div></div></div>
+        </div>
+        <div class="nav">
+          <div class="tab on"><div class="pill"><svg class="ic"><use href="#i-home"/></svg></div>Home</div>
+          <div class="tab"><div class="pill"><svg class="ic"><use href="#i-search"/></svg></div>Search</div>
+          <div class="tab"><div class="pill"><svg class="ic"><use href="#i-gear"/></svg></div>Settings</div>
+        </div>
+        <div class="gest"></div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>A. Bottom tabs</h3>
+      <p>Home, Search and Settings as tabs, like today's Home / Downloads bar. The mini-player sits above the tabs on every screen.</p>
+    </div>
+  </div>
+
+  <div class="card" data-choice="header" onclick="toggleSelect(this)">
+    <div class="card-image" style="aspect-ratio:auto;padding:1.25rem 0">
+      <div class="phone">
+        <div class="sb"></div>
+        <div class="hdr">
+          <b>Home</b>
+          <div class="btns">
+            <div class="round"><svg class="ic"><use href="#i-search"/></svg></div>
+            <div class="round"><svg class="ic"><use href="#i-gear"/></svg></div>
+          </div>
+        </div>
+        <div class="rows">
+          <div class="row"><i></i>Albums<em>&rsaquo;</em></div>
+          <div class="row"><i></i>Artists<em>&rsaquo;</em></div>
+          <div class="row"><i></i>Album Artists<em>&rsaquo;</em></div>
+          <div class="row"><i></i>Genres<em>&rsaquo;</em></div>
+          <div class="row"><i></i>Songs<em>&rsaquo;</em></div>
+          <div class="row"><i></i>Playlists<em>&rsaquo;</em></div>
+          <div class="row"><i></i>Audio Books<em>&rsaquo;</em></div>
+        </div>
+        <div class="mini">
+          <div class="mini-in">
+            <div class="art"></div>
+            <div class="tt">Blackbird<span>Fat Freddy's Drop</span></div>
+            <div class="ctl"><svg class="ic"><use href="#i-pause"/></svg><svg class="ic"><use href="#i-next"/></svg></div>
+          </div>
+          <div class="bar"><div></div></div>
+        </div>
+        <div class="gest"></div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>B. Header buttons</h3>
+      <p>No tab bar. Search and Settings are round buttons in the top corner, like today's settings cog. Lists get a little more room.</p>
+    </div>
+  </div>
+</div>

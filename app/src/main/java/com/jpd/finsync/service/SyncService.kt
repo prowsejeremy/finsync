@@ -8,6 +8,7 @@ import android.app.Service
 import android.content.Intent
 import android.os.IBinder
 import androidx.core.app.NotificationCompat
+import androidx.navigation.NavDeepLinkBuilder
 import com.jpd.finsync.R
 import com.jpd.finsync.auth.JellyfinRepository
 import com.jpd.finsync.model.SyncState
@@ -33,6 +34,16 @@ class SyncService : Service() {
     private var syncJob: Job? = null
     private lateinit var repo: JellyfinRepository
     private lateinit var notificationManager: NotificationManager
+
+    // Opens Sync Status with Settings and Home behind it. The component is set explicitly
+    // because the launcher activity is PermissionsActivity, not MainActivity.
+    private val openSyncStatusIntent: PendingIntent by lazy {
+        NavDeepLinkBuilder(this)
+            .setComponentName(MainActivity::class.java)
+            .setGraph(R.navigation.nav_graph)
+            .setDestination(R.id.syncStatusFragment)
+            .createPendingIntent()
+    }
 
     override fun onCreate() {
         super.onCreate()
@@ -91,16 +102,11 @@ class SyncService : Service() {
             Intent(this, SyncService::class.java).apply { action = ACTION_STOP },
             PendingIntent.FLAG_IMMUTABLE
         )
-        val openIntent = PendingIntent.getActivity(
-            this, 0,
-            Intent(this, MainActivity::class.java),
-            PendingIntent.FLAG_IMMUTABLE
-        )
         return NotificationCompat.Builder(this, CHANNEL_ID)
             .setContentTitle("Finsync")
             .setContentText(text)
             .setSmallIcon(R.drawable.ic_sync)
-            .setContentIntent(openIntent)
+            .setContentIntent(openSyncStatusIntent)
             .addAction(R.drawable.ic_stop, "Stop", stopIntent)
             .setProgress(100, progress, progress == 0)
             .setOngoing(true)

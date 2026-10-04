@@ -73,18 +73,6 @@
             android:theme="@style/Theme.Finsync.Login"
             android:windowSoftInputMode="adjustResize" />
 
-        <activity
-            android:name=".ui.LibraryActivity"
-            android:exported="false"
-            android:label="@string/title_library"
-            android:theme="@style/Theme.Finsync.Main" />
-
-        <activity
-            android:name=".ui.SettingsActivity"
-            android:exported="false"
-            android:label="@string/title_settings"
-            android:theme="@style/Theme.Finsync.Main" />
-
         <service
             android:name=".service.SyncService"
             android:exported="false"

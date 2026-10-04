@@ -64,9 +64,11 @@ app/src/main/java/com/jpd/finsync/
 └── ui/
     ├── PermissionsActivity     Launcher — permission onboarding
     ├── LoginActivity           Server URL + credential entry
-    ├── MainActivity            Sync control and status
-    ├── LibraryActivity         Browse downloaded albums
-    └── SettingsActivity        Sync interval and directory preferences
+    ├── MainActivity            Hosts every screen after login (Jetpack Navigation)
+    ├── HomeFragment            Start screen
+    ├── SettingsFragment        Server, sync, downloads and sync preferences
+    ├── SyncStatusFragment      Sync progress and controls
+    └── DownloadsFragment       Browse and manage downloaded albums
 ```
 
 ---
@@ -76,8 +78,8 @@ app/src/main/java/com/jpd/finsync/
 1. Install the APK on your Android device.
 2. Open the app and grant the requested permissions.
 3. Enter your **Jellyfin server URL** (e.g. `https://jellyfin.home.arpa` or `http://192.168.1.10:8096`), **username**, and **password**, then tap **Sign In**.
-4. On the main screen, tap **Sync Now**. Progress appears in the notification drawer.
-5. To adjust the sync schedule or storage location, open the three-dot menu → **Settings**.
+4. On Home, tap the **Settings** button, then **Sync Now** on the Sync card. Progress appears on the card, around the Settings button and in the notification drawer.
+5. To adjust the sync schedule or storage location, use the cards in **Settings**.
 
 ### Default sync directory
 

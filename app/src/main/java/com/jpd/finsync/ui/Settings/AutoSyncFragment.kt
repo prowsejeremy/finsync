@@ -5,7 +5,8 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import androidx.fragment.app.Fragment
-import androidx.fragment.app.activityViewModels
+import androidx.navigation.fragment.findNavController
+import androidx.navigation.navGraphViewModels
 import com.jpd.finsync.R
 import com.jpd.finsync.databinding.FragmentAutoSyncBinding
 
@@ -13,7 +14,7 @@ class AutoSyncFragment : Fragment() {
 
     private var _binding: FragmentAutoSyncBinding? = null
     private val binding get() = _binding!!
-    private val viewModel: SettingsViewModel by activityViewModels()
+    private val viewModel: SettingsViewModel by navGraphViewModels(R.id.settings_graph)
 
     override fun onCreateView(
         inflater: LayoutInflater,
@@ -26,6 +27,9 @@ class AutoSyncFragment : Fragment() {
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
+
+        binding.header.tvTitle.setText(R.string.header_settings)
+        binding.header.btnBack.setOnClickListener { findNavController().navigateUp() }
 
         // Pre-select the current interval
         val current = viewModel.getAutoSyncInterval()
@@ -40,7 +44,7 @@ class AutoSyncFragment : Fragment() {
         )
 
         binding.btnCancel.setOnClickListener {
-            parentFragmentManager.popBackStack()
+            findNavController().popBackStack()
         }
 
         binding.btnApply.setOnClickListener {
@@ -52,7 +56,7 @@ class AutoSyncFragment : Fragment() {
                 else            -> "disabled"
             }
             viewModel.setAutoSyncInterval(interval)
-            parentFragmentManager.popBackStack()
+            findNavController().popBackStack()
         }
     }
 

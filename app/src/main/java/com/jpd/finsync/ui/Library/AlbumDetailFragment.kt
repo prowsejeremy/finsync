@@ -171,12 +171,12 @@ class AlbumDetailFragment : Fragment() {
                 }
             }
             dismiss()
-            (activity as? LibraryActivity)?.reloadAlbums()
+            (parentFragment as? DownloadsFragment)?.reloadAlbums()
         }
     }
 
     private fun dismiss() {
-        (activity as? LibraryActivity)?.hideAlbumDetail()
+        (parentFragment as? DownloadsFragment)?.hideAlbumDetail()
     }
 
     override fun onDestroyView() {

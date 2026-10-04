@@ -12,6 +12,8 @@ import com.jpd.finsync.db.SyncDatabase
 import com.jpd.finsync.model.AlbumSelection
 import com.jpd.finsync.service.SyncScheduler
 import com.jpd.finsync.sync.SyncEngine
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 
 class SettingsViewModel(app: Application) : AndroidViewModel(app) {
@@ -25,9 +27,20 @@ class SettingsViewModel(app: Application) : AndroidViewModel(app) {
     private val _syncDir = MutableLiveData<String>()
     val syncDir: LiveData<String> = _syncDir
 
+    private val _downloadedAlbumCount = MutableLiveData<Int>()
+    val downloadedAlbumCount: LiveData<Int> = _downloadedAlbumCount
+
     init {
         refreshSyncDir()
         loadAlbums()
+        // A sync that ends while Settings is open, whether it completes, stops or fails, can
+        // change which albums are downloaded.
+        viewModelScope.launch {
+            SyncEngine.syncState
+                .map { it.isRunning }
+                .distinctUntilChanged()
+                .collect { isRunning -> if (!isRunning) refreshDownloadedAlbumCount() }
+        }
     }
 
     fun loadAlbums() {
@@ -57,6 +70,13 @@ class SettingsViewModel(app: Application) : AndroidViewModel(app) {
     fun refreshSyncDir() {
         val cfg = repo.getSavedConfig() ?: return
         _syncDir.value = SyncEngine.getSyncDirectoryPath(getApplication(), cfg)
+    }
+
+    fun refreshDownloadedAlbumCount() {
+        viewModelScope.launch {
+            val albums = visibleDownloadedAlbums(dao.getAllAlbums(), getSelectedAlbumIds())
+            _downloadedAlbumCount.postValue(albums.size)
+        }
     }
 
     fun getSelectedAlbumIds(): Set<String> =
