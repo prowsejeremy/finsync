@@ -14,15 +14,16 @@ class TrackResolver(private val library: LibraryRepository) {
 
     /** One entry per ID, in order; null where the track can't be played. */
     suspend fun resolve(itemIds: List<String>): List<MediaItem?> = withContext(Dispatchers.IO) {
-        itemIds.map { id ->
-            resolveTrack(library.playableTrack(id), ::fileLengthOrNull)?.toMediaItem()
+        library.playableTracks(itemIds).map { source ->
+            resolveTrack(source, ::fileLengthOrNull)?.toMediaItem()
         }
     }
 
     /** The IDs that would resolve, for checking before anything is sent to the player. */
     suspend fun playableIds(itemIds: List<String>): Set<String> = withContext(Dispatchers.IO) {
-        itemIds.filter { id ->
-            resolveTrack(library.playableTrack(id), ::fileLengthOrNull) != null
+        val sources = library.playableTracks(itemIds)
+        itemIds.filterIndexed { index, _ ->
+            resolveTrack(sources[index], ::fileLengthOrNull) != null
         }.toSet()
     }
 

@@ -29,3 +29,47 @@ data class PlayableSource(
     val albumName: String?,
     val artworkPath: String?
 )
+
+/** A row in Album Artists. [photoPath] is set only when the photo file exists. */
+data class ArtistSummary(
+    val artistId: String,
+    val name: String,
+    val albumCount: Int,
+    val photoPath: String?
+)
+
+/** A card in Genres. */
+data class GenreSummary(
+    val genreId: String,
+    val name: String,
+    val albumCount: Int,
+    val songCount: Int
+)
+
+/** A downloaded track in All songs or Songs, with its album's name, year and artwork. */
+data class SongRow(
+    val itemId: String,
+    val title: String,
+    /** The track's artists joined with ", ", or the album artist when it lists none. */
+    val artists: String?,
+    val albumId: String?,
+    val albumName: String?,
+    val albumYear: Int?,
+    val discNumber: Int?,
+    val trackNumber: Int?,
+    val durationMs: Long?,
+    val artworkPath: String?
+)
+
+/**
+ * An artist's or genre's page: visible albums (newest first) and the All songs list (album
+ * order). Genres have no photo.
+ */
+data class GroupDetail(
+    val id: String,
+    val name: String,
+    val photoPath: String?,
+    val albums: List<AlbumSummary>,
+    val songs: List<SongRow>,
+    val showsAllSongs: Boolean
+)

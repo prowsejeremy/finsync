@@ -172,7 +172,9 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             withContext(NonCancellable) {
                 repo.logout(getApplication())
                 ResumeStore(getApplication()).clear()
-                LibraryRepository(getApplication()).clearCatalogue()
+                val library = LibraryRepository(getApplication())
+                library.clearCatalogue()
+                library.deleteArtistPhotos()
             }
             _config.postValue(null)
         }

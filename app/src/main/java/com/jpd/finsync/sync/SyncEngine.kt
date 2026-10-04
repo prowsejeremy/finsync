@@ -206,6 +206,8 @@ object SyncEngine {
 
         dao.deleteAlbumsWithNoTracks()
         removeOrphanedFiles(syncDir, expectedPaths, dao)
+        // After orphan cleanup, so photos follow the albums that stayed (spec "Artist photos").
+        ArtistPhotoSync.run(context, config, repo)
 
         emit(
             SyncState(

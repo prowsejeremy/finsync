@@ -11,9 +11,14 @@ import androidx.room.TypeConverters
         SyncedTrack::class,
         SyncedAlbum::class,
         CatalogueAlbum::class,
-        CatalogueTrack::class
+        CatalogueTrack::class,
+        CatalogueArtist::class,
+        CatalogueAlbumArtist::class,
+        CatalogueTrackArtist::class,
+        CatalogueGenre::class,
+        CatalogueTrackGenre::class
     ],
-    version = 5,
+    version = 6,
     exportSchema = false
 )
 @TypeConverters(StringListConverter::class)
@@ -35,7 +40,9 @@ abstract class SyncDatabase : RoomDatabase() {
                     "finsync_sync.db"
                 )
                     .addMigrations(MIGRATION_4_5)
-                    // Safety net for installs older than version 4, which have no migration path.
+                    // Version 6 has no Migration(5, 6) on purpose: the database is rebuilt, and
+                    // the next sync recreates download records from files on disk (spec "No
+                    // migration"). This also covers installs older than version 4.
                     .fallbackToDestructiveMigration()
                     .build()
                     .also { INSTANCE = it }

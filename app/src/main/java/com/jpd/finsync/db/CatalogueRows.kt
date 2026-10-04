@@ -32,3 +32,27 @@ data class PlayableTrackRow(
     val albumName: String?,
     val storedArtworkPath: String?
 )
+
+/** One album-artist credit on an album with a downloaded track. */
+data class ArtistAlbumRow(
+    val artistId: String,
+    val name: String,
+    val albumId: String
+)
+
+/** One genre tag on a downloaded track. */
+data class GenreTrackRow(
+    val genreId: String,
+    val name: String,
+    val itemId: String,
+    val albumId: String?
+)
+
+/** A downloaded track with its album's name, year and stored artwork, for song lists. */
+data class SongTrackRow(
+    @Embedded val track: CatalogueTrack,
+    val localPath: String,
+    val albumName: String?,
+    val albumYear: Int?,
+    val storedArtworkPath: String?
+)

@@ -59,6 +59,9 @@ data class MediaItem(
     @SerializedName("Genres") val genres: List<String>? = null,
     @SerializedName("Artists") val artists: List<String>? = null,
     @SerializedName("ArtistItems") val artistItems: List<NameId>? = null,
+    // With IDs, for the catalogue's link tables; Gson leaves them null when absent.
+    @SerializedName("AlbumArtists") val albumArtists: List<NameId>? = null,
+    @SerializedName("GenreItems") val genreItems: List<NameId>? = null,
     @SerializedName("ChildCount") val childCount: Int? = null
 ) : Parcelable {
     val durationMs: Long get() = (runTimeTicks ?: 0L) / 10_000

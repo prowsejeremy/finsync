@@ -49,6 +49,13 @@ android {
     kotlinOptions {
         jvmTarget = '17'
     }
+
+    testOptions {
+        unitTests {
+            // Robolectric reads the merged manifest and resources from here.
+            includeAndroidResources = true
+        }
+    }
 }
 
 dependencies {
@@ -100,6 +107,10 @@ dependencies {
 
     // Testing
     testImplementation 'junit:junit:4.13.2'
+    // Robolectric simulates Android on the JVM, so Room tests run against an in-memory
+    // database. robolectric.properties pins SDK 34, because SDK 35 would need JDK 21.
+    testImplementation 'org.robolectric:robolectric:4.13'
+    testImplementation 'androidx.test:core:1.6.1'
     androidTestImplementation 'androidx.test.ext:junit:1.1.5'
     androidTestImplementation 'androidx.test.espresso:espresso-core:3.5.1'
 }

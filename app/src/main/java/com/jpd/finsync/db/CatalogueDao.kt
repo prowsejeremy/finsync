@@ -16,23 +16,70 @@ abstract class CatalogueDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     abstract suspend fun insertTracks(tracks: List<CatalogueTrack>)
 
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    abstract suspend fun insertArtists(artists: List<CatalogueArtist>)
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    abstract suspend fun insertAlbumArtists(links: List<CatalogueAlbumArtist>)
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    abstract suspend fun insertTrackArtists(links: List<CatalogueTrackArtist>)
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    abstract suspend fun insertGenres(genres: List<CatalogueGenre>)
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    abstract suspend fun insertTrackGenres(links: List<CatalogueTrackGenre>)
+
     @Query("DELETE FROM catalogue_albums")
     abstract suspend fun deleteAllAlbums()
 
     @Query("DELETE FROM catalogue_tracks")
     abstract suspend fun deleteAllTracks()
 
-    /** Swaps the whole catalogue in one transaction, so readers never see half of it. */
+    @Query("DELETE FROM catalogue_artists")
+    abstract suspend fun deleteAllArtists()
+
+    @Query("DELETE FROM catalogue_album_artists")
+    abstract suspend fun deleteAllAlbumArtists()
+
+    @Query("DELETE FROM catalogue_track_artists")
+    abstract suspend fun deleteAllTrackArtists()
+
+    @Query("DELETE FROM catalogue_genres")
+    abstract suspend fun deleteAllGenres()
+
+    @Query("DELETE FROM catalogue_track_genres")
+    abstract suspend fun deleteAllTrackGenres()
+
+    /** Swaps all seven catalogue tables in one transaction, so readers never see half of it. */
     @Transaction
-    open suspend fun replaceCatalogue(albums: List<CatalogueAlbum>, tracks: List<CatalogueTrack>) {
-        deleteAllTracks()
-        deleteAllAlbums()
+    open suspend fun replaceCatalogue(
+        albums: List<CatalogueAlbum>,
+        tracks: List<CatalogueTrack>,
+        artists: List<CatalogueArtist>,
+        albumArtists: List<CatalogueAlbumArtist>,
+        trackArtists: List<CatalogueTrackArtist>,
+        genres: List<CatalogueGenre>,
+        trackGenres: List<CatalogueTrackGenre>
+    ) {
+        clearCatalogue()
         insertAlbums(albums)
         insertTracks(tracks)
+        insertArtists(artists)
+        insertAlbumArtists(albumArtists)
+        insertTrackArtists(trackArtists)
+        insertGenres(genres)
+        insertTrackGenres(trackGenres)
     }
 
     @Transaction
     open suspend fun clearCatalogue() {
+        deleteAllTrackGenres()
+        deleteAllGenres()
+        deleteAllTrackArtists()
+        deleteAllAlbumArtists()
+        deleteAllArtists()
         deleteAllTracks()
         deleteAllAlbums()
     }
@@ -78,6 +125,143 @@ abstract class CatalogueDao {
     )
     abstract fun observeDownloadedTracks(albumId: String): Flow<List<DownloadedTrackRow>>
 
+    /** Album-artist credits on albums with a downloaded track, before the selection applies. */
+    @Query(
+        """
+        SELECT aa.artistId AS artistId, ar.name AS name, aa.albumId AS albumId
+        FROM catalogue_album_artists aa
+        INNER JOIN catalogue_artists ar ON ar.artistId = aa.artistId
+        WHERE EXISTS (
+            SELECT 1 FROM catalogue_tracks t
+            INNER JOIN synced_tracks s ON s.itemId = t.itemId
+            WHERE t.albumId = aa.albumId
+        )
+        """
+    )
+    abstract fun observeAlbumArtistCredits(): Flow<List<ArtistAlbumRow>>
+
+    /** Sync's artist photos: album artists of albums with a downloaded track. */
+    @Query(
+        """
+        SELECT DISTINCT aa.artistId
+        FROM catalogue_album_artists aa
+        WHERE EXISTS (
+            SELECT 1 FROM catalogue_tracks t
+            INNER JOIN synced_tracks s ON s.itemId = t.itemId
+            WHERE t.albumId = aa.albumId
+        )
+        """
+    )
+    abstract suspend fun downloadedAlbumArtistIds(): List<String>
+
+    @Query("SELECT name FROM catalogue_artists WHERE artistId = :artistId")
+    abstract fun observeArtistName(artistId: String): Flow<String?>
+
+    /** Albums with a downloaded track where the artist is an album artist. */
+    @Query(
+        """
+        SELECT a.albumId AS albumId, a.name AS name, a.albumArtist AS albumArtist, a.year AS year,
+            COUNT(t.itemId) AS downloadedCount, sa.artworkPath AS storedArtworkPath,
+            MIN(s.localPath) AS firstTrackPath
+        FROM catalogue_albums a
+        INNER JOIN catalogue_album_artists aa ON aa.albumId = a.albumId
+        INNER JOIN catalogue_tracks t ON t.albumId = a.albumId
+        INNER JOIN synced_tracks s ON s.itemId = t.itemId
+        LEFT JOIN synced_albums sa ON sa.albumId = a.albumId
+        WHERE aa.artistId = :artistId
+        GROUP BY a.albumId
+        """
+    )
+    abstract fun observeArtistAlbums(artistId: String): Flow<List<AlbumSummaryRow>>
+
+    /** Downloaded tracks on the artist's albums, plus downloaded tracks anywhere that credit them. */
+    @Query(
+        """
+        SELECT t.*, s.localPath AS localPath, a.name AS albumName, a.year AS albumYear,
+            sa.artworkPath AS storedArtworkPath
+        FROM catalogue_tracks t
+        INNER JOIN synced_tracks s ON s.itemId = t.itemId
+        LEFT JOIN catalogue_albums a ON a.albumId = t.albumId
+        LEFT JOIN synced_albums sa ON sa.albumId = t.albumId
+        WHERE t.albumId IN (SELECT albumId FROM catalogue_album_artists WHERE artistId = :artistId)
+            OR t.itemId IN (SELECT itemId FROM catalogue_track_artists WHERE artistId = :artistId)
+        """
+    )
+    abstract fun observeArtistSongs(artistId: String): Flow<List<SongTrackRow>>
+
+    /** Genre tags on downloaded tracks, before the selection applies. */
+    @Query(
+        """
+        SELECT g.genreId AS genreId, g.name AS name, tg.itemId AS itemId, t.albumId AS albumId
+        FROM catalogue_track_genres tg
+        INNER JOIN catalogue_genres g ON g.genreId = tg.genreId
+        INNER JOIN catalogue_tracks t ON t.itemId = tg.itemId
+        INNER JOIN synced_tracks s ON s.itemId = tg.itemId
+        """
+    )
+    abstract fun observeGenreTags(): Flow<List<GenreTrackRow>>
+
+    @Query("SELECT name FROM catalogue_genres WHERE genreId = :genreId")
+    abstract fun observeGenreName(genreId: String): Flow<String?>
+
+    /** Albums holding at least one downloaded track tagged with the genre. */
+    @Query(
+        """
+        SELECT a.albumId AS albumId, a.name AS name, a.albumArtist AS albumArtist, a.year AS year,
+            COUNT(t.itemId) AS downloadedCount, sa.artworkPath AS storedArtworkPath,
+            MIN(s.localPath) AS firstTrackPath
+        FROM catalogue_albums a
+        INNER JOIN catalogue_tracks t ON t.albumId = a.albumId
+        INNER JOIN synced_tracks s ON s.itemId = t.itemId
+        LEFT JOIN synced_albums sa ON sa.albumId = a.albumId
+        WHERE a.albumId IN (
+            SELECT gt.albumId FROM catalogue_track_genres tg
+            INNER JOIN catalogue_tracks gt ON gt.itemId = tg.itemId
+            INNER JOIN synced_tracks gs ON gs.itemId = tg.itemId
+            WHERE tg.genreId = :genreId
+        )
+        GROUP BY a.albumId
+        """
+    )
+    abstract fun observeGenreAlbums(genreId: String): Flow<List<AlbumSummaryRow>>
+
+    @Query(
+        """
+        SELECT t.*, s.localPath AS localPath, a.name AS albumName, a.year AS albumYear,
+            sa.artworkPath AS storedArtworkPath
+        FROM catalogue_tracks t
+        INNER JOIN synced_tracks s ON s.itemId = t.itemId
+        LEFT JOIN catalogue_albums a ON a.albumId = t.albumId
+        LEFT JOIN synced_albums sa ON sa.albumId = t.albumId
+        WHERE t.itemId IN (SELECT itemId FROM catalogue_track_genres WHERE genreId = :genreId)
+        """
+    )
+    abstract fun observeGenreSongs(genreId: String): Flow<List<SongTrackRow>>
+
+    /** Every downloaded track, A–Z by title ignoring case, before the selection applies. */
+    @Query(
+        """
+        SELECT t.*, s.localPath AS localPath, a.name AS albumName, a.year AS albumYear,
+            sa.artworkPath AS storedArtworkPath
+        FROM catalogue_tracks t
+        INNER JOIN synced_tracks s ON s.itemId = t.itemId
+        LEFT JOIN catalogue_albums a ON a.albumId = t.albumId
+        LEFT JOIN synced_albums sa ON sa.albumId = t.albumId
+        ORDER BY t.name COLLATE NOCASE, t.itemId
+        """
+    )
+    abstract fun observeSongs(): Flow<List<SongTrackRow>>
+
+    /** Each downloaded track's album (null for none), for Home's song count. */
+    @Query(
+        """
+        SELECT t.albumId FROM catalogue_tracks t
+        INNER JOIN synced_tracks s ON s.itemId = t.itemId
+        """
+    )
+    abstract fun observeDownloadedTrackAlbumIds(): Flow<List<String?>>
+
+    /** Downloaded tracks among [itemIds], in no set order. Callers keep each list under 999. */
     @Query(
         """
         SELECT t.*, s.localPath AS localPath, a.name AS albumName,
@@ -86,9 +270,8 @@ abstract class CatalogueDao {
         INNER JOIN synced_tracks s ON s.itemId = t.itemId
         LEFT JOIN catalogue_albums a ON a.albumId = t.albumId
         LEFT JOIN synced_albums sa ON sa.albumId = t.albumId
-        WHERE t.itemId = :itemId
-        LIMIT 1
+        WHERE t.itemId IN (:itemIds)
         """
     )
-    abstract suspend fun playableTrack(itemId: String): PlayableTrackRow?
+    abstract suspend fun playableTracks(itemIds: List<String>): List<PlayableTrackRow>
 }

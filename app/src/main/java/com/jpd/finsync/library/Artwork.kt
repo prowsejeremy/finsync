@@ -14,3 +14,21 @@ fun chooseArtwork(storedPath: String?, trackPath: String?, exists: (String) -> B
     val folder = trackPath?.let { File(it).parentFile } ?: return null
     return FOLDER_ART_NAMES.map { File(folder, it).path }.firstOrNull(exists)
 }
+
+/**
+ * Chooses each album's artwork once, so long song lists and queues don't repeat the same file
+ * checks. Tracks without an album are checked one by one.
+ */
+class AlbumArtworkCache(private val exists: (String) -> Boolean) {
+
+    private val byAlbum = HashMap<String, String?>()
+
+    fun artworkFor(albumId: String?, storedPath: String?, trackPath: String?): String? {
+        if (albumId == null) return chooseArtwork(storedPath, trackPath, exists)
+        // containsKey, not getOrPut: an album with no artwork caches null too.
+        if (!byAlbum.containsKey(albumId)) {
+            byAlbum[albumId] = chooseArtwork(storedPath, trackPath, exists)
+        }
+        return byAlbum[albumId]
+    }
+}
