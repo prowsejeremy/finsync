@@ -1,5 +1,6 @@
 package com.jpd.finsync.library
 
+import com.jpd.finsync.db.CatalogueBook
 import com.jpd.finsync.db.CatalogueTrack
 
 /** A row in the Albums list. */
@@ -97,4 +98,42 @@ data class PlaylistChoice(
     val playlistId: String,
     val name: String,
     val songCount: Int
+)
+
+/** A row in Audio Books. [durationMs] is 0 when the server didn't say. */
+data class BookSummary(
+    val bookId: String,
+    val name: String,
+    val author: String?,
+    val durationMs: Long,
+    val coverPath: String?,
+    val status: BookStatus,
+    val lastPlayedAt: Long?
+)
+
+/** The book page's data. [chapters] is never empty (spec "No chapters from the server"). */
+data class BookDetail(
+    val bookId: String,
+    val name: String,
+    val author: String?,
+    val durationMs: Long,
+    val coverPath: String?,
+    val chapters: List<Chapter>,
+    val status: BookStatus
+)
+
+/** A book in Books to Sync, with its file size. */
+data class BookChoice(
+    val bookId: String,
+    val name: String,
+    val author: String?,
+    val sizeBytes: Long?
+)
+
+/** What the playback resolver needs for one downloaded book. [chapters] is never empty. */
+data class PlayableBook(
+    val book: CatalogueBook,
+    val localPath: String,
+    val coverPath: String?,
+    val chapters: List<Chapter>
 )

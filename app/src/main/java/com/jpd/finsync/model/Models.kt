@@ -83,6 +83,9 @@ data class MediaItem(
     // With IDs, for the catalogue's link tables; Gson leaves them null when absent.
     @SerializedName("AlbumArtists") val albumArtists: List<NameId>? = null,
     @SerializedName("GenreItems") val genreItems: List<NameId>? = null,
+    // Books (3b): sent only when Fields asks for People and Chapters (P0).
+    @SerializedName("People") val people: List<PersonInfo>? = null,
+    @SerializedName("Chapters") val chapters: List<ChapterInfo>? = null,
     @SerializedName("ChildCount") val childCount: Int? = null
 ) : Parcelable {
     val durationMs: Long get() = (runTimeTicks ?: 0L) / 10_000
@@ -120,6 +123,20 @@ data class UserData(
 data class NameId(
     @SerializedName("Name") val name: String,
     @SerializedName("Id") val id: String
+) : Parcelable
+
+@Parcelize
+data class PersonInfo(
+    @SerializedName("Name") val name: String? = null,
+    // A PersonKind name, such as "Author" or "Narrator" (Jellyfin 12.1.0 OpenAPI).
+    @SerializedName("Type") val type: String? = null
+) : Parcelable
+
+@Parcelize
+data class ChapterInfo(
+    // Ticks: 10,000 per millisecond.
+    @SerializedName("StartPositionTicks") val startPositionTicks: Long? = null,
+    @SerializedName("Name") val name: String? = null
 ) : Parcelable
 
 // ── Sync state tracking ──────────────────────────────────────────────────────

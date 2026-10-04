@@ -12,7 +12,9 @@ import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
 import androidx.media3.session.MediaController
 import com.jpd.finsync.R
+import com.jpd.finsync.library.BookRepository
 import com.jpd.finsync.library.LibraryRepository
+import com.jpd.finsync.library.resumePositionMs
 import com.jpd.finsync.playback.QueueOrder
 import com.jpd.finsync.playback.TrackExtras
 import com.jpd.finsync.playback.TrackResolver
@@ -65,7 +67,8 @@ data class PlaybackPosition(val positionMs: Long = 0L, val durationMs: Long = 0L
  */
 class PlaybackViewModel(app: Application) : AndroidViewModel(app) {
 
-    private val resolver = TrackResolver(LibraryRepository(app))
+    private val books = BookRepository(app)
+    private val resolver = TrackResolver(LibraryRepository(app), books)
     private var controller: MediaController? = null
     private var positionPoller: Job? = null
 
@@ -140,6 +143,63 @@ class PlaybackViewModel(app: Application) : AndroidViewModel(app) {
             }
         }
     }
+
+    /**
+     * The book page's Resume, or Play when the book is new or finished (spec "Progress"). When
+     * the book is already the queue it carries on from where it is, not from the last save.
+     */
+    fun playBook(bookId: String) {
+        viewModelScope.launch {
+            if (isCurrentItem(bookId)) {
+                continueCurrent(startMs = null)
+            } else {
+                startBook(bookId, resumePositionMs(books.bookProgress(bookId)))
+            }
+        }
+    }
+
+    /** Start over: from 0. The next progress save clears Finished (spec). */
+    fun startBookOver(bookId: String) = playBookAt(bookId, 0L)
+
+    /** A chapter tapped on the book page: the book plays from that chapter's start. */
+    fun playBookFrom(bookId: String, startMs: Long) = playBookAt(bookId, startMs)
+
+    private fun playBookAt(bookId: String, startMs: Long) {
+        viewModelScope.launch {
+            if (isCurrentItem(bookId)) continueCurrent(startMs) else startBook(bookId, startMs)
+        }
+    }
+
+    // A null start keeps the live position, and a finished book starts over (spec "Finishing").
+    private fun continueCurrent(startMs: Long?) {
+        val mediaController = controller ?: return
+        when {
+            startMs != null -> mediaController.seekTo(startMs)
+            mediaController.playbackState == Player.STATE_ENDED -> mediaController.seekTo(0L)
+        }
+        if (mediaController.playbackState == Player.STATE_IDLE) mediaController.prepare()
+        mediaController.play()
+    }
+
+    // A book plays alone (spec "Queue"); shuffle means nothing for one item, so it goes off.
+    private suspend fun startBook(bookId: String, startMs: Long) {
+        val playable = resolver.playableIds(listOf(bookId))
+        val mediaController = controller
+        when {
+            bookId !in playable -> _messages.tryEmit(R.string.files_missing)
+            mediaController == null -> _messages.tryEmit(R.string.playback_unavailable)
+            else -> {
+                val item = MediaItem.Builder().setMediaId(bookId).build()
+                mediaController.shuffleModeEnabled = false
+                mediaController.setMediaItems(listOf(item), 0, startMs)
+                mediaController.prepare()
+                mediaController.play()
+            }
+        }
+    }
+
+    private fun isCurrentItem(itemId: String): Boolean =
+        controller?.currentMediaItem?.mediaId == itemId
 
     fun togglePlayPause() {
         val mediaController = controller ?: return

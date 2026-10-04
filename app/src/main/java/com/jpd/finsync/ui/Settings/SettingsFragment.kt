@@ -169,6 +169,15 @@ class SettingsFragment : Fragment() {
         binding.cardPlaylists.setOnClickListener {
             navigateSafely(R.id.settingsFragment, R.id.action_settings_to_playlist_selection)
         }
+        viewModel.bookChoices.observe(viewLifecycleOwner) { books ->
+            val selectedIds = viewModel.getSelectedBookIds()
+            val selected = books.count { it.bookId in selectedIds }
+            binding.tvBooksSummary.text =
+                getString(R.string.settings_books_summary, selected, books.size)
+        }
+        binding.cardBooks.setOnClickListener {
+            navigateSafely(R.id.settingsFragment, R.id.action_settings_to_book_selection)
+        }
         binding.cardAutoSync.setOnClickListener {
             navigateSafely(R.id.settingsFragment, R.id.action_settings_to_auto_sync)
         }

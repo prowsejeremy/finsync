@@ -134,4 +134,24 @@
     <string name="settings_playlists_summary">%1$d of %2$d playlists selected</string>
     <string name="settings_change_selection">Tap to change selection</string>
     <string name="selection_title_playlists">Select Playlists to Sync</string>
+
+    <!-- Audio Books (3b) -->
+    <string name="home_audio_books">Audio Books</string>
+    <string name="header_audio_books">Audio Books</string>
+    <string name="books_empty">No synced books</string>
+    <string name="books_empty_hint">Choose books to sync in Settings</string>
+    <string name="settings_books_title">Books to Sync</string>
+    <string name="settings_books_summary">%1$d of %2$d books selected</string>
+    <string name="selection_title_books">Select Books to Sync</string>
+    <string name="unknown_author">Unknown Author</string>
+    <string name="book_chapter_number">Chapter %1$d</string>
+    <string name="book_time_left">%1$s left</string>
+    <string name="book_not_started">Not started</string>
+    <string name="book_finished">Finished</string>
+    <string name="btn_resume">Resume</string>
+    <string name="btn_start_over">Start over</string>
+    <plurals name="chapter_count">
+        <item quantity="one">%d chapter</item>
+        <item quantity="other">%d chapters</item>
+    </plurals>
 </resources>

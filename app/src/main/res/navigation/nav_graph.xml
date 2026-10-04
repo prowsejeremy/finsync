@@ -26,6 +26,9 @@
         <action
             android:id="@+id/action_home_to_playlists"
             app:destination="@id/playlistsFragment" />
+        <action
+            android:id="@+id/action_home_to_audio_books"
+            app:destination="@id/audioBooksFragment" />
     </fragment>
 
     <fragment
@@ -129,6 +132,22 @@
             app:argType="string" />
     </fragment>
 
+    <fragment
+        android:id="@+id/audioBooksFragment"
+        android:name="com.jpd.finsync.ui.AudioBooksFragment">
+        <action
+            android:id="@+id/action_audio_books_to_book"
+            app:destination="@id/bookFragment" />
+    </fragment>
+
+    <fragment
+        android:id="@+id/bookFragment"
+        android:name="com.jpd.finsync.ui.BookFragment">
+        <argument
+            android:name="bookId"
+            app:argType="string" />
+    </fragment>
+
     <!-- Nested so SettingsViewModel lives exactly as long as you're in Settings, and so the
          notification deep link builds the Home → Settings → Sync Status back stack. -->
     <navigation
@@ -153,6 +172,9 @@
             <action
                 android:id="@+id/action_settings_to_playlist_selection"
                 app:destination="@id/playlistSelectionFragment" />
+            <action
+                android:id="@+id/action_settings_to_book_selection"
+                app:destination="@id/bookSelectionFragment" />
         </fragment>
 
         <fragment
@@ -174,6 +196,10 @@
         <fragment
             android:id="@+id/playlistSelectionFragment"
             android:name="com.jpd.finsync.ui.PlaylistSelectionFragment" />
+
+        <fragment
+            android:id="@+id/bookSelectionFragment"
+            android:name="com.jpd.finsync.ui.BookSelectionFragment" />
 
     </navigation>
 

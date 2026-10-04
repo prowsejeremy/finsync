@@ -7,16 +7,20 @@ sealed class HomeLibraryState {
     object Building : HomeLibraryState()
     object Failed : HomeLibraryState()
 
-    /** The cards' counts: visible albums, album artists, genres, songs and playlists. */
+    /** The six cards' counts: albums, album artists, genres, songs, playlists and books. */
     data class Ready(
         val albumCount: Int,
         val albumArtistCount: Int = 0,
         val genreCount: Int = 0,
         val songCount: Int = 0,
-        val playlistCount: Int = 0
+        val playlistCount: Int = 0,
+        val bookCount: Int = 0
     ) : HomeLibraryState() {
-        /** Nothing downloaded passes the selection, so Home shows the "Choose albums" hint. */
-        val nothingVisible: Boolean get() = albumCount == 0 && songCount == 0
+        /**
+         * Nothing downloaded passes the selection, so Home shows the "Choose albums" hint. A
+         * playlist's songs count as songs; books count on their own.
+         */
+        val nothingVisible: Boolean get() = albumCount == 0 && songCount == 0 && bookCount == 0
     }
 }
 
@@ -31,10 +35,11 @@ fun homeLibraryStateOf(
     albumArtistCount: Int = 0,
     genreCount: Int = 0,
     songCount: Int = 0,
-    playlistCount: Int = 0
+    playlistCount: Int = 0,
+    bookCount: Int = 0
 ): HomeLibraryState {
     val ready = HomeLibraryState.Ready(
-        albumCount, albumArtistCount, genreCount, songCount, playlistCount
+        albumCount, albumArtistCount, genreCount, songCount, playlistCount, bookCount
     )
     return when {
         !catalogueEmpty -> ready

@@ -110,6 +110,7 @@ private fun genresFrom(items: List<MediaItem>): List<CatalogueGenre> =
 private fun usableCredits(credits: List<NameId>?): List<NameId> =
     credits.orEmpty().filterNot { it.id.isNullOrBlank() || it.name.isNullOrBlank() }
 
-// Jellyfin can report a list such as "mov,mp4,m4a"; the first entry names the format.
-private fun firstContainer(container: String?): String? =
+// Jellyfin can report a list such as "mov,mp4,m4a"; the first entry names the format. Books use
+// it too (3b).
+internal fun firstContainer(container: String?): String? =
     container?.split(CONTAINER_SEPARATOR)?.first()?.trim()?.lowercase()?.takeIf { it.isNotEmpty() }

@@ -5,6 +5,7 @@ import android.util.Log
 import com.jpd.finsync.auth.JellyfinRepository
 import com.jpd.finsync.library.PlaylistCovers
 import com.jpd.finsync.library.stalePhotoFileNames
+import com.jpd.finsync.model.MediaItem
 import com.jpd.finsync.model.ServerConfig
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
@@ -15,8 +16,9 @@ private const val TAG = "CoverSync"
 
 /**
  * The very end of a sync: fetches the selected playlists' missing covers into private storage
- * and deletes covers no selected playlist needs. Failures are logged, never fail the sync, and
- * are retried next time (spec "Order, cleanup and failures").
+ * (deleting covers no selected playlist needs) and each planned book's missing folder.jpg.
+ * Failures are logged, never fail the sync, and are retried next time (spec "Order, cleanup and
+ * failures").
  */
 object CoverSync {
 
@@ -24,14 +26,29 @@ object CoverSync {
         context: Context,
         config: ServerConfig,
         jellyfin: JellyfinRepository,
+        syncDir: File,
         plan: SyncPlan
     ) {
         try {
             syncPlaylistCovers(context, config, jellyfin, plan.playlistIds)
+            syncBookCovers(config, jellyfin, syncDir, plan.books)
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
             Log.w(TAG, "Covers skipped", e)
+        }
+    }
+
+    // filesToKeep lists each book's cover, so orphan cleanup keeps it between syncs.
+    private suspend fun syncBookCovers(
+        config: ServerConfig,
+        jellyfin: JellyfinRepository,
+        syncDir: File,
+        books: List<MediaItem>
+    ) {
+        for (book in books) {
+            val cover = File(syncDir, buildBookCoverPath(book))
+            if (!cover.isFile) fetchPrimaryImage(jellyfin, config, book.id, cover)
         }
     }
 

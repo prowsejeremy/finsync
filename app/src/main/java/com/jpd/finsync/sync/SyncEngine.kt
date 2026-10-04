@@ -82,7 +82,7 @@ object SyncEngine {
             return
         }
 
-        val expectedPaths = filesToKeep(syncDir, plan)
+        val expectedPaths = filesToKeep(syncDir, plan) + keptBookFiles(dao, catalogue, selection)
 
         // Upsert album metadata upfront so partial syncs still appear in the library
         val albumGroups = itemsToSync.groupBy { it.albumId }.filterKeys { it != null }
@@ -110,7 +110,8 @@ object SyncEngine {
                 return@forEachIndexed
             }
 
-            val localFile = File(syncDir, buildRelativePath(item))
+            // Books go under Audiobooks/<author>/<title>/ (3b).
+            val localFile = File(syncDir, syncRelativePath(item))
             var isSuccessfullyProcessed = false
             var attempts = 0
 
@@ -216,7 +217,7 @@ object SyncEngine {
         ArtistPhotoSync.run(context, config, repo)
         // Covers come last; a failed one is logged and retried, never counted (3b spec). They
         // wait for a written catalogue too, as their cleanup could drop a failed playlist's cover.
-        if (written != null) CoverSync.run(context, config, repo, plan)
+        if (written != null) CoverSync.run(context, config, repo, syncDir, plan)
 
         emit(
             SyncState(
@@ -244,6 +245,17 @@ object SyncEngine {
             Log.w(TAG, "Couldn't write the catalogue", e)
             null
         }
+    }
+
+    // A book list that didn't load plans no books, so the selected books already on the device
+    // keep their files and covers (spec "Order, cleanup and failures").
+    private suspend fun keptBookFiles(
+        dao: com.jpd.finsync.db.SyncDao,
+        catalogue: ServerCatalogue,
+        selection: SyncSelection
+    ): Set<String> {
+        if (!catalogue.booksFailed) return emptySet()
+        return bookFilesAt(selection.bookIds.mapNotNull { dao.getTrack(it)?.localPath })
     }
 
     fun getSyncDirectory(context: Context, config: ServerConfig): File {

@@ -9,4 +9,9 @@ object TrackExtras {
     const val SAMPLE_RATE = "finsync.sampleRate"
     const val BITRATE = "finsync.bitrate"
     const val FILE_SIZE = "finsync.fileSize"
+    // A book (3b) is one queue item; its chapters ride beside it as two arrays.
+    const val IS_BOOK = "finsync.isBook"
+    const val BOOK_AUTHOR = "finsync.bookAuthor"
+    const val CHAPTER_STARTS = "finsync.chapterStarts"
+    const val CHAPTER_NAMES = "finsync.chapterNames"
 }

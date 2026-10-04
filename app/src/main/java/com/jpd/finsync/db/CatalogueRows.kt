@@ -79,3 +79,9 @@ data class PlaylistAlbumRow(
     val playlistId: String,
     val albumId: String
 )
+
+/** A book with its downloaded file (its synced_tracks row). */
+data class DownloadedBookRow(
+    @Embedded val book: CatalogueBook,
+    val localPath: String
+)

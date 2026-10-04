@@ -1,7 +1,13 @@
 package com.jpd.finsync.sync
 
+import com.jpd.finsync.library.bookAuthorOf
 import com.jpd.finsync.model.MediaItem
 import java.io.File
+
+private const val BOOKS_FOLDER = "Audiobooks"
+private const val UNKNOWN_AUTHOR = "Unknown Author"
+private const val BOOK_TYPE = "AudioBook"
+private const val BOOK_COVER = "folder.jpg"
 
 // SyncEngine's path rules, moved here unchanged (3b) so the files-to-keep rule can be tested
 // without Android. SyncEngine still calls them by the same names.
@@ -44,15 +50,54 @@ internal fun buildArtworkPath(item: MediaItem): String {
 internal fun sanitizeFilename(name: String): String =
     name.replace(Regex("[/\\\\:*?\"<>|]"), "_").trim()
 
+/** True for a Jellyfin AudioBook item. */
+internal fun isBookItem(item: MediaItem): Boolean = item.type == BOOK_TYPE
+
+/** Where an item goes in the sync folder: a book under Audiobooks, music under artist/album. */
+internal fun syncRelativePath(item: MediaItem): String =
+    if (isBookItem(item)) buildBookPath(item) else buildRelativePath(item)
+
+/** `Audiobooks/<author>/<title>/<file>` (spec "Where files go"). */
+internal fun buildBookPath(item: MediaItem): String {
+    val filename = item.path
+        ?.substringAfterLast('/')
+        ?.let { sanitizeFilename(it) }
+        ?: "${sanitizeFilename(item.name)}.${resolveExtension(item)}"
+    return "${bookFolder(item)}/$filename"
+}
+
+/** A book's cover: folder.jpg beside its file. */
+internal fun buildBookCoverPath(item: MediaItem): String = "${bookFolder(item)}/$BOOK_COVER"
+
+/**
+ * Books already on the device, by their files' paths: each file and the cover beside it. Sync
+ * keeps these when the book list didn't load (spec "Order, cleanup and failures").
+ */
+internal fun bookFilesAt(localPaths: List<String>): Set<String> =
+    localPaths.flatMapTo(HashSet()) { path ->
+        val file = File(path)
+        listOf(file.absolutePath, File(file.parentFile, BOOK_COVER).absolutePath)
+    }
+
+private fun bookFolder(item: MediaItem): String {
+    val author = sanitizeFilename(bookAuthorOf(item) ?: UNKNOWN_AUTHOR)
+    return "$BOOKS_FOLDER/$author/${sanitizeFilename(item.name)}"
+}
+
 /**
  * Every file sync keeps (spec "Order, cleanup and failures"): each planned track and its album's
- * folder art. The orphan cleanup deletes anything else in the sync folder.
+ * folder art, and each planned book and its cover. The orphan cleanup deletes anything else, so
+ * deselecting a book deletes its folder.
  */
 internal fun filesToKeep(syncDir: File, plan: SyncPlan): Set<String> {
     val paths = mutableSetOf<String>()
     for (item in plan.tracks) {
         paths.add(File(syncDir, buildRelativePath(item)).absolutePath)
         paths.add(File(syncDir, buildArtworkPath(item)).absolutePath)
+    }
+    for (book in plan.books) {
+        paths.add(File(syncDir, buildBookPath(book)).absolutePath)
+        paths.add(File(syncDir, buildBookCoverPath(book)).absolutePath)
     }
     return paths
 }

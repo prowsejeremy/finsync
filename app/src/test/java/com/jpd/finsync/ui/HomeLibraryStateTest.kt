@@ -80,4 +80,18 @@ class HomeLibraryStateTest {
             )
         )
     }
+
+    @Test
+    fun `books alone are something to show, and ready carries the book count`() {
+        assertFalse(HomeLibraryState.Ready(0, bookCount = 2).nothingVisible)
+        assertEquals(
+            HomeLibraryState.Ready(0, bookCount = 2),
+            homeLibraryStateOf(
+                catalogueEmpty = false,
+                albumCount = 0,
+                refresh = RefreshStatus.DONE,
+                bookCount = 2
+            )
+        )
+    }
 }

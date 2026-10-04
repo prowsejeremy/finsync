@@ -6,6 +6,7 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.asLiveData
 import androidx.lifecycle.viewModelScope
+import com.jpd.finsync.library.BookRepository
 import com.jpd.finsync.library.LibraryRepository
 import com.jpd.finsync.library.PlaylistRepository
 import kotlinx.coroutines.CancellationException
@@ -22,6 +23,7 @@ class LibraryViewModel(app: Application) : AndroidViewModel(app) {
 
     private val library = LibraryRepository(app)
     private val playlists = PlaylistRepository(app)
+    private val books = BookRepository(app)
     private val refreshStatus = MutableStateFlow(RefreshStatus.IDLE)
 
     val homeState: LiveData<HomeLibraryState> = combine(
@@ -36,7 +38,8 @@ class LibraryViewModel(app: Application) : AndroidViewModel(app) {
             albumArtistCount = counts.albumArtists,
             genreCount = counts.genres,
             songCount = counts.songs,
-            playlistCount = counts.playlists
+            playlistCount = counts.playlists,
+            bookCount = counts.books
         )
     }.asLiveData()
 
@@ -46,14 +49,17 @@ class LibraryViewModel(app: Application) : AndroidViewModel(app) {
 
     fun retry() = refreshIfEmpty()
 
+    // combine takes at most five typed Flows, so playlists and books travel as a pair.
     private fun categoryCounts(): Flow<CategoryCounts> = combine(
         library.albumCount(),
         library.albumArtistCount(),
         library.genreCount(),
         library.songCount(),
-        playlists.playlistCount()
-    ) { albums, albumArtists, genres, songs, playlistCount ->
-        CategoryCounts(albums, albumArtists, genres, songs, playlistCount)
+        combine(playlists.playlistCount(), books.bookCount()) { playlistCount, bookCount ->
+            playlistCount to bookCount
+        }
+    ) { albums, albumArtists, genres, songs, (playlistCount, bookCount) ->
+        CategoryCounts(albums, albumArtists, genres, songs, playlistCount, bookCount)
     }
 
     private fun refreshIfEmpty() {
@@ -79,6 +85,7 @@ class LibraryViewModel(app: Application) : AndroidViewModel(app) {
         val albumArtists: Int,
         val genres: Int,
         val songs: Int,
-        val playlists: Int
+        val playlists: Int,
+        val books: Int
     )
 }

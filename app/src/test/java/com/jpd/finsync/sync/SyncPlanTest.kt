@@ -2,6 +2,7 @@ package com.jpd.finsync.sync
 
 import com.jpd.finsync.library.playlistRowsFrom
 import com.jpd.finsync.model.MediaItem
+import com.jpd.finsync.model.PersonInfo
 import com.jpd.finsync.model.ServerCatalogue
 import com.jpd.finsync.model.ServerPlaylist
 import org.junit.Assert.assertEquals
@@ -133,6 +134,36 @@ class SyncPlanTest {
                 "/sync/Kurt Vile/Bottle It In/folder.jpg"
             ),
             filesToKeep(File("/sync"), plan)
+        )
+    }
+
+    @Test
+    fun `a book keeps its file and cover in Audiobooks, author and title folders`() {
+        val book = MediaItem(
+            id = "b1",
+            name = "Project Hail Mary",
+            type = "AudioBook",
+            path = "/srv/books/phm.m4b",
+            people = listOf(PersonInfo("Andy Weir", "Author"))
+        )
+        val plan = SyncPlan(tracks = emptyList(), books = listOf(book), playlistIds = emptySet())
+        assertEquals(
+            setOf(
+                "/sync/Audiobooks/Andy Weir/Project Hail Mary/phm.m4b",
+                "/sync/Audiobooks/Andy Weir/Project Hail Mary/folder.jpg"
+            ),
+            filesToKeep(File("/sync"), plan)
+        )
+    }
+
+    @Test
+    fun `a book list that didn't load keeps each synced book's file and cover`() {
+        assertEquals(
+            setOf(
+                "/sync/Audiobooks/Andy Weir/Project Hail Mary/phm.m4b",
+                "/sync/Audiobooks/Andy Weir/Project Hail Mary/folder.jpg"
+            ),
+            bookFilesAt(listOf("/sync/Audiobooks/Andy Weir/Project Hail Mary/phm.m4b"))
         )
     }
 }

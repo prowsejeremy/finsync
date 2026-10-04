@@ -12,6 +12,7 @@ import androidx.media3.session.MediaSession
 import androidx.media3.session.MediaSessionService
 import com.google.common.util.concurrent.ListenableFuture
 import com.google.common.util.concurrent.SettableFuture
+import com.jpd.finsync.library.BookRepository
 import com.jpd.finsync.library.LibraryRepository
 import com.jpd.finsync.ui.MainActivity
 import kotlinx.coroutines.CancellationException
@@ -91,7 +92,7 @@ class PlaybackService : MediaSessionService() {
         val engine = BassEngine(applicationInfo.nativeLibraryDir)
         player = BassPlayer(Looper.getMainLooper(), engine)
         focus = PlaybackFocus(this, player, engine)
-        resolver = TrackResolver(LibraryRepository(this))
+        resolver = TrackResolver(LibraryRepository(this), BookRepository(this))
         resumeStore = ResumeStore(this)
         restored = scope.async { loadRestorableQueue() }
         player.addListener(saveListener)

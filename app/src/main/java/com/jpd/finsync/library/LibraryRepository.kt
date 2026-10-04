@@ -226,18 +226,30 @@ class LibraryRepository internal constructor(
             books = catalogueDao.allBooks(),
             chapters = catalogueDao.allBookChapters()
         )
-        val fresh = withContext(Dispatchers.Default) { playlistRowsFrom(catalogue.playlists) }
+        val fresh = withContext(Dispatchers.Default) {
+            freshRows(catalogue.playlists, catalogue.books)
+        }
         val rows = keepFailedParts(fresh, previous, catalogue)
         writeRows(catalogue.audio, rows)
         return rows
     }
 
-    /** Writes items and playlists as given, with nothing failed: for tests, 3a's included. */
+    /** Writes the given items, playlists and books, none failed: for tests, 3a's included. */
     suspend fun writeCatalogue(
         items: List<MediaItem>,
-        playlists: List<ServerPlaylist> = emptyList()
+        playlists: List<ServerPlaylist> = emptyList(),
+        books: List<MediaItem> = emptyList()
     ) {
-        writeRows(items, playlistRowsFrom(playlists))
+        writeRows(items, freshRows(playlists, books))
+    }
+
+    private fun freshRows(
+        playlists: List<ServerPlaylist>,
+        books: List<MediaItem>
+    ): PlaylistBookRows {
+        val bookRows = bookRowsFrom(books)
+        return playlistRowsFrom(playlists)
+            .copy(books = bookRows.books, chapters = bookRows.chapters)
     }
 
     private suspend fun writeRows(items: List<MediaItem>, rows: PlaylistBookRows) {

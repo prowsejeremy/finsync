@@ -22,6 +22,9 @@ import java.util.concurrent.atomic.AtomicReference
 private const val TAG = "JellyfinRepository"
 private const val PAGE_SIZE = 500
 private const val PLAYLIST_TYPE = "Playlist"
+private const val AUDIOBOOK_TYPE = "AudioBook"
+// Only values ItemFields lists (P0): the file, its audio details, chapters and authors.
+private const val BOOK_FIELDS = "Path,MediaSources,Chapters,People"
 
 sealed class Result<out T> {
     data class Success<T>(val data: T) : Result<T>()
@@ -114,9 +117,10 @@ class JellyfinRepository(private val context: Context) {
     fun isLoggedIn()          = credentialStore.isLoggedIn()
 
     /**
-     * Everything sync and the catalogue refresh read (3b): the audio items, then the user's
-     * playlists and each one's entries. The audio list failing fails the fetch, as before 3b. A
-     * failed playlist part is recorded on the result and the rest carries on (decision 3).
+     * Everything sync and the catalogue refresh read (3b): the audio items, the user's playlists
+     * with each one's entries, then the audiobooks. The audio list failing fails the fetch, as
+     * before 3b. A failed playlist or book part is recorded on the result and the rest carries
+     * on (decision 3).
      */
     suspend fun getServerCatalogue(config: ServerConfig): Result<ServerCatalogue> = safeCall {
         val api = readApi(config.serverUrl)
@@ -160,12 +164,26 @@ class JellyfinRepository(private val context: Context) {
                 playlists.add(ServerPlaylist(playlist, entries))
             }
         }
+        val books = partOrNull("audiobooks") {
+            fetchAllPages("audiobooks") { start ->
+                api.getItems(
+                    authorization = auth,
+                    userId = config.userId,
+                    includeItemTypes = AUDIOBOOK_TYPE,
+                    fields = BOOK_FIELDS,
+                    startIndex = start,
+                    limit = PAGE_SIZE
+                )
+            }
+        }
         Result.Success(
             ServerCatalogue(
                 audio = audio,
                 playlists = playlists,
+                books = books.orEmpty(),
                 playlistsFailed = playlistList == null,
-                failedPlaylistIds = failedPlaylistIds
+                failedPlaylistIds = failedPlaylistIds,
+                booksFailed = books == null
             )
         )
     }

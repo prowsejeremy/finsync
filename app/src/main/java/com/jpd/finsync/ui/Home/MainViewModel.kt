@@ -12,6 +12,7 @@ import androidx.lifecycle.viewModelScope
 import com.jpd.finsync.auth.JellyfinRepository
 import com.jpd.finsync.auth.Result
 import com.jpd.finsync.db.SyncDatabase
+import com.jpd.finsync.library.BookRepository
 import com.jpd.finsync.library.LibraryRepository
 import com.jpd.finsync.library.PlaylistRepository
 import com.jpd.finsync.model.AlbumSelection
@@ -177,6 +178,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                 library.clearCatalogue()
                 library.deleteArtistPhotos()
                 PlaylistRepository(getApplication()).deletePlaylistCovers()
+                BookRepository(getApplication()).clearBookProgress()
             }
             _config.postValue(null)
         }

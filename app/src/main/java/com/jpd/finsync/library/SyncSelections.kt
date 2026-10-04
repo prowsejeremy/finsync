@@ -21,6 +21,8 @@ class SyncSelections(context: Context) {
 
     fun bookIds(): Set<String> = read(SELECTED_BOOKS_KEY)
 
+    fun setBookIds(ids: Set<String>) = write(SELECTED_BOOKS_KEY, ids)
+
     // A copy: the set getStringSet returns mustn't be modified or kept (SharedPreferences docs).
     private fun read(key: String): Set<String> =
         prefs.getStringSet(key, emptySet())?.toSet() ?: emptySet()

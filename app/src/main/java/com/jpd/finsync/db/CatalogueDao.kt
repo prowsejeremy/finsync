@@ -385,4 +385,71 @@ abstract class CatalogueDao {
 
     @Query("SELECT * FROM catalogue_book_chapters ORDER BY bookId, position")
     abstract suspend fun allBookChapters(): List<CatalogueBookChapter>
+
+    /** Books with a downloaded file, before the selection applies. */
+    @Query(
+        """
+        SELECT b.*, s.localPath AS localPath
+        FROM catalogue_books b
+        INNER JOIN synced_tracks s ON s.itemId = b.bookId
+        """
+    )
+    abstract fun observeDownloadedBooks(): Flow<List<DownloadedBookRow>>
+
+    @Query(
+        """
+        SELECT b.*, s.localPath AS localPath
+        FROM catalogue_books b
+        INNER JOIN synced_tracks s ON s.itemId = b.bookId
+        WHERE b.bookId = :bookId
+        """
+    )
+    abstract fun observeDownloadedBook(bookId: String): Flow<DownloadedBookRow?>
+
+    /** Downloaded books among [bookIds], in no set order. Callers keep each list under 999. */
+    @Query(
+        """
+        SELECT b.*, s.localPath AS localPath
+        FROM catalogue_books b
+        INNER JOIN synced_tracks s ON s.itemId = b.bookId
+        WHERE b.bookId IN (:bookIds)
+        """
+    )
+    abstract suspend fun downloadedBooks(bookIds: List<String>): List<DownloadedBookRow>
+
+    @Query("SELECT * FROM catalogue_book_chapters ORDER BY bookId, position")
+    abstract fun observeAllChapters(): Flow<List<CatalogueBookChapter>>
+
+    @Query("SELECT * FROM catalogue_book_chapters WHERE bookId = :bookId ORDER BY position")
+    abstract fun observeChapters(bookId: String): Flow<List<CatalogueBookChapter>>
+
+    /** Chapters of [bookIds], each book's in order. Callers keep each list under 999. */
+    @Query(
+        """
+        SELECT * FROM catalogue_book_chapters
+        WHERE bookId IN (:bookIds)
+        ORDER BY bookId, position
+        """
+    )
+    abstract suspend fun chaptersOf(bookIds: List<String>): List<CatalogueBookChapter>
+
+    @Query("SELECT * FROM catalogue_books ORDER BY name COLLATE NOCASE, bookId")
+    abstract fun observeBookChoices(): Flow<List<CatalogueBook>>
+
+    // book_progress is outside the catalogue: replaceCatalogue and clearCatalogue never touch it.
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    abstract suspend fun upsertBookProgress(progress: BookProgress)
+
+    @Query("SELECT * FROM book_progress")
+    abstract fun observeBookProgress(): Flow<List<BookProgress>>
+
+    @Query("SELECT * FROM book_progress WHERE bookId = :bookId")
+    abstract fun observeProgress(bookId: String): Flow<BookProgress?>
+
+    @Query("SELECT * FROM book_progress WHERE bookId = :bookId")
+    abstract suspend fun bookProgress(bookId: String): BookProgress?
+
+    @Query("DELETE FROM book_progress")
+    abstract suspend fun deleteAllBookProgress()
 }

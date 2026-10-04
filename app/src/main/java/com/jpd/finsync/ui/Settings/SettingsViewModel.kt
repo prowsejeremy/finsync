@@ -11,6 +11,8 @@ import androidx.lifecycle.viewModelScope
 import com.jpd.finsync.auth.JellyfinRepository
 import com.jpd.finsync.auth.Result
 import com.jpd.finsync.db.SyncDatabase
+import com.jpd.finsync.library.BookChoice
+import com.jpd.finsync.library.BookRepository
 import com.jpd.finsync.library.LibraryRepository
 import com.jpd.finsync.library.PlaylistChoice
 import com.jpd.finsync.library.PlaylistRepository
@@ -30,10 +32,14 @@ class SettingsViewModel(app: Application) : AndroidViewModel(app) {
     private val dao  = SyncDatabase.getInstance(app).syncDao()
     private val library = LibraryRepository(app)
     private val playlists = PlaylistRepository(app)
+    private val books = BookRepository(app)
     private var catalogueRefreshed = false
 
     /** Every audio playlist on the server, from the catalogue (3b). */
     val playlistChoices: LiveData<List<PlaylistChoice>> = playlists.playlistChoices().asLiveData()
+
+    /** Every audiobook on the server, from the catalogue (3b). */
+    val bookChoices: LiveData<List<BookChoice>> = books.bookChoices().asLiveData()
 
     private val _albums  = MutableLiveData<List<AlbumSelection>>()
     val albums: LiveData<List<AlbumSelection>> = _albums
@@ -109,6 +115,10 @@ class SettingsViewModel(app: Application) : AndroidViewModel(app) {
     fun getSelectedPlaylistIds(): Set<String> = playlists.selectedIds()
 
     fun setSelectedPlaylistIds(ids: Set<String>) = playlists.setSelectedIds(ids)
+
+    fun getSelectedBookIds(): Set<String> = books.selectedIds()
+
+    fun setSelectedBookIds(ids: Set<String>) = books.setSelectedIds(ids)
 
     /**
      * Refreshes the catalogue once per visit to Settings, so playlists and books added on the
