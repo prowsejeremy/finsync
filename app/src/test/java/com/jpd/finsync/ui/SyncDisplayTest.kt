@@ -137,6 +137,20 @@ class SyncDisplayTest {
         assertEquals(0, display.totalTracks)
     }
 
+    @Test
+    fun `a completed sync with failed items is incomplete and counts them`() {
+        // Every selected track can be on the device while a playlist's fetch failed.
+        val display = displayFor(
+            SyncState(syncComplete = true, failedItems = 2),
+            syncedTracks = 100,
+            totalTracks = 100
+        )
+
+        assertEquals(SyncDisplay.Status.INCOMPLETE, display.status)
+        assertEquals(100, display.trackCount)
+        assertEquals(2, display.failedItems)
+    }
+
     private fun assertProgress(expected: Float, actual: Float?) {
         assertNotNull(actual)
         assertEquals(expected, actual!!, DELTA)

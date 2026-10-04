@@ -1,5 +1,6 @@
 package com.jpd.finsync.ui
 
+import android.content.res.Resources
 import android.view.View
 import androidx.annotation.ColorRes
 import androidx.annotation.StringRes
@@ -16,6 +17,7 @@ val SyncDisplay.Status.labelRes: Int
         SyncDisplay.Status.SYNCING    -> R.string.status_syncing
         SyncDisplay.Status.STOPPED    -> R.string.status_sync_stopped
         SyncDisplay.Status.FAILED     -> R.string.status_sync_failed
+        SyncDisplay.Status.INCOMPLETE -> R.string.status_sync_incomplete
         SyncDisplay.Status.SYNCED     -> R.string.status_synced
         SyncDisplay.Status.NOT_SYNCED -> R.string.status_not_synced
     }
@@ -27,6 +29,14 @@ val SyncDisplay.Status.labelColorRes: Int
 @get:StringRes
 val SyncDisplay.buttonLabelRes: Int
     get() = if (status == SyncDisplay.Status.SYNCING) R.string.btn_stop_sync else R.string.btn_sync_now
+
+/** "2 items couldn't sync. They'll retry next sync." */
+fun Resources.syncIncompleteDetail(failedItems: Int): String =
+    getQuantityString(R.plurals.sync_incomplete_detail, failedItems, failedItems)
+
+/** The same with "Sync incomplete: " in front, for Sync Status and the notification. */
+fun Resources.syncIncompleteMessage(failedItems: Int): String =
+    getString(R.string.sync_incomplete_message, syncIncompleteDetail(failedItems))
 
 /** Shows [progress] from 0 to 1, or an indeterminate animation when it's null. */
 fun BaseProgressIndicator<*>.showSyncProgress(progress: Float?) {

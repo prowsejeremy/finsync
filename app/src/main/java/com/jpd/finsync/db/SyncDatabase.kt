@@ -16,9 +16,14 @@ import androidx.room.TypeConverters
         CatalogueAlbumArtist::class,
         CatalogueTrackArtist::class,
         CatalogueGenre::class,
-        CatalogueTrackGenre::class
+        CatalogueTrackGenre::class,
+        CataloguePlaylist::class,
+        CataloguePlaylistItem::class,
+        CatalogueBook::class,
+        CatalogueBookChapter::class,
+        BookProgress::class
     ],
-    version = 6,
+    version = 7,
     exportSchema = false
 )
 @TypeConverters(StringListConverter::class)
@@ -40,9 +45,10 @@ abstract class SyncDatabase : RoomDatabase() {
                     "finsync_sync.db"
                 )
                     .addMigrations(MIGRATION_4_5)
-                    // Version 6 has no Migration(5, 6) on purpose: the database is rebuilt, and
-                    // the next sync recreates download records from files on disk (spec "No
-                    // migration"). This also covers installs older than version 4.
+                    // Versions 6 and 7 have no migrations on purpose: the database is rebuilt,
+                    // and the next sync recreates download records from files on disk (3a and 3b
+                    // specs). Book progress starts empty after a rebuild. This also covers
+                    // installs older than version 4.
                     .fallbackToDestructiveMigration()
                     .build()
                     .also { INSTANCE = it }

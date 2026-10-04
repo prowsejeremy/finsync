@@ -14,9 +14,11 @@ data class SyncDisplay(
     val totalTracks: Int,
     /** From 0 to 1, or null while a sync is running but its total isn't known yet. */
     val progress: Float?,
-    val errorMessage: String?
+    val errorMessage: String?,
+    /** Items the last sync couldn't sync; above zero only when the status is INCOMPLETE. */
+    val failedItems: Int = 0
 ) {
-    enum class Status { OFFLINE, SYNCING, STOPPED, FAILED, SYNCED, NOT_SYNCED }
+    enum class Status { OFFLINE, SYNCING, STOPPED, FAILED, INCOMPLETE, SYNCED, NOT_SYNCED }
 
     companion object {
 
@@ -38,6 +40,9 @@ data class SyncDisplay(
                 sync.isRunning -> display(Status.SYNCING, sync.downloadedItems, runningProgress(sync))
                 sync.wasStopped -> display(Status.STOPPED, sync.downloadedItems, 0f)
                 sync.errorMessage != null -> display(Status.FAILED, idleCount, 0f)
+                // Before SYNCED, which a full device would otherwise win.
+                sync.failedItems > 0 ->
+                    display(Status.INCOMPLETE, idleCount, 0f).copy(failedItems = sync.failedItems)
                 sync.syncComplete || (totalTracks > 0 && syncedTracks >= totalTracks) ->
                     display(Status.SYNCED, idleCount, 1f)
                 else -> display(Status.NOT_SYNCED, idleCount, 0f)

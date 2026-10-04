@@ -64,4 +64,20 @@ class HomeLibraryStateTest {
         assertFalse(HomeLibraryState.Ready(0, songCount = 3).nothingVisible)
         assertFalse(HomeLibraryState.Ready(2, songCount = 20).nothingVisible)
     }
+
+    @Test
+    fun `ready carries the playlist count`() {
+        assertEquals(
+            HomeLibraryState.Ready(42, 18, 9, 512, playlistCount = 6),
+            homeLibraryStateOf(
+                catalogueEmpty = false,
+                albumCount = 42,
+                refresh = RefreshStatus.DONE,
+                albumArtistCount = 18,
+                genreCount = 9,
+                songCount = 512,
+                playlistCount = 6
+            )
+        )
+    }
 }

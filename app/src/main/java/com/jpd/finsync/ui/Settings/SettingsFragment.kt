@@ -109,6 +109,7 @@ class SettingsFragment : Fragment() {
 
         val detail = when {
             isOffline -> getString(R.string.sync_detail_offline)
+            display.failedItems > 0 -> resources.syncIncompleteDetail(display.failedItems)
             display.totalTracks > 0 ->
                 getString(R.string.sync_card_detail, display.trackCount ?: 0, display.totalTracks)
             else -> null
@@ -152,11 +153,21 @@ class SettingsFragment : Fragment() {
             val selectedCount = if (isAll) total else minOf(selectedIds.size, total)
             binding.tvAlbumsSummary.text = "$selectedCount of $total albums selected"
         }
+        // From the catalogue; an empty selection means none (3b).
+        viewModel.playlistChoices.observe(viewLifecycleOwner) { playlists ->
+            val selectedIds = viewModel.getSelectedPlaylistIds()
+            val selected = playlists.count { it.playlistId in selectedIds }
+            binding.tvPlaylistsSummary.text =
+                getString(R.string.settings_playlists_summary, selected, playlists.size)
+        }
         viewModel.syncDir.observe(viewLifecycleOwner) { path ->
             binding.tvSyncDir.text = path ?: "—"
         }
         binding.cardAlbums.setOnClickListener {
             navigateSafely(R.id.settingsFragment, R.id.action_settings_to_album_selection)
+        }
+        binding.cardPlaylists.setOnClickListener {
+            navigateSafely(R.id.settingsFragment, R.id.action_settings_to_playlist_selection)
         }
         binding.cardAutoSync.setOnClickListener {
             navigateSafely(R.id.settingsFragment, R.id.action_settings_to_auto_sync)

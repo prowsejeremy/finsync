@@ -9,7 +9,11 @@ import com.jpd.finsync.db.SyncDatabase
 import com.jpd.finsync.db.SyncedAlbum
 import com.jpd.finsync.db.SyncedTrack
 import com.jpd.finsync.library.LibraryRepository
+import com.jpd.finsync.library.PlaylistBookRows
+import com.jpd.finsync.library.SyncSelections
+import com.jpd.finsync.library.playlistRowsFrom
 import com.jpd.finsync.model.MediaItem
+import com.jpd.finsync.model.ServerCatalogue
 import com.jpd.finsync.model.ServerConfig
 import com.jpd.finsync.model.SyncState
 import kotlinx.coroutines.Dispatchers
@@ -47,22 +51,24 @@ object SyncEngine {
 
         emit(SyncState(isRunning = true, currentTrack = "Fetching library..."), onProgress)
 
-        val itemsResult = repo.getAllAudioItems(config)
-        if (itemsResult is Result.Error) {
-            emit(SyncState(isRunning = false, errorMessage = itemsResult.message), onProgress)
+        val catalogueResult = repo.getServerCatalogue(config)
+        if (catalogueResult is Result.Error) {
+            emit(SyncState(isRunning = false, errorMessage = catalogueResult.message), onProgress)
             return
         }
 
-        val items = (itemsResult as Result.Success).data
-        writeCatalogue(context, items)
+        val catalogue = (catalogueResult as Result.Success).data
+        val written = writeCatalogue(context, catalogue)
         val prefs = context.getSharedPreferences("settings", Context.MODE_PRIVATE)
         val selectedAlbumIds = prefs.getStringSet("selected_albums", emptySet()) ?: emptySet()
+        val selections = SyncSelections(context)
+        val selection =
+            SyncSelection(selectedAlbumIds, selections.playlistIds(), selections.bookIds())
+        // A failed write plans from this fetch alone, so cleanup waits for the next sync (below).
+        val plan =
+            syncPlanOf(catalogue, written ?: playlistRowsFrom(catalogue.playlists), selection)
         
-        val itemsToSync = if (selectedAlbumIds.isEmpty() || selectedAlbumIds.contains("all")) {
-            items
-        } else {
-            items.filter { it.albumId != null && selectedAlbumIds.contains(it.albumId) }
-        }
+        val itemsToSync = plan.items
 
         Log.i(TAG, "Fetched ${itemsToSync.size} items from server to sync")
         emit(_syncState.value.copy(totalItems = itemsToSync.size), onProgress)
@@ -76,11 +82,7 @@ object SyncEngine {
             return
         }
 
-        val expectedPaths = mutableSetOf<String>()
-        for (item in itemsToSync) {
-            expectedPaths.add(File(syncDir, buildRelativePath(item)).absolutePath)
-            expectedPaths.add(File(syncDir, buildArtworkPath(item)).absolutePath)
-        }
+        val expectedPaths = filesToKeep(syncDir, plan)
 
         // Upsert album metadata upfront so partial syncs still appear in the library
         val albumGroups = itemsToSync.groupBy { it.albumId }.filterKeys { it != null }
@@ -98,6 +100,8 @@ object SyncEngine {
 
         var downloadedCount = 0
         var totalBytes = 0L
+        // Counted after the usual two attempts; the next sync tries them again (3b spec).
+        var failedDownloads = 0
 
         itemsToSync.forEachIndexed { index, item ->
             if (!currentCoroutineContext().isActive) {
@@ -174,6 +178,7 @@ object SyncEngine {
                     isSuccessfullyProcessed = true
                 }
             }
+            if (!isSuccessfullyProcessed) failedDownloads++
 
             val albumId = item.albumId
             if (albumId != null && dao.getAlbum(albumId)?.artworkPath == null) {
@@ -205,9 +210,13 @@ object SyncEngine {
         if (!currentCoroutineContext().isActive) return
 
         dao.deleteAlbumsWithNoTracks()
-        removeOrphanedFiles(syncDir, expectedPaths, dao)
+        // Without the written rows, the keep set could miss a failed part's files.
+        if (written != null) removeOrphanedFiles(syncDir, expectedPaths, dao)
         // After orphan cleanup, so photos follow the albums that stayed (spec "Artist photos").
         ArtistPhotoSync.run(context, config, repo)
+        // Covers come last; a failed one is logged and retried, never counted (3b spec). They
+        // wait for a written catalogue too, as their cleanup could drop a failed playlist's cover.
+        if (written != null) CoverSync.run(context, config, repo, plan)
 
         emit(
             SyncState(
@@ -215,20 +224,25 @@ object SyncEngine {
                 downloadedItems  = itemsToSync.size,
                 isRunning        = false,
                 bytesDownloaded  = totalBytes,
-                syncComplete     = true
+                syncComplete     = true,
+                failedItems      = failedFetchCount(catalogue, selection) + failedDownloads
             ), onProgress
         )
     }
 
     // Before any download, so a cancelled sync still leaves the catalogue current. A failure
-    // mustn't stop the sync itself.
-    private suspend fun writeCatalogue(context: Context, items: List<MediaItem>) {
-        try {
-            LibraryRepository(context).writeCatalogue(items)
+    // mustn't stop the sync itself. Returns the playlist and book rows written, or null.
+    private suspend fun writeCatalogue(
+        context: Context,
+        catalogue: ServerCatalogue
+    ): PlaylistBookRows? {
+        return try {
+            LibraryRepository(context).writeCatalogue(catalogue)
         } catch (e: kotlinx.coroutines.CancellationException) {
             throw e
         } catch (e: Exception) {
             Log.w(TAG, "Couldn't write the catalogue", e)
+            null
         }
     }
 
@@ -334,48 +348,10 @@ object SyncEngine {
         written
     }
 
-    private fun buildRelativePath(item: MediaItem): String {
-        val artist = sanitizeFilename(item.albumArtist ?: item.artists?.firstOrNull() ?: "Unknown Artist")
-        val album  = sanitizeFilename(item.album ?: "Unknown Album")
-        // Use the filename from the server if available, since it may contain a track number prefix that we don't want to lose.
-        // If not, construct a filename ourselves.
-        val filename = item.path
-            ?.substringAfterLast('/')
-            ?.let { sanitizeFilename(it) }
-            ?: run {
-                val track = item.trackNumber?.let { "%02d ".format(it) } ?: ""
-                val name  = sanitizeFilename(item.name)
-                val ext   = resolveExtension(item)
-                "$track$name.$ext"
-            }
-        return "$artist/$album/$filename"
-    }
-
-    private fun resolveExtension(item: MediaItem): String {
-        item.path?.let { serverPath ->
-            val ext = serverPath.substringAfterLast('.', "").lowercase()
-            if (ext.isNotBlank() && ext.length <= 5 && !ext.contains('/')) return ext
-        }
-        item.container?.let { c ->
-            val ext = c.split(',').first().trim().lowercase()
-            if (ext.isNotBlank()) return ext
-        }
-        return "mp3"
-    }
-
-    private fun buildArtworkPath(item: MediaItem): String {
-        val artist = sanitizeFilename(item.albumArtist ?: item.artists?.firstOrNull() ?: "Unknown Artist")
-        val album  = sanitizeFilename(item.album ?: "Unknown Album")
-        return "$artist/$album/folder.jpg"
-    }
-
     private fun buildTrackLabel(item: MediaItem): String {
         val artist = item.albumArtist ?: item.artists?.firstOrNull() ?: ""
         return if (artist.isNotBlank()) "$artist - ${item.name}" else item.name
     }
-
-    private fun sanitizeFilename(name: String): String =
-        name.replace(Regex("[/\\\\:*?\"<>|]"), "_").trim()
 
     private fun emit(state: SyncState, callback: ((SyncState) -> Unit)?) {
         _syncState.value = state

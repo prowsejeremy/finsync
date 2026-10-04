@@ -2,24 +2,38 @@ package com.jpd.finsync.ui
 
 import android.app.Application
 import android.content.Context
+import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
+import androidx.lifecycle.asLiveData
 import androidx.lifecycle.viewModelScope
 import com.jpd.finsync.auth.JellyfinRepository
 import com.jpd.finsync.auth.Result
 import com.jpd.finsync.db.SyncDatabase
+import com.jpd.finsync.library.LibraryRepository
+import com.jpd.finsync.library.PlaylistChoice
+import com.jpd.finsync.library.PlaylistRepository
 import com.jpd.finsync.model.AlbumSelection
 import com.jpd.finsync.service.SyncScheduler
 import com.jpd.finsync.sync.SyncEngine
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
+
+private const val TAG = "SettingsViewModel"
 
 class SettingsViewModel(app: Application) : AndroidViewModel(app) {
 
     private val repo = JellyfinRepository(app)
     private val dao  = SyncDatabase.getInstance(app).syncDao()
+    private val library = LibraryRepository(app)
+    private val playlists = PlaylistRepository(app)
+    private var catalogueRefreshed = false
+
+    /** Every audio playlist on the server, from the catalogue (3b). */
+    val playlistChoices: LiveData<List<PlaylistChoice>> = playlists.playlistChoices().asLiveData()
 
     private val _albums  = MutableLiveData<List<AlbumSelection>>()
     val albums: LiveData<List<AlbumSelection>> = _albums
@@ -90,6 +104,28 @@ class SettingsViewModel(app: Application) : AndroidViewModel(app) {
             .edit()
             .putStringSet("selected_albums", ids)
             .apply()
+    }
+
+    fun getSelectedPlaylistIds(): Set<String> = playlists.selectedIds()
+
+    fun setSelectedPlaylistIds(ids: Set<String>) = playlists.setSelectedIds(ids)
+
+    /**
+     * Refreshes the catalogue once per visit to Settings, so playlists and books added on the
+     * server show in the choice screens. Offline, the screens show what's cached.
+     */
+    fun refreshCatalogueOnce() {
+        if (catalogueRefreshed) return
+        catalogueRefreshed = true
+        viewModelScope.launch {
+            try {
+                if (!library.refreshCatalogue()) Log.w(TAG, "Catalogue refresh didn't complete")
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                Log.w(TAG, "Couldn't refresh the catalogue", e)
+            }
+        }
     }
 
     fun getAutoSyncInterval(): String =

@@ -80,6 +80,10 @@ class SyncStatusFragment : Fragment() {
             val message = getString(R.string.sync_error, error)
             Snackbar.make(binding.root, message, Snackbar.LENGTH_LONG).show()
         }
+        if (display.failedItems > 0) {
+            val message = resources.syncIncompleteMessage(display.failedItems)
+            Snackbar.make(binding.root, message, Snackbar.LENGTH_LONG).show()
+        }
     }
 
     private fun color(@ColorRes colorRes: Int) = ContextCompat.getColor(requireContext(), colorRes)

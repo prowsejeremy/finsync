@@ -73,3 +73,28 @@ data class GroupDetail(
     val songs: List<SongRow>,
     val showsAllSongs: Boolean
 )
+
+/** A row in Playlists: its downloaded songs only. */
+data class PlaylistSummary(
+    val playlistId: String,
+    val name: String,
+    val songCount: Int,
+    val durationsMs: List<Long?>,
+    /** The server's cover if sync fetched it, else the first downloaded song's album art. */
+    val coverPath: String?
+)
+
+/** The playlist page: downloaded entries in server order, a song repeated where it repeats. */
+data class PlaylistDetail(
+    val playlistId: String,
+    val name: String,
+    val coverPath: String?,
+    val songs: List<SongRow>
+)
+
+/** A playlist in Playlists to Sync, with its audio entry count on the server. */
+data class PlaylistChoice(
+    val playlistId: String,
+    val name: String,
+    val songCount: Int
+)

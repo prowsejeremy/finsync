@@ -5,14 +5,23 @@ import com.jpd.finsync.api.JellyfinClient
 import com.jpd.finsync.model.AuthenticateRequest
 import com.jpd.finsync.model.ItemsResponse
 import com.jpd.finsync.model.MediaItem
+import com.jpd.finsync.model.ServerCatalogue
 import com.jpd.finsync.model.ServerConfig
 import com.jpd.finsync.model.ServerInfo
+import com.jpd.finsync.model.ServerPlaylist
 import com.jpd.finsync.db.SyncDatabase
 import okhttp3.Call
 import okhttp3.OkHttpClient
 import okhttp3.ResponseBody
+import android.util.Log
+import kotlinx.coroutines.CancellationException
+import java.io.IOException
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicReference
+
+private const val TAG = "JellyfinRepository"
+private const val PAGE_SIZE = 500
+private const val PLAYLIST_TYPE = "Playlist"
 
 sealed class Result<out T> {
     data class Success<T>(val data: T) : Result<T>()
@@ -104,27 +113,89 @@ class JellyfinRepository(private val context: Context) {
     fun getSavedConfig()      = credentialStore.load()
     fun isLoggedIn()          = credentialStore.isLoggedIn()
 
-    suspend fun getAllAudioItems(config: ServerConfig): Result<List<MediaItem>> = safeCall {
-        val items = mutableListOf<MediaItem>()
-        val api   = readApi(config.serverUrl)
-        var start = 0
-
-        while (true) {
-            val response = api.getAudioItems(
-                userId        = config.userId,
-                authorization = authorization(config),
-                startIndex    = start,
-                limit         = 500
+    /**
+     * Everything sync and the catalogue refresh read (3b): the audio items, then the user's
+     * playlists and each one's entries. The audio list failing fails the fetch, as before 3b. A
+     * failed playlist part is recorded on the result and the rest carries on (decision 3).
+     */
+    suspend fun getServerCatalogue(config: ServerConfig): Result<ServerCatalogue> = safeCall {
+        val api = readApi(config.serverUrl)
+        val auth = authorization(config)
+        val audio = fetchAllPages("audio items") { start ->
+            api.getAudioItems(
+                userId = config.userId,
+                authorization = auth,
+                startIndex = start,
+                limit = PAGE_SIZE
             )
-            if (!response.isSuccessful) {
-                return@safeCall Result.Error("Failed to fetch items: ${response.code()}")
-            }
-            val page = response.body()!!
-            items.addAll(page.items)
-            if (items.size >= page.totalRecordCount) break
-            start += 500
         }
-        Result.Success(items)
+        val playlistList = partOrNull("playlists") {
+            fetchAllPages("playlists") { start ->
+                api.getItems(
+                    authorization = auth,
+                    userId = config.userId,
+                    includeItemTypes = PLAYLIST_TYPE,
+                    startIndex = start,
+                    limit = PAGE_SIZE
+                )
+            }
+        }
+        val playlists = mutableListOf<ServerPlaylist>()
+        val failedPlaylistIds = mutableSetOf<String>()
+        for (playlist in playlistList.orEmpty()) {
+            val entries = partOrNull("playlist ${playlist.id}") {
+                fetchAllPages("playlist ${playlist.id}") { start ->
+                    api.getPlaylistItems(
+                        playlistId = playlist.id,
+                        authorization = auth,
+                        userId = config.userId,
+                        startIndex = start,
+                        limit = PAGE_SIZE
+                    )
+                }
+            }
+            if (entries == null) {
+                failedPlaylistIds.add(playlist.id)
+            } else {
+                playlists.add(ServerPlaylist(playlist, entries))
+            }
+        }
+        Result.Success(
+            ServerCatalogue(
+                audio = audio,
+                playlists = playlists,
+                playlistsFailed = playlistList == null,
+                failedPlaylistIds = failedPlaylistIds
+            )
+        )
+    }
+
+    // A failed playlist or book part is logged and reported as null, not thrown (decision 3).
+    private suspend fun <T> partOrNull(what: String, fetch: suspend () -> T): T? = try {
+        fetch()
+    } catch (e: CancellationException) {
+        throw e
+    } catch (e: Exception) {
+        Log.w(TAG, "Couldn't fetch $what; it keeps what it had and retries next sync", e)
+        null
+    }
+
+    // Pages through a list endpoint. An HTTP error throws, and safeCall turns it into Result.Error.
+    private suspend fun fetchAllPages(
+        what: String,
+        fetchPage: suspend (startIndex: Int) -> retrofit2.Response<ItemsResponse>
+    ): List<MediaItem> {
+        val items = mutableListOf<MediaItem>()
+        while (true) {
+            val response = fetchPage(items.size)
+            val page = response.body()
+            if (!response.isSuccessful || page == null) {
+                throw IOException("Failed to fetch $what: ${response.code()}")
+            }
+            items.addAll(page.items)
+            // An empty page ends it too, so a wrong total can't loop forever.
+            if (page.items.isEmpty() || items.size >= page.totalRecordCount) return items
+        }
     }
 
     suspend fun getAlbums(config: ServerConfig): Result<ItemsResponse> = safeCall {

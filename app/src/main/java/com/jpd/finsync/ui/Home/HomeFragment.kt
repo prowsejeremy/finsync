@@ -43,6 +43,9 @@ class HomeFragment : Fragment() {
         binding.cardSongs.setOnClickListener {
             navigateSafely(R.id.homeFragment, R.id.action_home_to_songs)
         }
+        binding.cardPlaylists.setOnClickListener {
+            navigateSafely(R.id.homeFragment, R.id.action_home_to_playlists)
+        }
         binding.btnRetry.setOnClickListener { libraryViewModel.retry() }
         viewModel.uiState.observe(viewLifecycleOwner) { renderSyncRing(SyncDisplay.from(it)) }
         libraryViewModel.homeState.observe(viewLifecycleOwner) { renderLibrary(it) }
@@ -77,5 +80,6 @@ class HomeFragment : Fragment() {
         binding.tvAlbumArtistsCount.text = ready.albumArtistCount.toString()
         binding.tvGenresCount.text = ready.genreCount.toString()
         binding.tvSongsCount.text = ready.songCount.toString()
+        binding.tvPlaylistsCount.text = ready.playlistCount.toString()
     }
 }

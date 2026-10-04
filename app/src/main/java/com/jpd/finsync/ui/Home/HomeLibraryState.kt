@@ -7,12 +7,13 @@ sealed class HomeLibraryState {
     object Building : HomeLibraryState()
     object Failed : HomeLibraryState()
 
-    /** The four cards' counts: visible albums, album artists, genres and songs. */
+    /** The cards' counts: visible albums, album artists, genres, songs and playlists. */
     data class Ready(
         val albumCount: Int,
         val albumArtistCount: Int = 0,
         val genreCount: Int = 0,
-        val songCount: Int = 0
+        val songCount: Int = 0,
+        val playlistCount: Int = 0
     ) : HomeLibraryState() {
         /** Nothing downloaded passes the selection, so Home shows the "Choose albums" hint. */
         val nothingVisible: Boolean get() = albumCount == 0 && songCount == 0
@@ -29,9 +30,12 @@ fun homeLibraryStateOf(
     refresh: RefreshStatus,
     albumArtistCount: Int = 0,
     genreCount: Int = 0,
-    songCount: Int = 0
+    songCount: Int = 0,
+    playlistCount: Int = 0
 ): HomeLibraryState {
-    val ready = HomeLibraryState.Ready(albumCount, albumArtistCount, genreCount, songCount)
+    val ready = HomeLibraryState.Ready(
+        albumCount, albumArtistCount, genreCount, songCount, playlistCount
+    )
     return when {
         !catalogueEmpty -> ready
         refresh == RefreshStatus.FAILED -> HomeLibraryState.Failed

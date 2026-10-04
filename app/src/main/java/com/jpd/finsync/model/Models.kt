@@ -37,6 +37,27 @@ data class ItemsResponse(
     @SerializedName("TotalRecordCount") val totalRecordCount: Int
 )
 
+/** One playlist and its entries, in server order (3b). */
+data class ServerPlaylist(val playlist: MediaItem, val entries: List<MediaItem>)
+
+/**
+ * Everything sync and the catalogue refresh read from the server in one go: audio items,
+ * playlists with their entries, and audiobooks (fetched from M2; none until then). A failed part
+ * is recorded rather than fatal; the catalogue keeps its previous rows (spec "Order, cleanup and
+ * failures").
+ */
+data class ServerCatalogue(
+    val audio: List<MediaItem>,
+    val playlists: List<ServerPlaylist>,
+    val books: List<MediaItem> = emptyList(),
+    /** The playlist list didn't load, so [playlists] is empty and every playlist keeps its rows. */
+    val playlistsFailed: Boolean = false,
+    /** Playlists whose entries didn't load; they're left out of [playlists] and keep their rows. */
+    val failedPlaylistIds: Set<String> = emptySet(),
+    /** The book list didn't load, so [books] is empty and every book keeps its rows. */
+    val booksFailed: Boolean = false
+)
+
 @Parcelize
 data class MediaItem(
     @SerializedName("Id") val id: String,
@@ -114,7 +135,12 @@ data class SyncState(
     val bytesDownloaded: Long = 0L,
     val totalBytes: Long = 0L,
     /** True only on the terminal emission after a successful (non-stopped, non-error) sync run. */
-    val syncComplete: Boolean = false
+    val syncComplete: Boolean = false,
+    /**
+     * Items this run couldn't sync, set on the terminal emission: failed fetches plus failed
+     * downloads. Above zero, the sync is incomplete and they retry next sync (3b spec).
+     */
+    val failedItems: Int = 0
 ) {
     val progress: Int get() = if (totalItems > 0) (downloadedItems * 100) / totalItems else 0
 }

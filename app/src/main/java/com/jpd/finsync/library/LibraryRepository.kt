@@ -9,6 +9,8 @@ import com.jpd.finsync.db.CatalogueDao
 import com.jpd.finsync.db.SongTrackRow
 import com.jpd.finsync.db.SyncDatabase
 import com.jpd.finsync.model.MediaItem
+import com.jpd.finsync.model.ServerCatalogue
+import com.jpd.finsync.model.ServerPlaylist
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
@@ -44,6 +46,8 @@ class LibraryRepository internal constructor(
     )
 
     private val appContext = context.applicationContext
+    // The playlist selection widens the album selection (spec "Visibility").
+    private val selections = SyncSelections(appContext)
 
     /** Visible albums by name: at least one downloaded track, and included in the selection. */
     fun albums(): Flow<List<AlbumSummary>> =
@@ -190,12 +194,12 @@ class LibraryRepository internal constructor(
     suspend fun downloadedAlbumArtistIds(): Set<String> =
         catalogueDao.downloadedAlbumArtistIds().toSet()
 
-    /** Fetches the server's audio items and replaces the catalogue, without downloading. */
+    /** Fetches the server's catalogue and replaces it, without downloading. */
     suspend fun refreshCatalogue(): Boolean {
         val jellyfin = JellyfinRepository(appContext)
         val config = jellyfin.getSavedConfig() ?: return false
-        val result = jellyfin.getAllAudioItems(config)
-        // getAllAudioItems turns cancellation into Result.Error (known item 10), so rethrow here.
+        val result = jellyfin.getServerCatalogue(config)
+        // getServerCatalogue turns cancellation into Result.Error (known item 10), so rethrow.
         currentCoroutineContext().ensureActive()
         return when (result) {
             is Result.Success -> {
@@ -209,7 +213,34 @@ class LibraryRepository internal constructor(
         }
     }
 
-    suspend fun writeCatalogue(items: List<MediaItem>) {
+    /**
+     * Replaces every catalogue table with one fetch, in one transaction. A part whose fetch
+     * failed keeps its previous rows (decision 3). Returns the playlist and book rows written,
+     * which sync plans from.
+     */
+    suspend fun writeCatalogue(catalogue: ServerCatalogue): PlaylistBookRows {
+        // Read just before the swap; a refresh racing a sync writes the same server data.
+        val previous = PlaylistBookRows(
+            playlists = catalogueDao.allPlaylists(),
+            playlistItems = catalogueDao.allPlaylistItems(),
+            books = catalogueDao.allBooks(),
+            chapters = catalogueDao.allBookChapters()
+        )
+        val fresh = withContext(Dispatchers.Default) { playlistRowsFrom(catalogue.playlists) }
+        val rows = keepFailedParts(fresh, previous, catalogue)
+        writeRows(catalogue.audio, rows)
+        return rows
+    }
+
+    /** Writes items and playlists as given, with nothing failed: for tests, 3a's included. */
+    suspend fun writeCatalogue(
+        items: List<MediaItem>,
+        playlists: List<ServerPlaylist> = emptyList()
+    ) {
+        writeRows(items, playlistRowsFrom(playlists))
+    }
+
+    private suspend fun writeRows(items: List<MediaItem>, rows: PlaylistBookRows) {
         val catalogue = withContext(Dispatchers.Default) { catalogueFrom(items) }
         catalogueDao.replaceCatalogue(
             catalogue.albums,
@@ -218,7 +249,11 @@ class LibraryRepository internal constructor(
             catalogue.albumArtists,
             catalogue.trackArtists,
             catalogue.genres,
-            catalogue.trackGenres
+            catalogue.trackGenres,
+            rows.playlists,
+            rows.playlistItems,
+            rows.books,
+            rows.chapters
         )
     }
 
@@ -229,7 +264,7 @@ class LibraryRepository internal constructor(
         ArtistPhotos.deleteAll(appContext)
     }
 
-    private fun groupOf(
+    private suspend fun groupOf(
         id: String,
         name: String?,
         photoPath: String?,
@@ -245,23 +280,8 @@ class LibraryRepository internal constructor(
 
     private fun visibleSongs(rows: List<SongTrackRow>, selectedIds: Set<String>): List<SongRow> {
         val artwork = AlbumArtworkCache(::fileExists)
-        return rows.filter { isTrackVisible(it.track.albumId, selectedIds) }.map { row ->
-            val track = row.track
-            SongRow(
-                itemId = track.itemId,
-                title = track.name,
-                artists = track.artistNames.takeIf { it.isNotEmpty() }
-                    ?.joinToString(ARTIST_SEPARATOR)
-                    ?: track.albumArtist,
-                albumId = track.albumId,
-                albumName = row.albumName,
-                albumYear = row.albumYear,
-                discNumber = track.discNumber,
-                trackNumber = track.trackNumber,
-                durationMs = track.durationMs,
-                artworkPath = artwork.artworkFor(track.albumId, row.storedArtworkPath, row.localPath)
-            )
-        }
+        return rows.filter { isTrackVisible(it.track.albumId, selectedIds) }
+            .map { songRowOf(it, artwork) }
     }
 
     private fun albumSummaryOf(row: AlbumSummaryRow) = AlbumSummary(
@@ -273,9 +293,40 @@ class LibraryRepository internal constructor(
         artworkPath = chooseArtwork(row.storedArtworkPath, row.firstTrackPath, ::fileExists)
     )
 
-    private fun selectedAlbumIds(): Set<String> =
-        appContext.getSharedPreferences(SETTINGS_PREFS, Context.MODE_PRIVATE)
+    /**
+     * The album selection browse screens apply: the saved one, plus albums holding a downloaded
+     * entry of a selected playlist (spec "Visibility"). Read on each emission, as before.
+     */
+    private suspend fun selectedAlbumIds(): Set<String> {
+        val saved = appContext.getSharedPreferences(SETTINGS_PREFS, Context.MODE_PRIVATE)
             .getStringSet(SELECTED_ALBUMS_KEY, emptySet()) ?: emptySet()
+        if (selectsEveryAlbum(saved)) return saved
+        val playlistIds = selections.playlistIds()
+        if (playlistIds.isEmpty()) return saved
+        val playlistAlbumIds = catalogueDao.playlistAlbums()
+            .filter { it.playlistId in playlistIds }
+            .mapTo(HashSet()) { it.albumId }
+        return visibleAlbumSelection(saved, playlistAlbumIds)
+    }
 
     private fun fileExists(path: String): Boolean = File(path).exists()
+}
+
+/** A downloaded track as a Songs-style row: Songs, All songs and a playlist's page share it. */
+internal fun songRowOf(row: SongTrackRow, artwork: AlbumArtworkCache): SongRow {
+    val track = row.track
+    return SongRow(
+        itemId = track.itemId,
+        title = track.name,
+        artists = track.artistNames.takeIf { it.isNotEmpty() }
+            ?.joinToString(ARTIST_SEPARATOR)
+            ?: track.albumArtist,
+        albumId = track.albumId,
+        albumName = row.albumName,
+        albumYear = row.albumYear,
+        discNumber = track.discNumber,
+        trackNumber = track.trackNumber,
+        durationMs = track.durationMs,
+        artworkPath = artwork.artworkFor(track.albumId, row.storedArtworkPath, row.localPath)
+    )
 }

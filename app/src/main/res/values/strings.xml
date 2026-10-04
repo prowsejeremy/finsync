@@ -100,6 +100,12 @@
     <string name="sync_detail_offline">Please reconnect to sync.</string>
     <string name="sync_track_total">of %1$d tracks synced</string>
     <string name="sync_error">Sync error: %1$s</string>
+    <string name="status_sync_incomplete">Sync incomplete</string>
+    <plurals name="sync_incomplete_detail">
+        <item quantity="one">%d item couldn\'t sync. It\'ll retry next sync.</item>
+        <item quantity="other">%d items couldn\'t sync. They\'ll retry next sync.</item>
+    </plurals>
+    <string name="sync_incomplete_message">Sync incomplete: %1$s</string>
 
     <!-- Playback -->
     <string name="files_missing">Files missing. Run a sync.</string>
@@ -118,4 +124,14 @@
     <string name="cd_previous">Previous</string>
     <string name="cd_repeat">Repeat</string>
     <string name="cd_shuffle">Shuffle</string>
+
+    <!-- Playlists (3b) -->
+    <string name="home_playlists">Playlists</string>
+    <string name="header_playlists">Playlists</string>
+    <string name="playlists_empty">No synced playlists</string>
+    <string name="playlists_empty_hint">Choose playlists to sync in Settings</string>
+    <string name="settings_playlists_title">Playlists to Sync</string>
+    <string name="settings_playlists_summary">%1$d of %2$d playlists selected</string>
+    <string name="settings_change_selection">Tap to change selection</string>
+    <string name="selection_title_playlists">Select Playlists to Sync</string>
 </resources>

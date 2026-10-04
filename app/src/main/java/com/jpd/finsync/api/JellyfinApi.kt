@@ -75,4 +75,29 @@ interface JellyfinApi {
         @Query("quality") quality: Int = 90,
         @Query("maxWidth") maxWidth: Int = 600
     ): Response<ResponseBody>
+
+    // 3b's requests use routes Jellyfin 12.1.0's OpenAPI documents. The Users/{userId}/Items
+    // calls above aren't in it but still work, so they stay. A null fields is left out.
+    @GET("Items")
+    suspend fun getItems(
+        @Header("Authorization") authorization: String,
+        @Query("userId") userId: String,
+        @Query("includeItemTypes") includeItemTypes: String,
+        @Query("recursive") recursive: Boolean = true,
+        @Query("fields") fields: String? = null,
+        @Query("sortBy") sortBy: String = "SortName",
+        @Query("sortOrder") sortOrder: String = "Ascending",
+        @Query("startIndex") startIndex: Int = 0,
+        @Query("limit") limit: Int = 500
+    ): Response<ItemsResponse>
+
+    /** A playlist's entries in server order, each under the track's own item ID. */
+    @GET("Playlists/{playlistId}/Items")
+    suspend fun getPlaylistItems(
+        @Path("playlistId") playlistId: String,
+        @Header("Authorization") authorization: String,
+        @Query("userId") userId: String,
+        @Query("startIndex") startIndex: Int = 0,
+        @Query("limit") limit: Int = 500
+    ): Response<ItemsResponse>
 }

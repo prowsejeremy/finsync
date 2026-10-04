@@ -14,6 +14,7 @@ import com.jpd.finsync.auth.JellyfinRepository
 import com.jpd.finsync.model.SyncState
 import com.jpd.finsync.sync.SyncEngine
 import com.jpd.finsync.ui.MainActivity
+import com.jpd.finsync.ui.syncIncompleteMessage
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -75,6 +76,7 @@ class SyncService : Service() {
             SyncEngine.syncLibrary(this@SyncService, config) { state ->
                 updateNotification(state)
             }
+            leaveIncompleteNotice(SyncEngine.syncState.value)
             stopSelf()
         }
     }
@@ -117,10 +119,30 @@ class SyncService : Service() {
     private fun updateNotification(state: SyncState) {
         val text = when {
             state.errorMessage != null       -> "Error: ${state.errorMessage}"
+            state.failedItems > 0            -> resources.syncIncompleteMessage(state.failedItems)
             !state.isRunning                 -> "Sync complete"
             state.currentTrack.isNotEmpty()  -> state.currentTrack
             else                             -> "Syncing..."
         }
         notificationManager.notify(NOTIFICATION_ID, buildNotification(text, state.progress))
+    }
+
+    /**
+     * Detached, so it outlives the service; dismissible, and the next sync's notification
+     * replaces it (same ID). A stopped or failed sync has no failed items, so leaves none.
+     */
+    private fun leaveIncompleteNotice(state: SyncState) {
+        if (state.isRunning || state.failedItems == 0) return
+        stopForeground(STOP_FOREGROUND_DETACH)
+        val text = resources.syncIncompleteMessage(state.failedItems)
+        val notice = NotificationCompat.Builder(this, CHANNEL_ID)
+            .setContentTitle("Finsync")
+            .setContentText(text)
+            .setStyle(NotificationCompat.BigTextStyle().bigText(text))
+            .setSmallIcon(R.drawable.ic_sync)
+            .setContentIntent(openSyncStatusIntent)
+            .setAutoCancel(true)
+            .build()
+        notificationManager.notify(NOTIFICATION_ID, notice)
     }
 }

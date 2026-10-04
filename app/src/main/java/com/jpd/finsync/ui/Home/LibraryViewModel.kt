@@ -7,6 +7,7 @@ import androidx.lifecycle.LiveData
 import androidx.lifecycle.asLiveData
 import androidx.lifecycle.viewModelScope
 import com.jpd.finsync.library.LibraryRepository
+import com.jpd.finsync.library.PlaylistRepository
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -20,6 +21,7 @@ private const val TAG = "LibraryViewModel"
 class LibraryViewModel(app: Application) : AndroidViewModel(app) {
 
     private val library = LibraryRepository(app)
+    private val playlists = PlaylistRepository(app)
     private val refreshStatus = MutableStateFlow(RefreshStatus.IDLE)
 
     val homeState: LiveData<HomeLibraryState> = combine(
@@ -33,7 +35,8 @@ class LibraryViewModel(app: Application) : AndroidViewModel(app) {
             refresh = status,
             albumArtistCount = counts.albumArtists,
             genreCount = counts.genres,
-            songCount = counts.songs
+            songCount = counts.songs,
+            playlistCount = counts.playlists
         )
     }.asLiveData()
 
@@ -47,9 +50,10 @@ class LibraryViewModel(app: Application) : AndroidViewModel(app) {
         library.albumCount(),
         library.albumArtistCount(),
         library.genreCount(),
-        library.songCount()
-    ) { albums, albumArtists, genres, songs ->
-        CategoryCounts(albums, albumArtists, genres, songs)
+        library.songCount(),
+        playlists.playlistCount()
+    ) { albums, albumArtists, genres, songs, playlistCount ->
+        CategoryCounts(albums, albumArtists, genres, songs, playlistCount)
     }
 
     private fun refreshIfEmpty() {
@@ -74,6 +78,7 @@ class LibraryViewModel(app: Application) : AndroidViewModel(app) {
         val albums: Int,
         val albumArtists: Int,
         val genres: Int,
-        val songs: Int
+        val songs: Int,
+        val playlists: Int
     )
 }

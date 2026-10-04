@@ -56,3 +56,26 @@ data class SongTrackRow(
     val albumYear: Int?,
     val storedArtworkPath: String?
 )
+
+/** A downloaded entry of a playlist, for the Playlists list's counts and fallback cover. */
+data class PlaylistEntryRow(
+    val playlistId: String,
+    val position: Int,
+    val durationMs: Long?,
+    val albumId: String?,
+    val localPath: String,
+    val storedArtworkPath: String?
+)
+
+/** A playlist and how many audio entries it has on the server, for Playlists to Sync. */
+data class PlaylistChoiceRow(
+    val playlistId: String,
+    val name: String,
+    val entryCount: Int
+)
+
+/** An album holding a downloaded entry of a playlist, for the visibility rule. */
+data class PlaylistAlbumRow(
+    val playlistId: String,
+    val albumId: String
+)

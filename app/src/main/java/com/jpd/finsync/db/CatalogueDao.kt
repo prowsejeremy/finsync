@@ -31,6 +31,18 @@ abstract class CatalogueDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     abstract suspend fun insertTrackGenres(links: List<CatalogueTrackGenre>)
 
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    abstract suspend fun insertPlaylists(playlists: List<CataloguePlaylist>)
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    abstract suspend fun insertPlaylistItems(items: List<CataloguePlaylistItem>)
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    abstract suspend fun insertBooks(books: List<CatalogueBook>)
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    abstract suspend fun insertBookChapters(chapters: List<CatalogueBookChapter>)
+
     @Query("DELETE FROM catalogue_albums")
     abstract suspend fun deleteAllAlbums()
 
@@ -52,7 +64,19 @@ abstract class CatalogueDao {
     @Query("DELETE FROM catalogue_track_genres")
     abstract suspend fun deleteAllTrackGenres()
 
-    /** Swaps all seven catalogue tables in one transaction, so readers never see half of it. */
+    @Query("DELETE FROM catalogue_playlists")
+    abstract suspend fun deleteAllPlaylists()
+
+    @Query("DELETE FROM catalogue_playlist_items")
+    abstract suspend fun deleteAllPlaylistItems()
+
+    @Query("DELETE FROM catalogue_books")
+    abstract suspend fun deleteAllBooks()
+
+    @Query("DELETE FROM catalogue_book_chapters")
+    abstract suspend fun deleteAllBookChapters()
+
+    /** Swaps all eleven catalogue tables in one transaction, so readers never see half of it. */
     @Transaction
     open suspend fun replaceCatalogue(
         albums: List<CatalogueAlbum>,
@@ -61,7 +85,11 @@ abstract class CatalogueDao {
         albumArtists: List<CatalogueAlbumArtist>,
         trackArtists: List<CatalogueTrackArtist>,
         genres: List<CatalogueGenre>,
-        trackGenres: List<CatalogueTrackGenre>
+        trackGenres: List<CatalogueTrackGenre>,
+        playlists: List<CataloguePlaylist>,
+        playlistItems: List<CataloguePlaylistItem>,
+        books: List<CatalogueBook>,
+        bookChapters: List<CatalogueBookChapter>
     ) {
         clearCatalogue()
         insertAlbums(albums)
@@ -71,10 +99,19 @@ abstract class CatalogueDao {
         insertTrackArtists(trackArtists)
         insertGenres(genres)
         insertTrackGenres(trackGenres)
+        insertPlaylists(playlists)
+        insertPlaylistItems(playlistItems)
+        insertBooks(books)
+        insertBookChapters(bookChapters)
     }
 
+    // book_progress isn't catalogue, so neither function touches it (spec "Book progress").
     @Transaction
     open suspend fun clearCatalogue() {
+        deleteAllBookChapters()
+        deleteAllBooks()
+        deleteAllPlaylistItems()
+        deleteAllPlaylists()
         deleteAllTrackGenres()
         deleteAllGenres()
         deleteAllTrackArtists()
@@ -274,4 +311,78 @@ abstract class CatalogueDao {
         """
     )
     abstract suspend fun playableTracks(itemIds: List<String>): List<PlayableTrackRow>
+
+    @Query("SELECT * FROM catalogue_playlists")
+    abstract fun observePlaylists(): Flow<List<CataloguePlaylist>>
+
+    /** Every playlist's downloaded entries, before the selection applies. */
+    @Query(
+        """
+        SELECT pi.playlistId AS playlistId, pi.position AS position, t.durationMs AS durationMs,
+            t.albumId AS albumId, s.localPath AS localPath, sa.artworkPath AS storedArtworkPath
+        FROM catalogue_playlist_items pi
+        INNER JOIN catalogue_tracks t ON t.itemId = pi.itemId
+        INNER JOIN synced_tracks s ON s.itemId = pi.itemId
+        LEFT JOIN synced_albums sa ON sa.albumId = t.albumId
+        ORDER BY pi.playlistId, pi.position
+        """
+    )
+    abstract fun observePlaylistEntries(): Flow<List<PlaylistEntryRow>>
+
+    @Query("SELECT name FROM catalogue_playlists WHERE playlistId = :playlistId")
+    abstract fun observePlaylistName(playlistId: String): Flow<String?>
+
+    /** A playlist's downloaded entries in server order; a repeated song gives repeated rows. */
+    @Query(
+        """
+        SELECT t.*, s.localPath AS localPath, a.name AS albumName, a.year AS albumYear,
+            sa.artworkPath AS storedArtworkPath
+        FROM catalogue_playlist_items pi
+        INNER JOIN catalogue_tracks t ON t.itemId = pi.itemId
+        INNER JOIN synced_tracks s ON s.itemId = pi.itemId
+        LEFT JOIN catalogue_albums a ON a.albumId = t.albumId
+        LEFT JOIN synced_albums sa ON sa.albumId = t.albumId
+        WHERE pi.playlistId = :playlistId
+        ORDER BY pi.position
+        """
+    )
+    abstract fun observePlaylistSongs(playlistId: String): Flow<List<SongTrackRow>>
+
+    @Query(
+        """
+        SELECT p.playlistId AS playlistId, p.name AS name, COUNT(pi.itemId) AS entryCount
+        FROM catalogue_playlists p
+        LEFT JOIN catalogue_playlist_items pi ON pi.playlistId = p.playlistId
+        GROUP BY p.playlistId
+        ORDER BY p.name COLLATE NOCASE, p.playlistId
+        """
+    )
+    abstract fun observePlaylistChoices(): Flow<List<PlaylistChoiceRow>>
+
+    /** Albums holding a downloaded playlist entry, for the visibility rule (spec "Visibility"). */
+    @Query(
+        """
+        SELECT DISTINCT pi.playlistId AS playlistId, t.albumId AS albumId
+        FROM catalogue_playlist_items pi
+        INNER JOIN catalogue_tracks t ON t.itemId = pi.itemId
+        INNER JOIN synced_tracks s ON s.itemId = pi.itemId
+        WHERE t.albumId IS NOT NULL
+        """
+    )
+    abstract suspend fun playlistAlbums(): List<PlaylistAlbumRow>
+
+    // The playlist and book rows as they are, so a part whose fetch failed can keep them
+    // (spec "Order, cleanup and failures").
+
+    @Query("SELECT * FROM catalogue_playlists")
+    abstract suspend fun allPlaylists(): List<CataloguePlaylist>
+
+    @Query("SELECT * FROM catalogue_playlist_items ORDER BY playlistId, position")
+    abstract suspend fun allPlaylistItems(): List<CataloguePlaylistItem>
+
+    @Query("SELECT * FROM catalogue_books")
+    abstract suspend fun allBooks(): List<CatalogueBook>
+
+    @Query("SELECT * FROM catalogue_book_chapters ORDER BY bookId, position")
+    abstract suspend fun allBookChapters(): List<CatalogueBookChapter>
 }

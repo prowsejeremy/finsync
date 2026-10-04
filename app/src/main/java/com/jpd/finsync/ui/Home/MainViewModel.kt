@@ -13,6 +13,7 @@ import com.jpd.finsync.auth.JellyfinRepository
 import com.jpd.finsync.auth.Result
 import com.jpd.finsync.db.SyncDatabase
 import com.jpd.finsync.library.LibraryRepository
+import com.jpd.finsync.library.PlaylistRepository
 import com.jpd.finsync.model.AlbumSelection
 import com.jpd.finsync.model.ServerConfig
 import com.jpd.finsync.model.SyncState
@@ -175,6 +176,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                 val library = LibraryRepository(getApplication())
                 library.clearCatalogue()
                 library.deleteArtistPhotos()
+                PlaylistRepository(getApplication()).deletePlaylistCovers()
             }
             _config.postValue(null)
         }
