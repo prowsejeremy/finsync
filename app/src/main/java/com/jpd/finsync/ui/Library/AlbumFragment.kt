@@ -5,6 +5,7 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import androidx.fragment.app.Fragment
+import androidx.fragment.app.activityViewModels
 import androidx.fragment.app.viewModels
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.jpd.finsync.R
@@ -19,7 +20,10 @@ class AlbumFragment : Fragment() {
     private var _binding: FragmentAlbumBinding? = null
     private val binding get() = _binding!!
     private val viewModel: AlbumViewModel by viewModels()
+    private val playbackViewModel: PlaybackViewModel by activityViewModels()
     private lateinit var adapter: AlbumTracksAdapter
+    // The album's downloaded tracks in album order; playback starts from an index into this.
+    private var trackIds: List<String> = emptyList()
 
     override fun onCreateView(
         inflater: LayoutInflater,
@@ -35,11 +39,21 @@ class AlbumFragment : Fragment() {
         val backDispatcher = requireActivity().onBackPressedDispatcher
         binding.header.btnBack.setOnClickListener { backDispatcher.onBackPressed() }
 
-        adapter = AlbumTracksAdapter { }
+        adapter = AlbumTracksAdapter { row ->
+            playbackViewModel.playAlbum(trackIds, row.queueIndex, shuffle = false)
+        }
         binding.recyclerView.layoutManager = LinearLayoutManager(requireContext())
         binding.recyclerView.adapter = adapter
 
+        binding.btnPlay.setOnClickListener {
+            playbackViewModel.playAlbum(trackIds, 0, shuffle = false)
+        }
+        binding.btnShuffle.setOnClickListener {
+            playbackViewModel.playAlbum(trackIds, 0, shuffle = true)
+        }
+
         viewModel.album.observe(viewLifecycleOwner) { render(it) }
+        playbackViewModel.state.observe(viewLifecycleOwner) { adapter.setPlayingItemId(it.mediaId) }
     }
 
     override fun onDestroyView() {
@@ -50,6 +64,7 @@ class AlbumFragment : Fragment() {
     private fun render(album: AlbumDetail?) {
         binding.content.visibility = if (album != null) View.VISIBLE else View.GONE
         binding.tvNotDownloaded.visibility = if (album == null) View.VISIBLE else View.GONE
+        trackIds = album?.tracks?.map { it.itemId } ?: emptyList()
         if (album == null) return
 
         val count = album.tracks.size

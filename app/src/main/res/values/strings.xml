@@ -77,4 +77,8 @@
     <string name="sync_detail_offline">Please reconnect to sync.</string>
     <string name="sync_track_total">of %1$d tracks synced</string>
     <string name="sync_error">Sync error: %1$s</string>
+
+    <!-- Playback -->
+    <string name="files_missing">Files missing. Run a sync.</string>
+    <string name="playback_unavailable">Playback unavailable</string>
 </resources>

@@ -16,6 +16,7 @@ class ServerBottomSheet : BottomSheetDialogFragment() {
     private val binding get() = _binding!!
 
     private val viewModel: MainViewModel by activityViewModels()
+    private val playbackViewModel: PlaybackViewModel by activityViewModels()
 
     override fun getTheme(): Int = R.style.Theme_Finsync_BottomSheet
 
@@ -54,6 +55,7 @@ class ServerBottomSheet : BottomSheetDialogFragment() {
         }
 
         binding.btnLogout.setOnClickListener {
+            playbackViewModel.clearQueue()
             viewModel.logout()
             startActivity(
                 Intent(requireContext(), LoginActivity::class.java).apply {

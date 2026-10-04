@@ -19,6 +19,8 @@
 -keep class com.google.gson.** { *; }
 -keep class com.jpd.finsync.model.** { *; }
 -keepclassmembers class com.jpd.finsync.model.** { <fields>; }
+# Read only by Gson's reflection, so R8 would otherwise shrink it and saves would come back empty.
+-keep class com.jpd.finsync.playback.ResumeJson { *; }
 -keepclassmembernames class * {
     @com.google.gson.annotations.SerializedName <fields>;
 }
@@ -42,3 +44,6 @@
 -keep class * extends androidx.work.ListenableWorker {
     public <init>(android.content.Context, androidx.work.WorkerParameters);
 }
+
+# BASS: native code binds to these classes by name (un4seen's PROGUARD-BASS.PRO)
+-keep class com.un4seen.bass.** { *; }

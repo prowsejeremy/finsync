@@ -12,15 +12,19 @@ import androidx.lifecycle.viewModelScope
 import com.jpd.finsync.auth.JellyfinRepository
 import com.jpd.finsync.auth.Result
 import com.jpd.finsync.db.SyncDatabase
+import com.jpd.finsync.library.LibraryRepository
 import com.jpd.finsync.model.AlbumSelection
 import com.jpd.finsync.model.ServerConfig
 import com.jpd.finsync.model.SyncState
+import com.jpd.finsync.playback.ResumeStore
 import com.jpd.finsync.service.SyncScheduler
 import com.jpd.finsync.service.SyncService
 import com.jpd.finsync.sync.SyncEngine
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 class MainViewModel(app: Application) : AndroidViewModel(app) {
     fun checkServerConnection() {
@@ -162,7 +166,14 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
 
     fun logout() {
         viewModelScope.launch {
-            repo.logout(getApplication())
+            // So a different server's library and queue aren't shown after the next login.
+            // The activity finishes straight after this call, so logging out and clearing the
+            // queue and catalogue must all finish even if this scope is cancelled.
+            withContext(NonCancellable) {
+                repo.logout(getApplication())
+                ResumeStore(getApplication()).clear()
+                LibraryRepository(getApplication()).clearCatalogue()
+            }
             _config.postValue(null)
         }
     }
