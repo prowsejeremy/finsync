@@ -49,28 +49,29 @@ class AlbumTracksAdapter(
         }
     }
 
-    private class DiscHolder(private val b: ItemDiscHeadingBinding) :
-        RecyclerView.ViewHolder(b.root) {
+    private class DiscHolder(private val binding: ItemDiscHeadingBinding) :
+        RecyclerView.ViewHolder(binding.root) {
         fun bind(row: AlbumListRow.DiscHeading) {
-            b.tvDisc.text = b.root.resources.getString(R.string.disc_heading, row.discNumber)
+            binding.tvDisc.text =
+                binding.root.resources.getString(R.string.disc_heading, row.discNumber)
         }
     }
 
-    private inner class TrackHolder(private val b: ItemAlbumTrackBinding) :
-        RecyclerView.ViewHolder(b.root) {
+    private inner class TrackHolder(private val binding: ItemAlbumTrackBinding) :
+        RecyclerView.ViewHolder(binding.root) {
         fun bind(row: AlbumListRow.Track) {
-            val context = b.root.context
+            val context = binding.root.context
             val playing = row.itemId == playingItemId
             val titleColour = if (playing) R.color.accent_green else R.color.text_primary
             val numberColour = if (playing) R.color.accent_green else R.color.muted
-            b.tvNumber.text = row.number
-            b.tvNumber.setTextColor(ContextCompat.getColor(context, numberColour))
-            b.tvTitle.text = row.title
-            b.tvTitle.setTextColor(ContextCompat.getColor(context, titleColour))
-            b.tvTrackArtists.text = row.artists
-            b.tvTrackArtists.visibility = if (row.artists != null) View.VISIBLE else View.GONE
-            b.tvDuration.text = row.durationMs?.let(::formatDuration) ?: ""
-            b.root.setOnClickListener { onTrackClick(row) }
+            binding.tvNumber.text = row.number
+            binding.tvNumber.setTextColor(ContextCompat.getColor(context, numberColour))
+            binding.tvTitle.text = row.title
+            binding.tvTitle.setTextColor(ContextCompat.getColor(context, titleColour))
+            binding.tvTrackArtists.text = row.artists
+            binding.tvTrackArtists.visibility = if (row.artists != null) View.VISIBLE else View.GONE
+            binding.tvDuration.text = row.durationMs?.let(::formatDuration) ?: ""
+            binding.root.setOnClickListener { onTrackClick(row) }
         }
     }
 }

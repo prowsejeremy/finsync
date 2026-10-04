@@ -69,20 +69,22 @@ private class AlbumsAdapter(
 
     override fun onBindViewHolder(holder: Holder, position: Int) = holder.bind(getItem(position))
 
-    inner class Holder(private val b: ItemAlbumBinding) : RecyclerView.ViewHolder(b.root) {
+    inner class Holder(private val binding: ItemAlbumBinding) :
+        RecyclerView.ViewHolder(binding.root) {
         fun bind(album: AlbumSummary) {
-            val resources = b.root.resources
+            val resources = binding.root.resources
             val count = album.downloadedTrackCount
-            b.tvAlbum.text = album.name
-            b.tvArtist.text = album.albumArtist ?: resources.getString(R.string.unknown_artist)
-            b.tvSyncStatus.text = joinWithDots(
+            binding.tvAlbum.text = album.name
+            binding.tvArtist.text =
+                album.albumArtist ?: resources.getString(R.string.unknown_artist)
+            binding.tvSyncStatus.text = joinWithDots(
                 listOf(
                     album.year?.toString(),
                     resources.getQuantityString(R.plurals.track_count, count, count)
                 )
             )
-            loadArtwork(b.ivAlbumArt, album.artworkPath)
-            b.root.setOnClickListener { onClick(album) }
+            loadArtwork(binding.ivAlbumArt, album.artworkPath)
+            binding.root.setOnClickListener { onClick(album) }
         }
     }
 }

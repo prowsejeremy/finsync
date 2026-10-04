@@ -83,14 +83,15 @@ private class QueueAdapter(
     override fun onBindViewHolder(holder: Holder, position: Int) =
         holder.bind(rows[position], position)
 
-    inner class Holder(private val b: ItemQueueTrackBinding) : RecyclerView.ViewHolder(b.root) {
+    inner class Holder(private val binding: ItemQueueTrackBinding) :
+        RecyclerView.ViewHolder(binding.root) {
         fun bind(row: QueueRow, index: Int) {
             val colour = if (index == currentIndex) R.color.accent_green else R.color.text_primary
-            b.tvTitle.text = row.title
-            b.tvTitle.setTextColor(ContextCompat.getColor(b.root.context, colour))
-            b.tvArtist.text = row.artist
-            b.tvDuration.text = row.durationMs?.let(::formatDuration) ?: ""
-            b.root.setOnClickListener { onClick(index) }
+            binding.tvTitle.text = row.title
+            binding.tvTitle.setTextColor(ContextCompat.getColor(binding.root.context, colour))
+            binding.tvArtist.text = row.artist
+            binding.tvDuration.text = row.durationMs?.let(::formatDuration) ?: ""
+            binding.root.setOnClickListener { onClick(index) }
         }
     }
 }
