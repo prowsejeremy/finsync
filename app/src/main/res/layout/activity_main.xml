@@ -19,7 +19,7 @@
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent" />
 
-    <!-- Hosts the mini-player; hidden until playback exists -->
+    <!-- The floating mini-player: shown while the queue isn't empty, except on the Player -->
     <FrameLayout
         android:id="@+id/miniPlayerContainer"
         android:layout_width="0dp"
@@ -27,6 +27,15 @@
         android:visibility="gone"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent" />
+        app:layout_constraintEnd_toEndOf="parent">
+
+        <include
+            android:id="@+id/miniPlayer"
+            layout="@layout/view_mini_player"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_margin="8dp" />
+
+    </FrameLayout>
 
 </androidx.constraintlayout.widget.ConstraintLayout>

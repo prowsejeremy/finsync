@@ -81,4 +81,18 @@
     <!-- Playback -->
     <string name="files_missing">Files missing. Run a sync.</string>
     <string name="playback_unavailable">Playback unavailable</string>
+
+    <!-- Player, mini-player and queue -->
+    <string name="player_playing_from_album">Playing from album</string>
+    <string name="player_output">Output</string>
+    <string name="player_queue">Queue</string>
+    <string name="queue_title">Queue</string>
+    <string name="output_unavailable">The output switcher isn\'t available on this device</string>
+    <string name="cd_close_player">Close player</string>
+    <string name="cd_play">Play</string>
+    <string name="cd_pause">Pause</string>
+    <string name="cd_next">Next</string>
+    <string name="cd_previous">Previous</string>
+    <string name="cd_repeat">Repeat</string>
+    <string name="cd_shuffle">Shuffle</string>
 </resources>

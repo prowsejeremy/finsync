@@ -32,6 +32,26 @@
             app:argType="string" />
     </fragment>
 
+    <!-- Opens the Player from the mini-player on any screen, including inside settings_graph -->
+    <action
+        android:id="@+id/action_global_player"
+        app:destination="@id/playerFragment"
+        app:enterAnim="@anim/slide_up"
+        app:exitAnim="@anim/hold"
+        app:popEnterAnim="@anim/hold"
+        app:popExitAnim="@anim/slide_down" />
+
+    <fragment
+        android:id="@+id/playerFragment"
+        android:name="com.jpd.finsync.ui.PlayerFragment">
+        <!-- The album replaces the Player rather than stacking above it -->
+        <action
+            android:id="@+id/action_player_to_album"
+            app:destination="@id/albumFragment"
+            app:popUpTo="@id/playerFragment"
+            app:popUpToInclusive="true" />
+    </fragment>
+
     <!-- Nested so SettingsViewModel lives exactly as long as you're in Settings, and so the
          notification deep link builds the Home → Settings → Sync Status back stack. -->
     <navigation
