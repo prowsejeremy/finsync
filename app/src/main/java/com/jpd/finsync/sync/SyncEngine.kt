@@ -8,6 +8,7 @@ import com.jpd.finsync.auth.Result
 import com.jpd.finsync.db.SyncDatabase
 import com.jpd.finsync.db.SyncedAlbum
 import com.jpd.finsync.db.SyncedTrack
+import com.jpd.finsync.library.LibraryRepository
 import com.jpd.finsync.model.MediaItem
 import com.jpd.finsync.model.ServerConfig
 import com.jpd.finsync.model.SyncState
@@ -53,6 +54,7 @@ object SyncEngine {
         }
 
         val items = (itemsResult as Result.Success).data
+        writeCatalogue(context, items)
         val prefs = context.getSharedPreferences("settings", Context.MODE_PRIVATE)
         val selectedAlbumIds = prefs.getStringSet("selected_albums", emptySet()) ?: emptySet()
         
@@ -214,6 +216,18 @@ object SyncEngine {
                 syncComplete     = true
             ), onProgress
         )
+    }
+
+    // Before any download, so a cancelled sync still leaves the catalogue current. A failure
+    // mustn't stop the sync itself.
+    private suspend fun writeCatalogue(context: Context, items: List<MediaItem>) {
+        try {
+            LibraryRepository(context).writeCatalogue(items)
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            Log.w(TAG, "Couldn't write the catalogue", e)
+        }
     }
 
     fun getSyncDirectory(context: Context, config: ServerConfig): File {

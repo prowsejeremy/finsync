@@ -1,15 +1,13 @@
 package com.jpd.finsync.ui
 
 import com.jpd.finsync.db.SyncedAlbum
+import com.jpd.finsync.library.isAlbumSelected
 
 /**
- * The albums the Downloads list shows. An empty selection, or one containing "all", means every
- * album, matching how sync reads the "selected_albums" preference.
+ * The albums the Downloads list shows: those the album selection includes (see
+ * [isAlbumSelected]), matching how sync reads the "selected_albums" preference.
  */
 fun visibleDownloadedAlbums(
     albums: List<SyncedAlbum>,
     selectedIds: Set<String>
-): List<SyncedAlbum> {
-    val showAll = selectedIds.isEmpty() || selectedIds.contains("all")
-    return if (showAll) albums else albums.filter { selectedIds.contains(it.albumId) }
-}
+): List<SyncedAlbum> = albums.filter { isAlbumSelected(it.albumId, selectedIds) }

@@ -80,7 +80,9 @@ data class MediaStream(
     @SerializedName("Codec") val codec: String? = null,
     @SerializedName("BitRate") val bitRate: Int? = null,
     @SerializedName("SampleRate") val sampleRate: Int? = null,
-    @SerializedName("Channels") val channels: Int? = null
+    @SerializedName("Channels") val channels: Int? = null,
+    // Not confirmed for Jellyfin 12; Gson leaves it null when the server omits it.
+    @SerializedName("BitDepth") val bitDepth: Int? = null
 ) : Parcelable
 
 @Parcelize

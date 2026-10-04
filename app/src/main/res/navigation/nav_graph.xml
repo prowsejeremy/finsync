@@ -11,6 +11,25 @@
         <action
             android:id="@+id/action_home_to_settings"
             app:destination="@id/settings_graph" />
+        <action
+            android:id="@+id/action_home_to_albums"
+            app:destination="@id/albumsFragment" />
+    </fragment>
+
+    <fragment
+        android:id="@+id/albumsFragment"
+        android:name="com.jpd.finsync.ui.AlbumsFragment">
+        <action
+            android:id="@+id/action_albums_to_album"
+            app:destination="@id/albumFragment" />
+    </fragment>
+
+    <fragment
+        android:id="@+id/albumFragment"
+        android:name="com.jpd.finsync.ui.AlbumFragment">
+        <argument
+            android:name="albumId"
+            app:argType="string" />
     </fragment>
 
     <!-- Nested so SettingsViewModel lives exactly as long as you're in Settings, and so the

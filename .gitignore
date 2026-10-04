@@ -41,6 +41,8 @@ app/.externalNativeBuild/
 *.bin
 *.idx
 *.so
+# BASS native libraries are part of the app, not build output
+!app/src/main/jniLibs/**/*.so
 *.mp4
 *.webm
 *.mkv

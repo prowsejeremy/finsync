@@ -34,8 +34,25 @@
     <string name="cd_settings">Settings</string>
 
     <!-- Home -->
-    <string name="home_empty_title">Nothing here yet</string>
-    <string name="home_empty_body">Sync and downloads are in Settings.</string>
+    <string name="home_library_building">Building your library…</string>
+    <string name="home_library_failed">Connect to your server to build your library</string>
+    <string name="btn_retry">Retry</string>
+    <string name="home_albums">Albums</string>
+    <string name="home_albums_hint">Choose albums to sync in Settings</string>
+
+    <!-- Albums and album detail -->
+    <string name="header_albums">Albums</string>
+    <string name="albums_empty">No downloaded albums</string>
+    <string name="album_not_downloaded">Album not downloaded</string>
+    <string name="unknown_artist">Unknown Artist</string>
+    <string name="btn_play">Play</string>
+    <string name="btn_shuffle">Shuffle</string>
+    <string name="album_length_minutes">%1$d min</string>
+    <string name="disc_heading">Disc %1$d</string>
+    <plurals name="track_count">
+        <item quantity="one">%d track</item>
+        <item quantity="other">%d tracks</item>
+    </plurals>
 
     <!-- Settings -->
     <string name="header_settings">Settings</string>
