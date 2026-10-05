@@ -1,6 +1,6 @@
 package com.jpd.finsync.ui
 
-import com.jpd.finsync.equaliser.EqPreset
+import com.jpd.finsync.equaliser.EqChoice
 import com.jpd.finsync.equaliser.EqSettings
 import com.jpd.finsync.equaliser.GAIN_STEPS_PER_DB
 import kotlin.math.abs
@@ -24,5 +24,5 @@ fun signedGainText(gainDb: Float): String {
     }
 }
 
-/** The preset the Settings row names after "On · ", or null while the row reads "Off". */
-fun summaryPreset(settings: EqSettings): EqPreset? = settings.preset.takeIf { settings.enabled }
+/** The choice the Settings row names after "On · ", or null while the row reads "Off". */
+fun summaryChoice(settings: EqSettings): EqChoice? = settings.choice.takeIf { settings.enabled }

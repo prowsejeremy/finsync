@@ -19,9 +19,12 @@ class PaletteTest {
     }
 
     @Test
-    fun `the base roles are the spec's six, named as colors xml names them`() {
+    fun `the base roles are the spec's seven, named as colors xml names them`() {
         assertEquals(
-            listOf("bg_primary", "surface_1", "surface_2", "text_primary", "muted", "status_good"),
+            listOf(
+                "bg_primary", "surface_1", "surface_2", "text_primary", "muted", "status_good",
+                "error"
+            ),
             BaseRole.entries.map { it.key }
         )
     }

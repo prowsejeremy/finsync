@@ -7,6 +7,7 @@ private const val PREFS_NAME = "equaliser"
 private const val KEY_ENABLED = "enabled"
 private const val KEY_PRESET = "preset"
 private const val KEY_CUSTOM_GAINS = "custom_gains"
+private const val KEY_SAVED_PRESETS = "saved_presets"
 
 /**
  * The equaliser's saved settings (spec "Saved settings"). They have their own prefs file, so the
@@ -20,18 +21,24 @@ class EqualiserStore(context: Context) {
     // SharedPreferences holds listeners weakly, so the store keeps the one it registers.
     private var listener: SharedPreferences.OnSharedPreferenceChangeListener? = null
 
-    fun load(): EqSettings = EqSettings(
-        enabled = prefs.getBoolean(KEY_ENABLED, EqSettings.DEFAULT.enabled),
-        preset = EqPreset.fromKey(prefs.getString(KEY_PRESET, null)),
-        customGainsDb = parseCustomGains(prefs.getString(KEY_CUSTOM_GAINS, null))
-    )
+    fun load(): EqSettings {
+        val savedPresets = parseSavedPresets(prefs.getString(KEY_SAVED_PRESETS, null))
+        return EqSettings(
+            enabled = prefs.getBoolean(KEY_ENABLED, EqSettings.DEFAULT.enabled),
+            choice = EqChoice.fromKey(prefs.getString(KEY_PRESET, null), savedPresets),
+            customGainsDb = parseCustomGains(prefs.getString(KEY_CUSTOM_GAINS, null)),
+            savedPresets = savedPresets
+        )
+    }
 
-    // All three keys at once, so a listener never reads a preset without its Custom slot.
+    // Every key at once, so a listener never reads a choice without the preset it names. The
+    // listener only hears keys whose value changed, so an unchanged list costs nothing.
     fun save(settings: EqSettings) {
         prefs.edit()
             .putBoolean(KEY_ENABLED, settings.enabled)
-            .putString(KEY_PRESET, settings.preset.key)
+            .putString(KEY_PRESET, settings.choice.key)
             .putString(KEY_CUSTOM_GAINS, formatCustomGains(settings.customGainsDb))
+            .putString(KEY_SAVED_PRESETS, formatSavedPresets(settings.savedPresets))
             .apply()
     }
 

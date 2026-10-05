@@ -3,6 +3,7 @@ package com.jpd.finsync.ui
 import android.content.res.Resources
 import androidx.annotation.StringRes
 import com.jpd.finsync.R
+import com.jpd.finsync.equaliser.EqChoice
 import com.jpd.finsync.equaliser.EqPreset
 import com.jpd.finsync.equaliser.EqSettings
 import com.jpd.finsync.equaliser.bandLabel
@@ -26,6 +27,15 @@ val EqPreset.titleRes: Int
         EqPreset.CUSTOM -> R.string.equaliser_preset_custom
     }
 
+/** Every built-in preset's name, Custom included, for the name rules (spec "Name rules"). */
+fun Resources.builtInTitles(): List<String> = EqPreset.entries.map { getString(it.titleRes) }
+
+/** The chosen preset's name: a built-in's title, "Custom", or a saved preset's own name. */
+fun Resources.choiceTitle(settings: EqSettings): String = when (val choice = settings.choice) {
+    is EqChoice.Preset -> getString(choice.preset.titleRes)
+    is EqChoice.Saved -> checkNotNull(settings.savedPreset(choice.id)).name
+}
+
 /** A band's label: "31 Hz" … "16 kHz". */
 fun Resources.bandLabelText(band: Int): String {
     val label = bandLabel(band)
@@ -37,9 +47,9 @@ fun Resources.bandLabelText(band: Int): String {
 fun Resources.gainText(gainDb: Float): String =
     getString(R.string.equaliser_gain, signedGainText(gainDb))
 
-/** The Settings row's summary: "Off", or "On · Bass boost" (spec "Settings"). */
+/** The Settings row's summary: "Off", or "On · Bass boost" or "On · Night drive". */
 fun Resources.equaliserSummary(settings: EqSettings): String {
-    val preset = summaryPreset(settings) ?: return getString(R.string.equaliser_summary_off)
+    summaryChoice(settings) ?: return getString(R.string.equaliser_summary_off)
     val on = getString(R.string.equaliser_summary_on)
-    return joinWithDots(listOf(on, getString(preset.titleRes)))
+    return joinWithDots(listOf(on, choiceTitle(settings)))
 }

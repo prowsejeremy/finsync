@@ -13,6 +13,9 @@
     <!-- Connected, Synced, Finished and granted; doesn't follow the accent -->
     <color name="status_good">#00FFAA</color>
 
+    <!-- Text fields' errors: the red accent's dark value, the same in both modes -->
+    <color name="error">#FF0040</color>
+
     <!-- Accents, for themes.xml only: everything else uses ?attr/colorPrimary and
          ?attr/colorOnPrimary. on_accent_* is black or white, whichever contrasts more. -->
     <color name="accent_green">#00FFAA</color>

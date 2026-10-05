@@ -1,10 +1,12 @@
 package com.jpd.finsync.ui
 
 import com.jpd.finsync.equaliser.BAND_COUNT
+import com.jpd.finsync.equaliser.EqChoice
 import com.jpd.finsync.equaliser.EqPreset
 import com.jpd.finsync.equaliser.EqSettings
 import com.jpd.finsync.equaliser.MAX_GAIN_DB
 import com.jpd.finsync.equaliser.MIN_GAIN_DB
+import com.jpd.finsync.equaliser.SavedPreset
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test
@@ -12,8 +14,11 @@ import org.junit.Test
 class EqFormatTest {
 
     private val flat = List(BAND_COUNT) { 0f }
-    private val bassBoostOn =
-        EqSettings(enabled = true, preset = EqPreset.BASS_BOOST, customGainsDb = flat)
+    private val bassBoostOn = EqSettings(
+        enabled = true,
+        choice = EqChoice.Preset(EqPreset.BASS_BOOST),
+        customGainsDb = flat
+    )
 
     @Test
     fun `boosts get a plus sign, and every gain shows one decimal`() {
@@ -39,9 +44,19 @@ class EqFormatTest {
 
     @Test
     fun `the Settings summary names the preset only while on`() {
-        assertNull(summaryPreset(EqSettings.DEFAULT))
-        assertNull(summaryPreset(bassBoostOn.withEnabled(false)))
-        assertEquals(EqPreset.BASS_BOOST, summaryPreset(bassBoostOn))
-        assertEquals(EqPreset.CUSTOM, summaryPreset(bassBoostOn.withBand(0, 3f)))
+        assertNull(summaryChoice(EqSettings.DEFAULT))
+        assertNull(summaryChoice(bassBoostOn.withEnabled(false)))
+        assertEquals(EqChoice.Preset(EqPreset.BASS_BOOST), summaryChoice(bassBoostOn))
+        assertEquals(EqChoice.CUSTOM, summaryChoice(bassBoostOn.withBand(0, 3f)))
+    }
+
+    @Test
+    fun `the Settings summary names a saved preset while on`() {
+        val nightDrive = SavedPreset(id = 1, name = "Night drive", gainsDb = flat)
+        val chosen = bassBoostOn.copy(savedPresets = listOf(nightDrive))
+            .withChoice(EqChoice.Saved(1))
+
+        assertEquals(EqChoice.Saved(1), summaryChoice(chosen))
+        assertNull(summaryChoice(chosen.withEnabled(false)))
     }
 }

@@ -12,6 +12,10 @@
         <item name="colorOutline">@color/muted</item>
         <!-- MaterialSwitch's off track. Unset, light mode showed Material's lavender grey -->
         <item name="colorSurfaceContainerHighest">@color/surface_2</item>
+        <!-- Text fields' error text, outline and icon -->
+        <item name="colorError">@color/error</item>
+        <!-- Popup menus, such as a saved preset's ⋮. Unset, they took Material's own tint -->
+        <item name="colorSurfaceContainer">@color/surface_2</item>
         <item name="elevationOverlayEnabled">false</item>
         <!-- Also Android's launch screen: drawn in the app's mode on Android 12+
              (applyThemeMode), in the phone's below that -->

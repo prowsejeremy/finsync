@@ -10,6 +10,23 @@ class EqualiserTest {
 
     private val flat = List(BAND_COUNT) { 0f }
     private val custom = listOf(1f, 2.5f, 3f, 4f, 5f, 6f, 7f, 8f, 9f, 10f)
+    private val nightDrive = SavedPreset(
+        id = 1,
+        name = "Night drive",
+        gainsDb = listOf(3f, 3f, 2f, 1f, 0f, 0f, 1f, 2f, 2f, 1f)
+    )
+    private val podcasts = SavedPreset(
+        id = 3,
+        name = "Podcasts",
+        gainsDb = listOf(-4f, -3f, -1f, 0f, 2f, 3f, 3f, 1f, 0f, -1f)
+    )
+    // Rock chosen, with two saved presets and a gap in their ids.
+    private val rockWithSaved = EqSettings(
+        enabled = true,
+        choice = EqChoice.Preset(EqPreset.ROCK),
+        customGainsDb = custom,
+        savedPresets = listOf(nightDrive, podcasts)
+    )
 
     @Test
     fun `ten octave bands with 1 kHz at index 5`() {
@@ -51,19 +68,22 @@ class EqualiserTest {
     @Test
     fun `the default is off and Flat with a flat Custom slot`() {
         assertFalse(EqSettings.DEFAULT.enabled)
-        assertEquals(EqPreset.FLAT, EqSettings.DEFAULT.preset)
+        assertEquals(EqChoice.Preset(EqPreset.FLAT), EqSettings.DEFAULT.choice)
         assertEquals(flat, EqSettings.DEFAULT.customGainsDb)
     }
 
     @Test
     fun `moving a band turns the EQ on and makes the shown curve the Custom slot`() {
-        val bassBoost =
-            EqSettings(enabled = false, preset = EqPreset.BASS_BOOST, customGainsDb = custom)
+        val bassBoost = EqSettings(
+            enabled = false,
+            choice = EqChoice.Preset(EqPreset.BASS_BOOST),
+            customGainsDb = custom
+        )
 
         val moved = bassBoost.withBand(3, -4.5f)
 
         assertTrue(moved.enabled)
-        assertEquals(EqPreset.CUSTOM, moved.preset)
+        assertEquals(EqChoice.CUSTOM, moved.choice)
         assertEquals(listOf(6f, 5f, 4f, -4.5f, 0f, 0f, 0f, 0f, 0f, 0f), moved.customGainsDb)
         assertEquals(moved.customGainsDb, moved.gainsDb)
     }
@@ -88,7 +108,7 @@ class EqualiserTest {
     @Test
     fun `choosing a preset keeps the Custom slot, and Custom brings it back`() {
         val customOff =
-            EqSettings(enabled = false, preset = EqPreset.CUSTOM, customGainsDb = custom)
+            EqSettings(enabled = false, choice = EqChoice.CUSTOM, customGainsDb = custom)
 
         val rock = customOff.withPreset(EqPreset.ROCK)
 
@@ -100,7 +120,11 @@ class EqualiserTest {
 
     @Test
     fun `active gains are null when off or when every band is at 0 dB`() {
-        val rock = EqSettings(enabled = true, preset = EqPreset.ROCK, customGainsDb = flat)
+        val rock = EqSettings(
+            enabled = true,
+            choice = EqChoice.Preset(EqPreset.ROCK),
+            customGainsDb = flat
+        )
 
         assertEquals(EqPreset.ROCK.gainsDb, rock.activeGainsDb())
         assertNull(rock.withEnabled(false).activeGainsDb())
@@ -143,5 +167,97 @@ class EqualiserTest {
             listOf(12f, -12f, 3f, 0f, 0f, 0f, 0f, 0f, 0f, 0f),
             parseCustomGains("40,-40,3.04,0,0,0,0,0,0,0")
         )
+    }
+
+    @Test
+    fun `choice keys read built-ins, saved presets that exist, and anything else as Flat`() {
+        val saved = listOf(nightDrive)
+
+        assertEquals(EqChoice.Preset(EqPreset.ROCK), EqChoice.fromKey("rock", saved))
+        assertEquals(EqChoice.Saved(1), EqChoice.fromKey("saved_1", saved))
+        assertEquals(EqChoice.Preset(EqPreset.FLAT), EqChoice.fromKey("saved_2", saved))
+        assertEquals(EqChoice.Preset(EqPreset.FLAT), EqChoice.fromKey("saved_x", saved))
+        assertEquals(EqChoice.Preset(EqPreset.FLAT), EqChoice.fromKey(null, saved))
+        assertEquals("saved_1", EqChoice.Saved(1).key)
+        assertEquals("custom", EqChoice.CUSTOM.key)
+    }
+
+    @Test
+    fun `saving a new name adds it last with the next id, chooses it and keeps the Custom slot`() {
+        val saved = rockWithSaved.withEnabled(false).savedAs("  Late   night ")
+
+        val rockGains = checkNotNull(EqPreset.ROCK.gainsDb)
+        val late = SavedPreset(id = 4, name = "Late night", gainsDb = rockGains)
+        assertEquals(listOf(nightDrive, podcasts, late), saved.savedPresets)
+        assertEquals(EqChoice.Saved(4), saved.choice)
+        assertTrue(saved.enabled)
+        assertEquals(custom, saved.customGainsDb)
+        assertEquals(rockGains, saved.gainsDb)
+    }
+
+    @Test
+    fun `the first saved preset gets id 1`() {
+        assertEquals(1, EqSettings.DEFAULT.savedAs("Mine").savedPresets.single().id)
+    }
+
+    @Test
+    fun `saving under an existing name in another case replaces its curve and keeps its place`() {
+        val moved = rockWithSaved.withChoice(EqChoice.Saved(1)).withBand(0, -6f)
+
+        val replaced = moved.savedAs("NIGHT DRIVE")
+
+        val newNightDrive = nightDrive.copy(gainsDb = moved.gainsDb)
+        assertEquals(listOf(newNightDrive, podcasts), replaced.savedPresets)
+        assertEquals(EqChoice.Saved(1), replaced.choice)
+    }
+
+    @Test
+    fun `moving a band from a saved preset selects Custom and leaves the saved one alone`() {
+        val moved = rockWithSaved.withChoice(EqChoice.Saved(1)).withBand(4, 5f)
+
+        assertEquals(EqChoice.CUSTOM, moved.choice)
+        assertEquals(listOf(3f, 3f, 2f, 1f, 5f, 0f, 1f, 2f, 2f, 1f), moved.customGainsDb)
+        assertEquals(rockWithSaved.savedPresets, moved.savedPresets)
+    }
+
+    @Test
+    fun `choosing a saved preset turns the EQ on and plays its curve`() {
+        val chosen = rockWithSaved.withEnabled(false).withChoice(EqChoice.Saved(3))
+
+        assertTrue(chosen.enabled)
+        assertEquals(podcasts.gainsDb, chosen.gainsDb)
+        assertEquals(podcasts.gainsDb, chosen.activeGainsDb())
+    }
+
+    @Test
+    fun `renaming changes only the name`() {
+        val renamed = rockWithSaved.withRenamed(3, " Talk  radio ")
+
+        val talkRadio = podcasts.copy(name = "Talk radio")
+        assertEquals(rockWithSaved.copy(savedPresets = listOf(nightDrive, talkRadio)), renamed)
+    }
+
+    @Test
+    fun `deleting the chosen preset keeps its sound in the Custom slot`() {
+        val chosen = rockWithSaved.withChoice(EqChoice.Saved(1))
+
+        val deleted = chosen.withDeleted(1)
+
+        assertEquals(listOf(podcasts), deleted.savedPresets)
+        assertEquals(EqChoice.CUSTOM, deleted.choice)
+        assertEquals(nightDrive.gainsDb, deleted.customGainsDb)
+        assertEquals(chosen.gainsDb, deleted.gainsDb)
+    }
+
+    @Test
+    fun `deleting another preset leaves the choice and the Custom slot alone`() {
+        val deleted = rockWithSaved.withDeleted(3)
+
+        assertEquals(rockWithSaved.copy(savedPresets = listOf(nightDrive)), deleted)
+    }
+
+    @Test(expected = IllegalArgumentException::class)
+    fun `a saved choice must name one of the saved presets`() {
+        rockWithSaved.withChoice(EqChoice.Saved(2))
     }
 }

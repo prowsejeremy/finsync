@@ -1,0 +1,134 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The Preset card (spec "The preset card"): the header names the choice and opens the list
+     below it. Styled like the album-selection card: surface_1, with muted dividers at 35%.
+     PresetList adds the rows. -->
+<com.google.android.material.card.MaterialCardView
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    app:cardBackgroundColor="@color/surface_1"
+    app:cardCornerRadius="14dp"
+    app:cardElevation="0dp"
+    app:strokeWidth="0dp">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical">
+
+        <!-- PresetList sets the description, "Preset, Bass boost", and Expanded or Collapsed -->
+        <LinearLayout
+            android:id="@+id/presetHeader"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:paddingStart="16dp"
+            android:paddingEnd="12dp"
+            android:paddingVertical="10dp"
+            android:clickable="true"
+            android:focusable="true"
+            android:background="?attr/selectableItemBackground">
+
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:orientation="vertical">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="@string/equaliser_preset_label"
+                    android:importantForAccessibility="no"
+                    android:textColor="@color/muted"
+                    android:textSize="12sp"
+                    android:fontFamily="@font/hk_regular" />
+
+                <TextView
+                    android:id="@+id/tvPresetChoice"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="1dp"
+                    android:importantForAccessibility="no"
+                    android:singleLine="true"
+                    android:ellipsize="end"
+                    android:textColor="@color/text_primary"
+                    android:textSize="17sp"
+                    android:fontFamily="@font/hk_extrabold" />
+
+            </LinearLayout>
+
+            <ImageView
+                android:id="@+id/ivPresetChevron"
+                android:layout_width="24dp"
+                android:layout_height="24dp"
+                android:layout_marginStart="8dp"
+                android:src="@drawable/ic_chevron_down"
+                android:importantForAccessibility="no"
+                app:tint="@color/muted" />
+
+        </LinearLayout>
+
+        <!-- The list; gone while closed -->
+        <LinearLayout
+            android:id="@+id/presetOptions"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:paddingBottom="6dp"
+            android:visibility="gone">
+
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="1dp"
+                android:layout_marginHorizontal="16dp"
+                android:background="@color/muted"
+                android:alpha="0.35" />
+
+            <!-- The nine built-in presets -->
+            <LinearLayout
+                android:id="@+id/builtInRows"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical" />
+
+            <!-- Gone until the user has saved a preset -->
+            <TextView
+                android:id="@+id/tvYourPresets"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:paddingHorizontal="16dp"
+                android:paddingTop="12dp"
+                android:paddingBottom="2dp"
+                android:text="@string/equaliser_your_presets"
+                android:textColor="@color/muted"
+                android:textSize="12sp"
+                android:fontFamily="@font/hk_regular"
+                android:visibility="gone" />
+
+            <!-- The user's presets, in the order they were made -->
+            <LinearLayout
+                android:id="@+id/savedRows"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical" />
+
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="1dp"
+                android:layout_marginHorizontal="16dp"
+                android:background="@color/muted"
+                android:alpha="0.35" />
+
+            <!-- Custom, last -->
+            <LinearLayout
+                android:id="@+id/customRow"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical" />
+
+        </LinearLayout>
+    </LinearLayout>
+</com.google.android.material.card.MaterialCardView>

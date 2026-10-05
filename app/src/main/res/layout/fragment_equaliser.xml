@@ -1,93 +1,123 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- The Equaliser (spec "Equaliser"): the header with its switch stays put; the presets and the
-     bands card scroll, for small screens and landscape. -->
-<LinearLayout
+<!-- The Equaliser (saved-presets spec "Screen"): the header with its switch stays put; the bands,
+     the Preset card and the Save button or name editor scroll, for small screens, landscape and
+     the keyboard. The CoordinatorLayout puts the Undo bar at the bottom of this screen, which
+     ends above the mini player. -->
+<androidx.coordinatorlayout.widget.CoordinatorLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:orientation="vertical"
     android:background="@color/bg_primary">
 
-    <!-- "← Equaliser" as on other sub-screens, with the on/off switch at the end -->
     <LinearLayout
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:orientation="horizontal"
-        android:gravity="center_vertical">
+        android:layout_height="match_parent"
+        android:orientation="vertical">
 
-        <include
-            android:id="@+id/header"
-            layout="@layout/view_screen_header"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1" />
-
-        <!-- Not saved with the view: the screen sets it from the store -->
-        <com.google.android.material.materialswitch.MaterialSwitch
-            android:id="@+id/switchEqualiser"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginEnd="16dp"
-            android:contentDescription="@string/equaliser_title"
-            android:saveEnabled="false" />
-
-    </LinearLayout>
-
-    <androidx.core.widget.NestedScrollView
-        android:layout_width="match_parent"
-        android:layout_height="0dp"
-        android:layout_weight="1">
-
+        <!-- "← Equaliser" as on other sub-screens, with the on/off switch at the end -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:orientation="vertical"
-            android:paddingBottom="16dp">
+            android:orientation="horizontal"
+            android:gravity="center_vertical">
 
-            <!-- The presets, ending with Custom; EqualiserFragment adds the pills. Each pill
-                 has 8dp after it, so the end padding is 8dp short of the start's 16dp. -->
-            <HorizontalScrollView
-                android:id="@+id/presetScroll"
-                android:layout_width="match_parent"
+            <include
+                android:id="@+id/header"
+                layout="@layout/view_screen_header"
+                android:layout_width="0dp"
                 android:layout_height="wrap_content"
-                android:scrollbars="none"
-                android:overScrollMode="never">
+                android:layout_weight="1" />
 
-                <LinearLayout
-                    android:id="@+id/presets"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:orientation="horizontal"
-                    android:paddingStart="16dp"
-                    android:paddingEnd="8dp"
-                    android:paddingTop="4dp"
-                    android:paddingBottom="12dp" />
-
-            </HorizontalScrollView>
-
-            <com.google.android.material.card.MaterialCardView
-                android:id="@+id/bandsCard"
-                android:layout_width="match_parent"
+            <!-- Not saved with the view: the screen sets it from the store -->
+            <com.google.android.material.materialswitch.MaterialSwitch
+                android:id="@+id/switchEqualiser"
+                android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_marginHorizontal="16dp"
-                app:cardBackgroundColor="@color/surface_1"
-                app:cardCornerRadius="14dp"
-                app:cardElevation="0dp"
-                app:strokeWidth="0dp">
-
-                <!-- The ten band rows; EqualiserFragment adds them -->
-                <LinearLayout
-                    android:id="@+id/bands"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="vertical"
-                    android:paddingHorizontal="8dp"
-                    android:paddingVertical="8dp" />
-
-            </com.google.android.material.card.MaterialCardView>
+                android:layout_marginEnd="16dp"
+                android:contentDescription="@string/equaliser_title"
+                android:saveEnabled="false" />
 
         </LinearLayout>
-    </androidx.core.widget.NestedScrollView>
 
-</LinearLayout>
+        <!-- It has an id, so it keeps its scroll position across rotation -->
+        <androidx.core.widget.NestedScrollView
+            android:id="@+id/scroll"
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:paddingBottom="16dp">
+
+                <!-- 4dp below the header: the gap the old preset row's top padding gave -->
+                <com.google.android.material.card.MaterialCardView
+                    android:id="@+id/bandsCard"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginHorizontal="16dp"
+                    android:layout_marginTop="4dp"
+                    app:cardBackgroundColor="@color/surface_1"
+                    app:cardCornerRadius="14dp"
+                    app:cardElevation="0dp"
+                    app:strokeWidth="0dp">
+
+                    <!-- The ten band rows; EqualiserFragment adds them -->
+                    <LinearLayout
+                        android:id="@+id/bands"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical"
+                        android:paddingHorizontal="8dp"
+                        android:paddingVertical="8dp" />
+
+                </com.google.android.material.card.MaterialCardView>
+
+                <!-- The Preset card; PresetList draws it -->
+                <include
+                    android:id="@+id/presetCard"
+                    layout="@layout/view_equaliser_presets"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginHorizontal="16dp"
+                    android:layout_marginTop="12dp" />
+
+                <!-- Shown while Custom is chosen and the name editor is closed. The insets and
+                     minimum height are Material's for a 48dp button, cleared so it's 44dp. -->
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btnSavePreset"
+                    android:layout_width="match_parent"
+                    android:layout_height="44dp"
+                    android:layout_marginHorizontal="16dp"
+                    android:layout_marginTop="12dp"
+                    android:minHeight="0dp"
+                    android:insetTop="0dp"
+                    android:insetBottom="0dp"
+                    android:text="@string/equaliser_save_preset"
+                    android:textColor="@color/text_primary"
+                    android:textSize="15sp"
+                    android:fontFamily="@font/hk_extrabold"
+                    android:visibility="gone"
+                    app:backgroundTint="@color/surface_2"
+                    app:cornerRadius="22dp"
+                    app:icon="@drawable/ic_add"
+                    app:iconGravity="textStart"
+                    app:iconSize="20dp"
+                    app:iconTint="?attr/colorPrimary" />
+
+                <!-- In the Save button's place while open; PresetNameEditor shows it -->
+                <include
+                    android:id="@+id/nameEditor"
+                    layout="@layout/view_preset_name_editor"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginHorizontal="16dp"
+                    android:layout_marginTop="12dp" />
+
+            </LinearLayout>
+        </androidx.core.widget.NestedScrollView>
+    </LinearLayout>
+</androidx.coordinatorlayout.widget.CoordinatorLayout>

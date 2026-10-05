@@ -15,7 +15,10 @@ enum class BaseRole(val key: String, val colours: ModeColours) {
     SURFACE_2("surface_2", ModeColours(dark = 0xFF1F262B, light = 0xFFE4ECEC)),
     TEXT_PRIMARY("text_primary", ModeColours(dark = 0xFFF0F7FC, light = 0xFF030505)),
     MUTED("muted", ModeColours(dark = 0xFF506575, light = 0xFF506575)),
-    STATUS_GOOD("status_good", ModeColours(dark = 0xFF00FFAA, light = 0xFF00FFAA))
+    STATUS_GOOD("status_good", ModeColours(dark = 0xFF00FFAA, light = 0xFF00FFAA)),
+    // Text fields' errors: the red accent's dark value in both modes (the user's choice,
+    // 2026-10-05). A role of its own, so retuning the red accent doesn't move it.
+    ERROR("error", ModeColours(dark = 0xFFFF0040, light = 0xFFFF0040))
 }
 
 object Palette {

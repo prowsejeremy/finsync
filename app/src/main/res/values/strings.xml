@@ -225,7 +225,7 @@
     <string name="equaliser_preset_classical">Classical</string>
     <string name="equaliser_preset_spoken_word">Spoken word</string>
     <string name="equaliser_preset_custom">Custom</string>
-    <!-- A preset pill's description for TalkBack: "Bass boost, selected" -->
+    <!-- A preset row's description for TalkBack: "Bass boost, selected" -->
     <string name="equaliser_preset_selected">%1$s, selected</string>
     <string name="equaliser_band_hz">%1$d Hz</string>
     <string name="equaliser_band_khz">%1$d kHz</string>
@@ -236,4 +236,31 @@
     <string name="equaliser_summary_on">On</string>
     <string name="cd_equaliser_on">Equaliser, on</string>
     <string name="cd_equaliser_off">Equaliser, off</string>
+
+    <!-- Equaliser: saved presets -->
+    <string name="equaliser_preset_label">Preset</string>
+    <string name="equaliser_your_presets">Your presets</string>
+    <string name="equaliser_save_preset">Save preset</string>
+    <string name="equaliser_name_title_save">Name this preset</string>
+    <!-- The name editor's title while renaming: "Rename Night drive" -->
+    <string name="equaliser_name_title_rename">Rename %1$s</string>
+    <string name="equaliser_name_hint">Preset name</string>
+    <!-- Under the name field: two errors, then the note shown before Replace -->
+    <string name="equaliser_name_built_in">%1$s is a built-in preset</string>
+    <string name="equaliser_name_taken">You already have %1$s</string>
+    <string name="equaliser_name_replaces">Replaces your %1$s preset</string>
+    <string name="equaliser_save">Save</string>
+    <string name="equaliser_replace">Replace</string>
+    <string name="equaliser_rename">Rename</string>
+    <string name="equaliser_cancel">Cancel</string>
+    <string name="equaliser_delete">Delete</string>
+    <!-- The Undo bar after a delete: "Deleted Night drive" -->
+    <string name="equaliser_deleted">Deleted %1$s</string>
+    <string name="equaliser_undo">Undo</string>
+    <!-- TalkBack: the Preset card's header, "Preset, Bass boost", then its state -->
+    <string name="cd_equaliser_preset">Preset, %1$s</string>
+    <string name="cd_equaliser_list_expanded">Expanded</string>
+    <string name="cd_equaliser_list_collapsed">Collapsed</string>
+    <!-- TalkBack: a saved preset's ⋮ button, "Options for Night drive" -->
+    <string name="cd_equaliser_preset_options">Options for %1$s</string>
 </resources>
