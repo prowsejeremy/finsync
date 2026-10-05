@@ -9,6 +9,13 @@ import androidx.fragment.app.activityViewModels
 import androidx.fragment.app.viewModels
 import com.jpd.finsync.R
 import com.jpd.finsync.databinding.FragmentHomeBinding
+import com.jpd.finsync.databinding.ItemHomeCategoryBinding
+import com.jpd.finsync.home.HomeCategory
+import com.jpd.finsync.home.HomeLayoutStore
+import kotlin.math.roundToInt
+
+// The gap above each category card after the first.
+private const val CARD_GAP_DP = 8
 
 class HomeFragment : Fragment() {
 
@@ -16,6 +23,8 @@ class HomeFragment : Fragment() {
     private val binding get() = _binding!!
     private val viewModel: MainViewModel by activityViewModels()
     private val libraryViewModel: LibraryViewModel by viewModels()
+    // The shown categories' cards in Home's order, rebuilt with each new view.
+    private var categoryCards: List<Pair<HomeCategory, ItemHomeCategoryBinding>> = emptyList()
 
     override fun onCreateView(
         inflater: LayoutInflater,
@@ -31,24 +40,8 @@ class HomeFragment : Fragment() {
         binding.btnSettings.setOnClickListener {
             navigateSafely(R.id.homeFragment, R.id.action_home_to_settings)
         }
-        binding.cardAlbums.setOnClickListener {
-            navigateSafely(R.id.homeFragment, R.id.action_home_to_albums)
-        }
-        binding.cardAlbumArtists.setOnClickListener {
-            navigateSafely(R.id.homeFragment, R.id.action_home_to_album_artists)
-        }
-        binding.cardGenres.setOnClickListener {
-            navigateSafely(R.id.homeFragment, R.id.action_home_to_genres)
-        }
-        binding.cardSongs.setOnClickListener {
-            navigateSafely(R.id.homeFragment, R.id.action_home_to_songs)
-        }
-        binding.cardPlaylists.setOnClickListener {
-            navigateSafely(R.id.homeFragment, R.id.action_home_to_playlists)
-        }
-        binding.cardAudioBooks.setOnClickListener {
-            navigateSafely(R.id.homeFragment, R.id.action_home_to_audio_books)
-        }
+        // Read with every new view: coming back from Settings makes a new one, so changes show.
+        buildCategoryCards()
         binding.btnRetry.setOnClickListener { libraryViewModel.retry() }
         viewModel.uiState.observe(viewLifecycleOwner) { renderSyncRing(SyncDisplay.from(it)) }
         libraryViewModel.homeState.observe(viewLifecycleOwner) { renderLibrary(it) }
@@ -57,6 +50,27 @@ class HomeFragment : Fragment() {
     override fun onDestroyView() {
         super.onDestroyView()
         _binding = null
+        categoryCards = emptyList()
+    }
+
+    // One card per shown category, in the saved order (spec "Home").
+    private fun buildCategoryCards() {
+        val cards = binding.libraryCards
+        cards.removeAllViews()
+        val gapPx = (CARD_GAP_DP * resources.displayMetrics.density).roundToInt()
+        val shown = HomeLayoutStore(requireContext()).load().visible
+        categoryCards = shown.mapIndexed { index, category ->
+            val card = ItemHomeCategoryBinding.inflate(layoutInflater, cards, false)
+            val info = category.info
+            card.tvTitle.setText(info.titleRes)
+            card.ivIcon.showCategoryIcon(category)
+            card.root.setOnClickListener { navigateSafely(R.id.homeFragment, info.actionId) }
+            if (index > 0) {
+                (card.root.layoutParams as ViewGroup.MarginLayoutParams).topMargin = gapPx
+            }
+            cards.addView(card.root)
+            category to card
+        }
     }
 
     private fun renderSyncRing(display: SyncDisplay) {
@@ -79,11 +93,8 @@ class HomeFragment : Fragment() {
             if (failed) R.string.home_library_failed else R.string.home_library_building
         )
         if (ready == null) return
-        binding.tvAlbumsCount.text = ready.albumCount.toString()
-        binding.tvAlbumArtistsCount.text = ready.albumArtistCount.toString()
-        binding.tvGenresCount.text = ready.genreCount.toString()
-        binding.tvSongsCount.text = ready.songCount.toString()
-        binding.tvPlaylistsCount.text = ready.playlistCount.toString()
-        binding.tvAudioBooksCount.text = ready.bookCount.toString()
+        categoryCards.forEach { (category, card) ->
+            card.tvCount.text = category.info.count(ready).toString()
+        }
     }
 }

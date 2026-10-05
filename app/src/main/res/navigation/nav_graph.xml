@@ -178,6 +178,9 @@
             <action
                 android:id="@+id/action_settings_to_book_selection"
                 app:destination="@id/bookSelectionFragment" />
+            <action
+                android:id="@+id/action_settings_to_home_screen"
+                app:destination="@id/homeScreenFragment" />
         </fragment>
 
         <fragment
@@ -199,6 +202,11 @@
         <fragment
             android:id="@+id/bookSelectionFragment"
             android:name="com.jpd.finsync.ui.BookSelectionFragment" />
+
+        <!-- Settings → Home screen: Home's categories and their order (3b refinements) -->
+        <fragment
+            android:id="@+id/homeScreenFragment"
+            android:name="com.jpd.finsync.ui.HomeScreenFragment" />
 
     </navigation>
 

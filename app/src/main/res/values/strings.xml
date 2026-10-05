@@ -179,4 +179,13 @@
     <string name="cd_previous_chapter">Previous chapter</string>
     <string name="cd_next_chapter">Next chapter</string>
     <string name="cd_speed">Playback speed</string>
+
+    <!-- Home screen settings (3b refinements) -->
+    <string name="settings_home_screen_title">Home screen</string>
+    <string name="settings_home_screen_summary">%1$d of %2$d categories shown</string>
+    <string name="header_home_screen">Home screen</string>
+    <string name="home_screen_hint">At least one category stays on Home.</string>
+    <string name="cd_drag_to_reorder">Drag to reorder</string>
+    <string name="action_move_up">Move up</string>
+    <string name="action_move_down">Move down</string>
 </resources>

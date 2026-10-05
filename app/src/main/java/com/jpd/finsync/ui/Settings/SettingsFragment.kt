@@ -18,6 +18,7 @@ import androidx.navigation.fragment.findNavController
 import androidx.navigation.navGraphViewModels
 import com.jpd.finsync.R
 import com.jpd.finsync.databinding.FragmentSettingsBinding
+import com.jpd.finsync.home.HomeLayoutStore
 import java.io.File
 
 private const val TAG = "SettingsFragment"
@@ -57,6 +58,7 @@ class SettingsFragment : Fragment() {
 
         bindServerAndSync()
         bindDownloads()
+        bindHomeScreen()
         bindSyncPreferences()
     }
 
@@ -67,6 +69,8 @@ class SettingsFragment : Fragment() {
         mainViewModel.refreshSyncCounts()
         viewModel.refreshDownloadedAlbumCount()
         binding.tvAutoSync.text = autoSyncLabel(viewModel.getAutoSyncInterval())
+        // The Home screen settings may have changed what Home shows.
+        renderHomeScreenSummary()
     }
 
     override fun onDestroyView() {
@@ -143,6 +147,24 @@ class SettingsFragment : Fragment() {
         binding.cardDownloads.setOnClickListener {
             navigateSafely(R.id.settingsFragment, R.id.action_settings_to_downloads)
         }
+    }
+
+    // ── Home screen ──────────────────────────────────────────────────────────
+
+    private fun bindHomeScreen() {
+        binding.cardHomeScreen.setOnClickListener {
+            navigateSafely(R.id.settingsFragment, R.id.action_settings_to_home_screen)
+        }
+    }
+
+    // "6 of 6 categories shown" (spec "Settings card").
+    private fun renderHomeScreenSummary() {
+        val layout = HomeLayoutStore(requireContext()).load()
+        binding.tvHomeScreenSummary.text = getString(
+            R.string.settings_home_screen_summary,
+            layout.visible.size,
+            layout.order.size
+        )
     }
 
     // ── Sync preferences ──────────────────────────────────────────────────────
