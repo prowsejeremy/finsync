@@ -124,6 +124,12 @@
             app:destination="@id/bookFragment"
             app:popUpTo="@id/playerFragment"
             app:popUpToInclusive="true" />
+        <!-- And the album artist's page -->
+        <action
+            android:id="@+id/action_player_to_group"
+            app:destination="@id/groupFragment"
+            app:popUpTo="@id/playerFragment"
+            app:popUpToInclusive="true" />
         <!-- The Equaliser stacks above the Player, so Back returns to it (5) -->
         <action
             android:id="@+id/action_player_to_equaliser"

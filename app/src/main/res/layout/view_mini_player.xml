@@ -60,11 +60,14 @@
 
                     </com.google.android.material.card.MaterialCardView>
 
+                    <!-- marginEnd matches the visible play-to-next gap: the next button's 4dp
+                         margin + 8dp padding + the skip glyph's 6dp inset -->
                     <LinearLayout
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
                         android:layout_weight="1"
                         android:layout_marginStart="10dp"
+                        android:layout_marginEnd="18dp"
                         android:orientation="vertical">
 
                         <TextView

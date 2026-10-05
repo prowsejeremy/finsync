@@ -27,6 +27,7 @@ class TrackResolutionTest {
         ),
         localPath = "/music/Kurt Vile/Bottle It In/04 Check Baby.flac",
         albumName = "Bottle It In",
+        albumArtistId = "ar1",
         artworkPath = "/music/Kurt Vile/Bottle It In/folder.jpg"
     )
 
@@ -50,6 +51,7 @@ class TrackResolutionTest {
         assertEquals("Bottle It In", track.albumTitle)
         assertEquals("a1", track.albumId)
         assertEquals("Kurt Vile", track.albumArtist)
+        assertEquals("ar1", track.albumArtistId)
         assertEquals("/music/Kurt Vile/Bottle It In/folder.jpg", track.artworkPath)
         assertEquals(4, track.trackNumber)
         assertEquals(1, track.discNumber)

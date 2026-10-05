@@ -306,6 +306,12 @@ abstract class CatalogueDao {
     @Query(
         """
         SELECT t.*, s.localPath AS localPath, a.name AS albumName,
+            (
+                SELECT aa.artistId FROM catalogue_album_artists aa
+                WHERE aa.albumId = t.albumId
+                ORDER BY aa.position
+                LIMIT 1
+            ) AS albumArtistId,
             sa.artworkPath AS storedArtworkPath
         FROM catalogue_tracks t
         INNER JOIN synced_tracks s ON s.itemId = t.itemId

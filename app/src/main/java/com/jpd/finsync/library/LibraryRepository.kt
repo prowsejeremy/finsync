@@ -182,6 +182,7 @@ class LibraryRepository internal constructor(
                         track = row.track,
                         localPath = row.localPath,
                         albumName = row.albumName,
+                        albumArtistId = row.albumArtistId,
                         artworkPath = artwork.artworkFor(
                             row.track.albumId, row.storedArtworkPath, row.localPath
                         )

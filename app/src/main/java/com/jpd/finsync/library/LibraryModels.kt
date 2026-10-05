@@ -28,6 +28,7 @@ data class PlayableSource(
     val track: CatalogueTrack,
     val localPath: String,
     val albumName: String?,
+    val albumArtistId: String?,
     val artworkPath: String?
 )
 

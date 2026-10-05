@@ -78,6 +78,10 @@ data class PlaybackUiState(
     val title: String = "",
     /** For a book, the book's title. */
     val artist: String = "",
+    /** The Player's artist pill: the album artist, else the track's artists. Music only. */
+    val albumArtist: String = "",
+    /** The album's first album artist, whose page the pill opens. Music only. */
+    val albumArtistId: String? = null,
     val albumTitle: String = "",
     val albumId: String? = null,
     val artworkPath: String? = null,
@@ -371,6 +375,9 @@ class PlaybackViewModel(app: Application) : AndroidViewModel(app) {
             title = book?.let { it.chapters[it.chapterIndex].name }
                 ?: metadata.title?.toString() ?: "",
             artist = book?.title ?: metadata.artist?.toString() ?: "",
+            albumArtist = metadata.albumArtist?.toString() ?: metadata.artist?.toString() ?: "",
+            albumArtistId =
+                if (book == null) extras?.getString(TrackExtras.ALBUM_ARTIST_ID) else null,
             albumTitle = book?.title ?: metadata.albumTitle?.toString() ?: "",
             albumId = if (book == null) extras?.getString(TrackExtras.ALBUM_ID) else null,
             artworkPath = metadata.artworkUri?.path,

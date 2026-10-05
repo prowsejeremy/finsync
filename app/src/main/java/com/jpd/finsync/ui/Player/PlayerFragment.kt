@@ -9,6 +9,7 @@ import android.widget.ImageView
 import android.widget.SeekBar
 import android.widget.Toast
 import androidx.annotation.ColorInt
+import androidx.annotation.IdRes
 import androidx.core.content.ContextCompat
 import androidx.core.os.bundleOf
 import androidx.core.widget.ImageViewCompat
@@ -29,6 +30,7 @@ class PlayerFragment : Fragment() {
     private val binding get() = _binding!!
     private val playbackViewModel: PlaybackViewModel by activityViewModels()
     private var albumId: String? = null
+    private var albumArtistId: String? = null
     // The playing book, or null for music (3b).
     private var book: BookPlayback? = null
     // The art currently shown, so it's only reloaded when the track's art changes.
@@ -70,6 +72,7 @@ class PlayerFragment : Fragment() {
             navigateSafely(R.id.playerFragment, R.id.action_player_to_equaliser)
         }
         binding.playerContext.setOnClickListener { openBook() }
+        binding.chipArtist.setOnClickListener { openArtist() }
         binding.chipAlbum.setOnClickListener { if (book != null) openBook() else openAlbum() }
         binding.btnPlayPause.setOnClickListener { playbackViewModel.togglePlayPause() }
         // A book's previous and next move between chapters (spec "Controls").
@@ -110,15 +113,18 @@ class PlayerFragment : Fragment() {
 
     private fun render(state: PlaybackUiState) {
         albumId = state.albumId
+        albumArtistId = state.albumArtistId
         book = state.book
         binding.tvAlbumName.text = state.albumTitle
         // Called on every state update; the view ignores the same title, so its cycle carries on.
         binding.tvTitle.setTitle(state.title)
-        // A book's chips are its author and the book (spec "Labels").
+        // A book's chips are its author and the book (spec "Labels"); music's are the album
+        // artist and the album, each opening its page.
         val artistChip = state.book?.let { it.author ?: getString(R.string.unknown_author) }
-            ?: state.artist
+            ?: state.albumArtist
         binding.chipArtist.text = artistChip
         binding.chipArtist.visibility = if (artistChip.isBlank()) View.GONE else View.VISIBLE
+        binding.chipArtist.isClickable = state.albumArtistId != null
         binding.chipAlbum.text = state.albumTitle
         binding.chipAlbum.visibility = if (state.albumTitle.isBlank()) View.GONE else View.VISIBLE
 
@@ -220,39 +226,36 @@ class PlayerFragment : Fragment() {
     @ColorInt
     private fun muted(): Int = ContextCompat.getColor(requireContext(), R.color.muted)
 
-    // Closes the Player if that album's detail is directly beneath it; otherwise opens it.
     private fun openAlbum() {
         val id = albumId ?: return
-        val navController = findNavController()
-        val beneath = navController.previousBackStackEntry
-        val albumBeneath = beneath?.destination?.id == R.id.albumFragment &&
-            beneath.arguments?.getString(ARG_ALBUM_ID) == id
-        if (albumBeneath) {
-            navController.popBackStack()
-        } else {
-            navigateSafely(
-                R.id.playerFragment,
-                R.id.action_player_to_album,
-                bundleOf(ARG_ALBUM_ID to id)
-            )
-        }
+        openPage(R.id.albumFragment, R.id.action_player_to_album, bundleOf(ARG_ALBUM_ID to id))
     }
 
-    // As openAlbum, for a book's page (spec "Header"; 3b).
+    private fun openArtist() {
+        val id = albumArtistId ?: return
+        openPage(
+            R.id.groupFragment,
+            R.id.action_player_to_group,
+            bundleOf(ARG_GROUP_TYPE to GROUP_TYPE_ARTIST, ARG_GROUP_ID to id)
+        )
+    }
+
+    // A book's page (spec "Header"; 3b).
     private fun openBook() {
         val id = book?.bookId ?: return
+        openPage(R.id.bookFragment, R.id.action_player_to_book, bundleOf(ARG_BOOK_ID to id))
+    }
+
+    // Closes the Player if that same page is directly beneath it; otherwise opens it.
+    private fun openPage(@IdRes destinationId: Int, @IdRes actionId: Int, args: Bundle) {
         val navController = findNavController()
         val beneath = navController.previousBackStackEntry
-        val bookBeneath = beneath?.destination?.id == R.id.bookFragment &&
-            beneath.arguments?.getString(ARG_BOOK_ID) == id
-        if (bookBeneath) {
+        val pageBeneath = beneath?.destination?.id == destinationId &&
+            args.keySet().all { key -> beneath.arguments?.getString(key) == args.getString(key) }
+        if (pageBeneath) {
             navController.popBackStack()
         } else {
-            navigateSafely(
-                R.id.playerFragment,
-                R.id.action_player_to_book,
-                bundleOf(ARG_BOOK_ID to id)
-            )
+            navigateSafely(R.id.playerFragment, actionId, args)
         }
     }
 

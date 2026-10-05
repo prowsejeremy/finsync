@@ -30,6 +30,8 @@ data class PlayableTrackRow(
     @Embedded val track: CatalogueTrack,
     val localPath: String,
     val albumName: String?,
+    /** The album's first album artist, for the Player's artist pill. */
+    val albumArtistId: String?,
     val storedArtworkPath: String?
 )
 

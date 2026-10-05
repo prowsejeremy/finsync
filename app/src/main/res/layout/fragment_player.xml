@@ -170,7 +170,8 @@
                 app:layout_constraintStart_toStartOf="parent"
                 app:layout_constraintEnd_toEndOf="parent">
 
-                <!-- Not clickable until sub-project 3 adds artist pages -->
+                <!-- Opens the album artist's page; not clickable for a book or an album with no
+                     album artist -->
                 <TextView
                     android:id="@+id/chipArtist"
                     android:layout_width="wrap_content"
@@ -179,6 +180,9 @@
                     android:singleLine="true"
                     android:ellipsize="end"
                     android:background="@drawable/bg_chip"
+                    android:foreground="?attr/selectableItemBackground"
+                    android:clickable="true"
+                    android:focusable="true"
                     android:paddingHorizontal="12dp"
                     android:paddingVertical="6dp"
                     android:textColor="@color/text_primary"

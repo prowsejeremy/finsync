@@ -8,6 +8,7 @@ import com.jpd.finsync.library.chaptersOrWhole
 /** Keys for the extras Finsync puts in each MediaItem's MediaMetadata. */
 object TrackExtras {
     const val ALBUM_ID = "finsync.albumId"
+    const val ALBUM_ARTIST_ID = "finsync.albumArtistId"
     const val DURATION_MS = "finsync.durationMs"
     const val CODEC = "finsync.codec"
     const val BIT_DEPTH = "finsync.bitDepth"

@@ -59,6 +59,7 @@ private fun ResolvedTrack.toMediaItem(): MediaItem {
     val extras = Bundle().apply {
         putLong(TrackExtras.FILE_SIZE, fileSize)
         albumId?.let { putString(TrackExtras.ALBUM_ID, it) }
+        albumArtistId?.let { putString(TrackExtras.ALBUM_ARTIST_ID, it) }
         durationMs?.let { putLong(TrackExtras.DURATION_MS, it) }
         codec?.let { putString(TrackExtras.CODEC, it) }
         bitDepth?.let { putInt(TrackExtras.BIT_DEPTH, it) }
