@@ -96,10 +96,14 @@
             app:argType="string" />
     </fragment>
 
-    <!-- Opens the Player from the mini-player on any screen, including inside settings_graph -->
+    <!-- Opens the Player from the mini-player on any screen, including inside settings_graph.
+         Over the Equaliser opened from the Player, it replaces that Player rather than stacking
+         a second one (5); with no Player beneath, the pop does nothing. -->
     <action
         android:id="@+id/action_global_player"
         app:destination="@id/playerFragment"
+        app:popUpTo="@id/playerFragment"
+        app:popUpToInclusive="true"
         app:enterAnim="@anim/slide_up"
         app:exitAnim="@anim/hold"
         app:popEnterAnim="@anim/hold"
@@ -120,6 +124,10 @@
             app:destination="@id/bookFragment"
             app:popUpTo="@id/playerFragment"
             app:popUpToInclusive="true" />
+        <!-- The Equaliser stacks above the Player, so Back returns to it (5) -->
+        <action
+            android:id="@+id/action_player_to_equaliser"
+            app:destination="@id/equaliserFragment" />
     </fragment>
 
     <fragment
@@ -154,6 +162,12 @@
             app:argType="string" />
     </fragment>
 
+    <!-- The Equaliser (5): top level, outside settings_graph, so the Player opens it without
+         starting Settings. Back returns to the Player or to Settings. -->
+    <fragment
+        android:id="@+id/equaliserFragment"
+        android:name="com.jpd.finsync.ui.EqualiserFragment" />
+
     <!-- Nested so SettingsViewModel lives exactly as long as you're in Settings. The sync
          notification's deep link opens Sync; each nested graph adds its start screen, so the
          back stack is Home → Settings → Sync. -->
@@ -173,6 +187,10 @@
             <action
                 android:id="@+id/action_settings_to_home_screen"
                 app:destination="@id/homeScreenFragment" />
+            <!-- To the top-level Equaliser, outside this graph (5) -->
+            <action
+                android:id="@+id/action_settings_to_equaliser"
+                app:destination="@id/equaliserFragment" />
         </fragment>
 
         <!-- Settings → Appearance: Dark, Light or System, and the accent -->

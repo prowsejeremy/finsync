@@ -13,6 +13,7 @@ import androidx.media3.session.MediaSessionService
 import com.google.common.util.concurrent.ListenableFuture
 import com.google.common.util.concurrent.SettableFuture
 import com.jpd.finsync.db.BookProgress
+import com.jpd.finsync.equaliser.EqualiserStore
 import com.jpd.finsync.library.BookRepository
 import com.jpd.finsync.library.LibraryRepository
 import com.jpd.finsync.ui.MainActivity
@@ -64,6 +65,7 @@ class PlaybackService : MediaSessionService() {
     private lateinit var resolver: TrackResolver
     private lateinit var resumeStore: ResumeStore
     private lateinit var progressWriter: BookProgressWriter
+    private lateinit var equaliserStore: EqualiserStore
     private lateinit var restored: Deferred<RestoredQueue?>
     private var session: MediaSession? = null
     private var saveTicker: Job? = null
@@ -109,6 +111,11 @@ class PlaybackService : MediaSessionService() {
     override fun onCreate() {
         super.onCreate()
         val engine = BassEngine(applicationInfo.nativeLibraryDir)
+        // Before anything can start BASS, so the first track already has the EQ (5). Changes
+        // saved by the Equaliser screen reach the engine through the listener.
+        equaliserStore = EqualiserStore(this)
+        engine.setEqualiser(equaliserStore.load().activeGainsDb())
+        equaliserStore.listen { settings -> engine.setEqualiser(settings.activeGainsDb()) }
         val speedStore = BookSpeedStore(this)
         player = BassPlayer(Looper.getMainLooper(), engine)
         player.bookSpeed = speedStore.load()
@@ -154,6 +161,8 @@ class PlaybackService : MediaSessionService() {
     }
 
     override fun onDestroy() {
+        // First, so no change reaches the engine while it's being released.
+        equaliserStore.stopListening()
         saveResume()
         // After the last save: the writer drains its queue on its own scope (3b).
         progressWriter.close()

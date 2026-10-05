@@ -20,6 +20,7 @@ import androidx.navigation.fragment.findNavController
 import com.google.android.material.bottomsheet.BottomSheetDialogFragment
 import com.jpd.finsync.R
 import com.jpd.finsync.databinding.FragmentPlayerBinding
+import com.jpd.finsync.equaliser.EqualiserStore
 import com.jpd.finsync.library.chapterWindowAt
 
 class PlayerFragment : Fragment() {
@@ -65,6 +66,9 @@ class PlayerFragment : Fragment() {
         super.onViewCreated(view, savedInstanceState)
         val backDispatcher = requireActivity().onBackPressedDispatcher
         binding.btnClose.setOnClickListener { backDispatcher.onBackPressed() }
+        binding.btnEqualiser.setOnClickListener {
+            navigateSafely(R.id.playerFragment, R.id.action_player_to_equaliser)
+        }
         binding.playerContext.setOnClickListener { openBook() }
         binding.chipAlbum.setOnClickListener { if (book != null) openBook() else openAlbum() }
         binding.btnPlayPause.setOnClickListener { playbackViewModel.togglePlayPause() }
@@ -75,6 +79,9 @@ class PlayerFragment : Fragment() {
         binding.btnNext.setOnClickListener {
             if (book != null) playbackViewModel.nextChapter() else playbackViewModel.next()
         }
+        // As the mini-player: a book's swipe moves between chapters, like the buttons above.
+        binding.trackSwipe.listener =
+            TrackSwipe(binding.trackSwipe, binding.trackInfo, playbackViewModel)
         binding.btnSkipBack.setOnClickListener { playbackViewModel.skipBack() }
         binding.btnSkipForward.setOnClickListener { playbackViewModel.skipForward() }
         binding.btnRepeat.setOnClickListener { playbackViewModel.cycleRepeatMode() }
@@ -87,6 +94,12 @@ class PlayerFragment : Fragment() {
 
         playbackViewModel.state.observe(viewLifecycleOwner) { render(it) }
         playbackViewModel.position.observe(viewLifecycleOwner) { renderPosition(it) }
+    }
+
+    // The Equaliser is its own destination, so the Player always resumes after it (spec).
+    override fun onResume() {
+        super.onResume()
+        renderEqualiserButton(EqualiserStore(requireContext()).load().enabled)
     }
 
     override fun onDestroyView() {
@@ -187,6 +200,14 @@ class PlayerFragment : Fragment() {
         }
         binding.btnRepeat.setImageResource(icon)
         tint(binding.btnRepeat, if (repeatMode == Player.REPEAT_MODE_OFF) muted() else accent())
+    }
+
+    // The accent while the EQ is on, text_primary while it's off (spec "Player").
+    private fun renderEqualiserButton(enabled: Boolean) {
+        val textPrimary = ContextCompat.getColor(requireContext(), R.color.text_primary)
+        tint(binding.btnEqualiser, if (enabled) accent() else textPrimary)
+        val label = if (enabled) R.string.cd_equaliser_on else R.string.cd_equaliser_off
+        binding.btnEqualiser.contentDescription = getString(label)
     }
 
     private fun tint(view: ImageView, @ColorInt colour: Int) {

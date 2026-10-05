@@ -121,7 +121,7 @@ class MainActivity : AppCompatActivity() {
         mini.root.setOnClickListener(openPlayer)
         mini.miniSwipe.setOnClickListener(openPlayer)
         mini.miniSwipe.listener =
-            MiniPlayerSwipe(mini.miniSwipe, mini.miniTrackInfo, playbackViewModel)
+            TrackSwipe(mini.miniSwipe, mini.miniTrackInfo, playbackViewModel)
         addMiniPlayerActions()
         mini.btnMiniPlayPause.setOnClickListener { playbackViewModel.togglePlayPause() }
         // On a book this is now the next chapter, not +30 s (the user's choice, 3b refinements).

@@ -16,6 +16,7 @@ import androidx.navigation.navGraphViewModels
 import com.jpd.finsync.R
 import com.jpd.finsync.appearance.nameRes
 import com.jpd.finsync.databinding.FragmentSettingsBinding
+import com.jpd.finsync.equaliser.EqualiserStore
 import com.jpd.finsync.home.HomeLayoutStore
 
 /**
@@ -47,13 +48,15 @@ class SettingsFragment : Fragment() {
         bindSyncRow()
         bindAppearanceRow()
         bindHomeScreenRow()
+        bindEqualiserRow()
     }
 
     override fun onResume() {
         super.onResume()
-        // Appearance and the Home screen settings may have changed since this was shown.
+        // Appearance, the Home screen and the Equaliser may have changed since this was shown.
         renderAppearanceSummary()
         renderHomeScreenSummary()
+        renderEqualiserSummary()
     }
 
     override fun onDestroyView() {
@@ -147,6 +150,22 @@ class SettingsFragment : Fragment() {
             layout.visible.size,
             layout.order.size
         )
+    }
+
+    // ── Equaliser row ─────────────────────────────────────────────────────────
+
+    private fun bindEqualiserRow() {
+        binding.rowEqualiser.ivRowIcon.setImageResource(R.drawable.ic_equaliser)
+        binding.rowEqualiser.tvRowTitle.setText(R.string.equaliser_title)
+        binding.rowEqualiser.root.setOnClickListener {
+            navigateSafely(R.id.settingsFragment, R.id.action_settings_to_equaliser)
+        }
+    }
+
+    // "Off", or "On · Bass boost" (spec "Settings").
+    private fun renderEqualiserSummary() {
+        val settings = EqualiserStore(requireContext()).load()
+        binding.rowEqualiser.tvRowSummary.text = resources.equaliserSummary(settings)
     }
 
     private fun color(@ColorRes colorRes: Int) = ContextCompat.getColor(requireContext(), colorRes)

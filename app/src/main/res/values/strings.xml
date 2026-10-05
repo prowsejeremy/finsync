@@ -212,4 +212,28 @@
     <string name="appearance_accent_red">Red</string>
     <!-- An accent circle's description for TalkBack: "Green, selected" -->
     <string name="appearance_accent_selected">%1$s, selected</string>
+
+    <!-- Equaliser (5) -->
+    <string name="equaliser_title">Equaliser</string>
+    <string name="equaliser_preset_flat">Flat</string>
+    <string name="equaliser_preset_bass_boost">Bass boost</string>
+    <string name="equaliser_preset_treble_boost">Treble boost</string>
+    <string name="equaliser_preset_vocal">Vocal</string>
+    <string name="equaliser_preset_rock">Rock</string>
+    <string name="equaliser_preset_pop">Pop</string>
+    <string name="equaliser_preset_jazz">Jazz</string>
+    <string name="equaliser_preset_classical">Classical</string>
+    <string name="equaliser_preset_spoken_word">Spoken word</string>
+    <string name="equaliser_preset_custom">Custom</string>
+    <!-- A preset pill's description for TalkBack: "Bass boost, selected" -->
+    <string name="equaliser_preset_selected">%1$s, selected</string>
+    <string name="equaliser_band_hz">%1$d Hz</string>
+    <string name="equaliser_band_khz">%1$d kHz</string>
+    <!-- A band's gain; the code adds the sign and the decimal: "+6.5 dB", "0.0 dB", "−3.0 dB" -->
+    <string name="equaliser_gain">%1$s dB</string>
+    <!-- The Settings row's summary: "Off", or "On · Bass boost" -->
+    <string name="equaliser_summary_off">Off</string>
+    <string name="equaliser_summary_on">On</string>
+    <string name="cd_equaliser_on">Equaliser, on</string>
+    <string name="cd_equaliser_off">Equaliser, off</string>
 </resources>

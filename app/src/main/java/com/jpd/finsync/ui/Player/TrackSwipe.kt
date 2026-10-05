@@ -5,12 +5,13 @@ import android.view.View
 import kotlin.math.abs
 
 /**
- * The mini-player's swipe (spec "Swipe"). [trackInfo], the art and title, follows the finger and
- * fades; on release [swipeOutcome] decides. A committed swipe slides out, runs the move, then
- * slides back in from the other side; anything else springs back. The buttons and the progress
- * line stay put. Set it as [swipeLayout]'s listener.
+ * The swipe for the next or previous track, on the mini-player and the Player (spec "Swipe").
+ * [trackInfo], the track's art and details, follows the finger and fades; on release
+ * [swipeOutcome] decides. A committed swipe slides out, runs the move, then slides back in from
+ * the other side; anything else springs back. The controls stay put. Set it as [swipeLayout]'s
+ * listener.
  */
-class MiniPlayerSwipe(
+class TrackSwipe(
     private val swipeLayout: HorizontalSwipeLayout,
     private val trackInfo: View,
     private val playback: PlaybackViewModel
@@ -28,8 +29,8 @@ class MiniPlayerSwipe(
         trackInfo.addOnAttachStateChangeListener(object : View.OnAttachStateChangeListener {
             override fun onViewAttachedToWindow(view: View) = Unit
 
-            // The activity is going: stop any slide. A move not yet run is dropped, as the
-            // controller is already released by then and it would do nothing.
+            // The screen is going: stop any slide. A move not yet run is dropped; for the
+            // mini-player the controller is already released by then, so it would do nothing.
             override fun onViewDetachedFromWindow(view: View) = reset()
         })
     }

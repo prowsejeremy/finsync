@@ -3,6 +3,8 @@ package com.jpd.finsync.playback
 import android.os.Handler
 import android.os.Looper
 import android.util.Log
+import com.jpd.finsync.equaliser.BANDWIDTH_OCTAVES
+import com.jpd.finsync.equaliser.BAND_CENTRES_HZ
 import com.un4seen.bass.BASS
 import com.un4seen.bass.BASS_FX
 import com.un4seen.bass.BASSmix
@@ -15,12 +17,15 @@ private const val STEREO = 2
 private const val MS_PER_SECOND = 1_000.0
 // BASS tries plugins in load order for each file (BASS_PluginLoad docs).
 private val PLUGINS = listOf("bassflac", "bassalac", "bass_aac", "bassopus", "bassape", "basswv")
+// The mixer's only effect, so its priority doesn't matter.
+private const val EQ_PRIORITY = 0
 
 /**
  * Thin wrapper over BASS. Files are decoded into a queued BASSmix mixer (BASS_MIXER_QUEUE), so
  * a queued next track follows the current one with no gap. A book plays through a BASS_FX tempo
- * stream wrapped round its decoder, so its speed changes without changing its pitch (3b). Call
- * it on the main thread only; [onTrackEnded] is delivered there too.
+ * stream wrapped round its decoder, so its speed changes without changing its pitch (3b). The
+ * equaliser sits on the mixer, so music and books both pass through it (5). Call it on the main
+ * thread only; [onTrackEnded] is delivered there too.
  */
 class BassEngine(private val nativeLibraryDir: String) {
 
@@ -38,6 +43,9 @@ class BassEngine(private val nativeLibraryDir: String) {
     // Bumped whenever sources are replaced, so end syncs from old sources are ignored.
     private var generation = 0
     private var lastPositionMs = 0L
+    // The EQ's band gains, or null to bypass. Kept so BASS gets them again whenever it starts.
+    private var equaliserGains: List<Float>? = null
+    private var equaliserFx = 0
 
     private val endSync = BASS.SYNCPROC { _, channel, _, user ->
         // A mixtime sync runs on BASS's mixing thread, so hand it to the main thread.
@@ -184,12 +192,23 @@ class BassEngine(private val nativeLibraryDir: String) {
         if (initialised) BASS.BASS_ChannelSetAttribute(mixer, BASS.BASS_ATTRIB_VOL, volume)
     }
 
+    /**
+     * Sets the equaliser's band gains in dB, or null to bypass it. It's kept and applied again
+     * whenever BASS starts, so it can be set before anything is loaded.
+     */
+    fun setEqualiser(gainsDb: List<Float>?) {
+        equaliserGains = gainsDb
+        if (initialised) applyEqualiser()
+    }
+
     fun release() {
         if (!initialised) return
         mainHandler.removeCallbacksAndMessages(null)
         freeSources()
         BASS.BASS_StreamFree(mixer)
         mixer = 0
+        // Freeing the mixer freed its EQ. The gains stay for the next start.
+        equaliserFx = 0
         BASS.BASS_Free()
         initialised = false
     }
@@ -214,6 +233,8 @@ class BassEngine(private val nativeLibraryDir: String) {
             return false
         }
         initialised = true
+        // Settings made before BASS started, or before a restart, apply now.
+        applyEqualiser()
         return true
     }
 
@@ -252,6 +273,56 @@ class BassEngine(private val nativeLibraryDir: String) {
         }
         BASS.BASS_ChannelSetAttribute(tempo, BASS_FX.BASS_ATTRIB_TEMPO, tempoPercentFor(speed))
         return tempo
+    }
+
+    private fun applyEqualiser() {
+        val gains = equaliserGains
+        if (gains == null) {
+            removeEqualiser()
+            return
+        }
+        if (equaliserFx == 0) equaliserFx = addEqualiser()
+        if (equaliserFx == 0) return
+        // No turn-down: boosts raise the level, and big ones may clip. The user's choice
+        // (2026-10-05), over the spec's automatic headroom.
+        gains.forEachIndexed { band, gainDb -> setBand(band, gainDb) }
+    }
+
+    /** Adds the EQ effect to the mixer, or returns 0 when BASS_FX can't; playback goes on. */
+    private fun addEqualiser(): Int {
+        try {
+            // PEAKEQ is a compile-time constant, so using it doesn't load BASS_FX the way calling
+            // one of its functions does, and music alone never makes a tempo stream.
+            BASS_FX.BASS_FX_GetVersion()
+        } catch (e: LinkageError) {
+            Log.e(TAG, "BASS_FX library is missing", e)
+            return 0
+        }
+        val fx = BASS.BASS_ChannelSetFX(mixer, BASS_FX.BASS_FX_BFX_PEAKEQ, EQ_PRIORITY)
+        if (fx == 0) Log.w(TAG, "EQ effect refused: ${BASS.BASS_ErrorGetCode()}")
+        return fx
+    }
+
+    private fun setBand(band: Int, gainDb: Float) {
+        val params = BASS_FX.BASS_BFX_PEAKEQ().apply {
+            lBand = band
+            fCenter = BAND_CENTRES_HZ[band]
+            fBandwidth = BANDWIDTH_OCTAVES
+            // Unused: the bandwidth takes priority over Q (bass_fx.h).
+            fQ = 0f
+            fGain = gainDb
+            lChannel = BASS_FX.BASS_BFX_CHANALL
+        }
+        if (!BASS.BASS_FXSetParameters(equaliserFx, params)) {
+            Log.w(TAG, "EQ band $band refused: ${BASS.BASS_ErrorGetCode()}")
+        }
+    }
+
+    private fun removeEqualiser() {
+        if (equaliserFx != 0) {
+            BASS.BASS_ChannelRemoveFX(mixer, equaliserFx)
+            equaliserFx = 0
+        }
     }
 
     private fun freeSources() {

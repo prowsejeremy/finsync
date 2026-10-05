@@ -2,9 +2,10 @@ package com.jpd.finsync.ui
 
 import kotlin.math.abs
 
-// The mini-player swipe's tuning (spec "Constants"), named so it can be adjusted on the phone.
+// The track swipe's tuning, on the mini-player and the Player (spec "Constants"), named so it
+// can be adjusted on the phone.
 
-/** A drag this share of the card's width commits. */
+/** A drag this share of the swipe area's width commits. */
 const val SWIPE_COMMIT_FRACTION = 1f / 3f
 
 /** A flick at least this fast, in the drag's direction, commits however short the drag. */
@@ -16,10 +17,10 @@ const val SWIPE_SLIDE_MS = 150L
 /** An uncommitted swipe's return to its place. */
 const val SWIPE_SPRING_BACK_MS = 200L
 
-/** The art and title are fully faded once dragged this share of the card's width. */
+/** The track's details are fully faded once dragged this share of the swipe area's width. */
 const val SWIPE_FADE_FRACTION = 0.5f
 
-/** What a released mini-player swipe does. */
+/** What a released track swipe does. */
 enum class SwipeOutcome { NEXT, PREVIOUS, NONE }
 
 /**

@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- One preset pill (spec "Equaliser"): 32dp tall with 8dp after it. EqualiserFragment sets the
+     text and the colours, as SpeedSheet does for its speeds. The insets and minimum sizes are
+     Material's defaults for a 48dp button, cleared so the pill is exactly its own size. -->
+<com.google.android.material.button.MaterialButton
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="wrap_content"
+    android:layout_height="32dp"
+    android:layout_marginEnd="8dp"
+    android:minWidth="0dp"
+    android:minHeight="0dp"
+    android:insetTop="0dp"
+    android:insetBottom="0dp"
+    android:paddingHorizontal="14dp"
+    android:textSize="14sp"
+    android:fontFamily="@font/hk_regular"
+    app:cornerRadius="16dp" />

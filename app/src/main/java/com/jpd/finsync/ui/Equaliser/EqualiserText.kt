@@ -1,0 +1,45 @@
+package com.jpd.finsync.ui
+
+import android.content.res.Resources
+import androidx.annotation.StringRes
+import com.jpd.finsync.R
+import com.jpd.finsync.equaliser.EqPreset
+import com.jpd.finsync.equaliser.EqSettings
+import com.jpd.finsync.equaliser.bandLabel
+
+// The equaliser's words on screen. The rules behind them stay plain Kotlin, in EqFormat.kt and
+// the equaliser package (spec "Portable core").
+
+/** "Flat", "Bass boost" … "Spoken word", or "Custom". */
+@get:StringRes
+val EqPreset.titleRes: Int
+    get() = when (this) {
+        EqPreset.FLAT -> R.string.equaliser_preset_flat
+        EqPreset.BASS_BOOST -> R.string.equaliser_preset_bass_boost
+        EqPreset.TREBLE_BOOST -> R.string.equaliser_preset_treble_boost
+        EqPreset.VOCAL -> R.string.equaliser_preset_vocal
+        EqPreset.ROCK -> R.string.equaliser_preset_rock
+        EqPreset.POP -> R.string.equaliser_preset_pop
+        EqPreset.JAZZ -> R.string.equaliser_preset_jazz
+        EqPreset.CLASSICAL -> R.string.equaliser_preset_classical
+        EqPreset.SPOKEN_WORD -> R.string.equaliser_preset_spoken_word
+        EqPreset.CUSTOM -> R.string.equaliser_preset_custom
+    }
+
+/** A band's label: "31 Hz" … "16 kHz". */
+fun Resources.bandLabelText(band: Int): String {
+    val label = bandLabel(band)
+    val format = if (label.kilohertz) R.string.equaliser_band_khz else R.string.equaliser_band_hz
+    return getString(format, label.value)
+}
+
+/** A band's gain: "+6.5 dB", "0.0 dB" or "−3.0 dB". */
+fun Resources.gainText(gainDb: Float): String =
+    getString(R.string.equaliser_gain, signedGainText(gainDb))
+
+/** The Settings row's summary: "Off", or "On · Bass boost" (spec "Settings"). */
+fun Resources.equaliserSummary(settings: EqSettings): String {
+    val preset = summaryPreset(settings) ?: return getString(R.string.equaliser_summary_off)
+    val on = getString(R.string.equaliser_summary_on)
+    return joinWithDots(listOf(on, getString(preset.titleRes)))
+}

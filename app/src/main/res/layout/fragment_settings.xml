@@ -104,6 +104,14 @@
                 android:id="@+id/rowHomeScreen"
                 layout="@layout/view_settings_row"
                 android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="12dp" />
+
+            <!-- Equaliser: "Off" or "On · Bass boost" (5) -->
+            <include
+                android:id="@+id/rowEqualiser"
+                layout="@layout/view_settings_row"
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content" />
 
         </LinearLayout>

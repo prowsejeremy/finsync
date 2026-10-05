@@ -228,7 +228,8 @@ class PlaybackViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     // The mini-player's moves (3b refinements): its Next button, its swipes and their TalkBack
-    // actions. The Player screen, the notification and headset buttons keep their own rules.
+    // actions; also the Player's swipe. The Player's buttons, the notification and headset
+    // buttons keep their own rules.
 
     /** The next chapter while a book plays (nothing on the last), else the next track. */
     fun nextTrackOrChapter() {
