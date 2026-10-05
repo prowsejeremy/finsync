@@ -17,8 +17,10 @@ import androidx.fragment.app.activityViewModels
 import androidx.media3.common.Player
 import androidx.mediarouter.app.SystemOutputSwitcherDialogController
 import androidx.navigation.fragment.findNavController
+import com.google.android.material.bottomsheet.BottomSheetDialogFragment
 import com.jpd.finsync.R
 import com.jpd.finsync.databinding.FragmentPlayerBinding
+import com.jpd.finsync.library.chapterWindowAt
 
 class PlayerFragment : Fragment() {
 
@@ -26,9 +28,13 @@ class PlayerFragment : Fragment() {
     private val binding get() = _binding!!
     private val playbackViewModel: PlaybackViewModel by activityViewModels()
     private var albumId: String? = null
+    // The playing book, or null for music (3b).
+    private var book: BookPlayback? = null
     // The art currently shown, so it's only reloaded when the track's art changes.
     private var shownArtworkPath: String? = null
     private var userSeeking = false
+    // Where the seek bar starts in the track: 0, or a book's current chapter (3b).
+    private var seekWindowStartMs = 0L
 
     private val seekListener = object : SeekBar.OnSeekBarChangeListener {
         override fun onProgressChanged(seekBar: SeekBar, progress: Int, fromUser: Boolean) {
@@ -39,10 +45,10 @@ class PlayerFragment : Fragment() {
             userSeeking = true
         }
 
-        // "It seeks when you let go" (spec).
+        // "It seeks when you let go" (spec). A book's bar covers its chapter (mockup option A).
         override fun onStopTrackingTouch(seekBar: SeekBar) {
             userSeeking = false
-            playbackViewModel.seekTo(seekBar.progress.toLong())
+            playbackViewModel.seekTo(seekWindowStartMs + seekBar.progress)
         }
     }
 
@@ -59,14 +65,24 @@ class PlayerFragment : Fragment() {
         super.onViewCreated(view, savedInstanceState)
         val backDispatcher = requireActivity().onBackPressedDispatcher
         binding.btnClose.setOnClickListener { backDispatcher.onBackPressed() }
-        binding.chipAlbum.setOnClickListener { openAlbum() }
+        binding.playerContext.setOnClickListener { openBook() }
+        binding.chipAlbum.setOnClickListener { if (book != null) openBook() else openAlbum() }
         binding.btnPlayPause.setOnClickListener { playbackViewModel.togglePlayPause() }
-        binding.btnPrevious.setOnClickListener { playbackViewModel.previous() }
-        binding.btnNext.setOnClickListener { playbackViewModel.next() }
+        // A book's previous and next move between chapters (spec "Controls").
+        binding.btnPrevious.setOnClickListener {
+            if (book != null) playbackViewModel.previousChapter() else playbackViewModel.previous()
+        }
+        binding.btnNext.setOnClickListener {
+            if (book != null) playbackViewModel.nextChapter() else playbackViewModel.next()
+        }
+        binding.btnSkipBack.setOnClickListener { playbackViewModel.skipBack() }
+        binding.btnSkipForward.setOnClickListener { playbackViewModel.skipForward() }
         binding.btnRepeat.setOnClickListener { playbackViewModel.cycleRepeatMode() }
         binding.btnShuffle.setOnClickListener { playbackViewModel.toggleShuffle() }
         binding.btnOutput.setOnClickListener { openOutputSwitcher() }
-        binding.btnQueue.setOnClickListener { openQueue() }
+        binding.btnQueue.setOnClickListener { openSheet(QueueSheet.TAG) { QueueSheet() } }
+        binding.btnChapters.setOnClickListener { openSheet(ChaptersSheet.TAG) { ChaptersSheet() } }
+        binding.btnSpeed.setOnClickListener { openSheet(SpeedSheet.TAG) { SpeedSheet() } }
         binding.seekBar.setOnSeekBarChangeListener(seekListener)
 
         playbackViewModel.state.observe(viewLifecycleOwner) { render(it) }
@@ -81,10 +97,14 @@ class PlayerFragment : Fragment() {
 
     private fun render(state: PlaybackUiState) {
         albumId = state.albumId
+        book = state.book
         binding.tvAlbumName.text = state.albumTitle
         binding.tvTitle.text = state.title
-        binding.chipArtist.text = state.artist
-        binding.chipArtist.visibility = if (state.artist.isBlank()) View.GONE else View.VISIBLE
+        // A book's chips are its author and the book (spec "Labels").
+        val artistChip = state.book?.let { it.author ?: getString(R.string.unknown_author) }
+            ?: state.artist
+        binding.chipArtist.text = artistChip
+        binding.chipArtist.visibility = if (artistChip.isBlank()) View.GONE else View.VISIBLE
         binding.chipAlbum.text = state.albumTitle
         binding.chipAlbum.visibility = if (state.albumTitle.isBlank()) View.GONE else View.VISIBLE
 
@@ -104,14 +124,57 @@ class PlayerFragment : Fragment() {
 
         renderRepeat(state.repeatMode)
         tint(binding.btnShuffle, if (state.shuffle) R.color.accent_green else R.color.muted)
+        renderMode(state.book)
+    }
+
+    // Music shows repeat, shuffle and Queue; a book shows −15, +30, Chapters, its speed and the
+    // time left (spec "Player with a book"). Hidden controls take their spacers with them.
+    private fun renderMode(book: BookPlayback?) {
+        val isBook = book != null
+        val musicOnly = if (isBook) View.GONE else View.VISIBLE
+        val bookOnly = if (isBook) View.VISIBLE else View.GONE
+        val label = if (isBook) R.string.player_playing_book else R.string.player_playing_from_album
+        binding.tvContextLabel.setText(label)
+        binding.playerContext.isClickable = isBook
+        listOf(
+            binding.btnRepeat, binding.spaceAfterRepeat,
+            binding.spaceBeforeShuffle, binding.btnShuffle, binding.btnQueue
+        ).forEach { it.visibility = musicOnly }
+        listOf(
+            binding.btnSkipBack, binding.spaceAfterSkipBack, binding.spaceBeforeSkipForward,
+            binding.btnSkipForward, binding.btnSpeed, binding.tvBookLeft
+        ).forEach { it.visibility = bookOnly }
+        // With no chapters there's nothing to pick, and the bar covers the whole book (spec).
+        val hasChapters = book != null && book.chapters.size > 1
+        binding.btnChapters.visibility = if (hasChapters) View.VISIBLE else View.GONE
+        binding.tvSpeed.text = book?.let { formatSpeed(it.speed) }
+        val previousLabel = if (isBook) R.string.cd_previous_chapter else R.string.cd_previous
+        val nextLabel = if (isBook) R.string.cd_next_chapter else R.string.cd_next
+        binding.btnPrevious.contentDescription = getString(previousLabel)
+        binding.btnNext.contentDescription = getString(nextLabel)
     }
 
     private fun renderPosition(position: PlaybackPosition) {
-        binding.seekBar.max = position.durationMs.coerceIn(0L, Int.MAX_VALUE.toLong()).toInt()
-        binding.tvTotal.text = formatDuration(position.durationMs)
+        // While dragging, the bar keeps the span it started with, so letting go lands where shown.
         if (userSeeking) return
-        binding.seekBar.progress = position.positionMs.coerceIn(0L, Int.MAX_VALUE.toLong()).toInt()
-        binding.tvElapsed.text = formatDuration(position.positionMs)
+        val currentBook = book
+        val window = currentBook?.let {
+            chapterWindowAt(it.chapterStartsMs, position.positionMs, position.durationMs)
+        }
+        val startMs = window?.startMs ?: 0L
+        val lengthMs = window?.lengthMs ?: position.durationMs
+        val elapsedMs = position.positionMs - startMs
+        seekWindowStartMs = startMs
+        binding.seekBar.max = lengthMs.coerceIn(0L, Int.MAX_VALUE.toLong()).toInt()
+        binding.seekBar.progress = elapsedMs.coerceIn(0L, Int.MAX_VALUE.toLong()).toInt()
+        binding.tvElapsed.text = formatDuration(elapsedMs)
+        binding.tvTotal.text = formatDuration(lengthMs)
+        if (currentBook != null) {
+            // Book time, not adjusted for speed (spec "Progress").
+            val leftMs = (position.durationMs - position.positionMs).coerceAtLeast(0L)
+            binding.tvBookLeft.text =
+                getString(R.string.player_book_left, formatListLength(resources, listOf(leftMs)))
+        }
     }
 
     // Muted when off, green for all, green with a "1" for one.
@@ -149,15 +212,34 @@ class PlayerFragment : Fragment() {
         }
     }
 
+    // As openAlbum, for a book's page (spec "Header"; 3b).
+    private fun openBook() {
+        val id = book?.bookId ?: return
+        val navController = findNavController()
+        val beneath = navController.previousBackStackEntry
+        val bookBeneath = beneath?.destination?.id == R.id.bookFragment &&
+            beneath.arguments?.getString(ARG_BOOK_ID) == id
+        if (bookBeneath) {
+            navController.popBackStack()
+        } else {
+            navigateSafely(
+                R.id.playerFragment,
+                R.id.action_player_to_book,
+                bundleOf(ARG_BOOK_ID to id)
+            )
+        }
+    }
+
     private fun openOutputSwitcher() {
         if (!SystemOutputSwitcherDialogController.showDialog(requireContext())) {
             Toast.makeText(requireContext(), R.string.output_unavailable, Toast.LENGTH_SHORT).show()
         }
     }
 
-    private fun openQueue() {
-        if (childFragmentManager.findFragmentByTag(QueueSheet.TAG) == null) {
-            QueueSheet().show(childFragmentManager, QueueSheet.TAG)
+    // One copy of each sheet at a time, as the Queue sheet always had.
+    private fun openSheet(tag: String, create: () -> BottomSheetDialogFragment) {
+        if (childFragmentManager.findFragmentByTag(tag) == null) {
+            create().show(childFragmentManager, tag)
         }
     }
 }

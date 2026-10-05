@@ -8,6 +8,13 @@ import java.util.Locale
 private const val BYTES_PER_MB = 1_000_000.0
 private const val BYTES_PER_GB = 1_000_000_000.0
 
+/** The speed pill and sheet: "1.2×", "2.0×", or "1.75×" when a second decimal is needed. */
+fun formatSpeed(speed: Float): String {
+    val twoDecimals = String.format(Locale.ROOT, "%.2f", speed)
+    val shown = if (twoDecimals.endsWith("0")) twoDecimals.dropLast(1) else twoDecimals
+    return "$shown×"
+}
+
 /** A file size for Books to Sync: "412 MB", or "1.2 GB" from a gigabyte (decision 21). */
 fun formatFileSize(bytes: Long): String =
     if (bytes >= BYTES_PER_GB) {

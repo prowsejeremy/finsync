@@ -23,3 +23,43 @@ fun chapterLengthsMs(startsMs: List<Long>, durationMs: Long): List<Long> =
         val end = startsMs.getOrNull(index + 1) ?: durationMs
         (end - start).coerceAtLeast(0L)
     }
+
+// More than this into a chapter, previous chapter restarts it (spec "Previous chapter").
+private const val RESTART_AFTER_MS = 3_000L
+
+/**
+ * Previous chapter: this chapter's start once more than 3 s of it has played, else the previous
+ * chapter's start. From the first chapter, that's the start of the book.
+ */
+fun previousChapterTarget(startsMs: List<Long>, positionMs: Long): Long {
+    if (startsMs.isEmpty()) return 0L
+    val index = currentChapterIndex(startsMs, positionMs)
+    val start = startsMs[index]
+    return when {
+        positionMs - start > RESTART_AFTER_MS -> start
+        index > 0 -> startsMs[index - 1]
+        else -> 0L
+    }
+}
+
+/** Next chapter's start, or null on the last chapter, where next does nothing (spec). */
+fun nextChapterTarget(startsMs: List<Long>, positionMs: Long): Long? =
+    startsMs.firstOrNull { it > positionMs }
+
+/** [positionMs] moved by [deltaMs], kept within the book; an unknown length (0) has no end. */
+fun skipTarget(positionMs: Long, deltaMs: Long, durationMs: Long): Long {
+    val end = if (durationMs > 0L) durationMs else Long.MAX_VALUE
+    return (positionMs + deltaMs).coerceIn(0L, end)
+}
+
+/** The span the Player's seek bar covers while a book plays: the current chapter. */
+data class ChapterWindow(val index: Int, val startMs: Long, val endMs: Long) {
+    val lengthMs: Long get() = endMs - startMs
+}
+
+fun chapterWindowAt(startsMs: List<Long>, positionMs: Long, durationMs: Long): ChapterWindow {
+    val index = currentChapterIndex(startsMs, positionMs)
+    val start = startsMs.getOrElse(index) { 0L }
+    val end = startsMs.getOrNull(index + 1) ?: durationMs
+    return ChapterWindow(index, start, end.coerceAtLeast(start))
+}

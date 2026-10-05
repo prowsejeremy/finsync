@@ -1,18 +1,27 @@
 package com.jpd.finsync.playback
 
+import android.os.Handler
 import android.os.Looper
 import androidx.annotation.OptIn
 import androidx.media3.common.C
 import androidx.media3.common.MediaItem
 import androidx.media3.common.PlaybackException
+import androidx.media3.common.PlaybackParameters
 import androidx.media3.common.Player
 import androidx.media3.common.SimpleBasePlayer
 import androidx.media3.common.util.UnstableApi
 import com.google.common.util.concurrent.Futures
 import com.google.common.util.concurrent.ListenableFuture
+import com.jpd.finsync.library.currentChapterIndex
+import com.jpd.finsync.library.skipTarget
 import kotlin.random.Random
 
 private const val US_PER_MS = 1_000L
+// How often a loaded book checks for a new chapter, so the notification's title follows it.
+private const val CHAPTER_CHECK_MS = 1_000L
+
+/** Where the current book is, for book_progress (3b). [ended] means it played to the end. */
+data class BookPosition(val bookId: String, val positionMs: Long, val ended: Boolean)
 
 /**
  * The session's player. Owns the queue, play order, repeat and shuffle, and drives [BassEngine].
@@ -21,6 +30,10 @@ private const val US_PER_MS = 1_000L
  * already in play order. Media3's own next and previous handling (including "previous restarts
  * the track after 3 s"), the notification and the queue sheet then all follow play order.
  * Every handler finishes synchronously on the main thread.
+ *
+ * A book (3b) is one queue item with its chapters in its extras. While one is current it plays
+ * through a tempo stream at [bookSpeed], repeat counts as off, the system's previous and next
+ * skip 15 s back and 30 s on, and the reported title is the current chapter.
  */
 @OptIn(UnstableApi::class)
 class BassPlayer(
@@ -31,12 +44,18 @@ class BassPlayer(
 
     private class Entry(val uid: Long, val item: MediaItem)
 
+    /** The speed every book plays at; the service loads it before anything plays. */
+    var bookSpeed: Float = DEFAULT_BOOK_SPEED
+    /** Called when a controller picks a book speed, so the service can keep it. */
+    var onBookSpeedChanged: ((Float) -> Unit)? = null
+
     private var entries: List<Entry> = emptyList()      // album order
     private var order: List<Int> = emptyList()          // play order: indices into entries
     private var current = 0                             // position in order
     private var queued = C.INDEX_UNSET                  // position queued in the engine
     private var loaded = false                          // engine holds the current track
     private var idlePositionMs = 0L                     // position while not loaded
+    private var playedToEnd = false                     // ENDED because the item played out
     private var playWhenReady = false
     private var playbackState = Player.STATE_IDLE
     private var repeatMode = Player.REPEAT_MODE_OFF
@@ -44,9 +63,18 @@ class BassPlayer(
     private var playerError: PlaybackException? = null
     private var pendingAutoTransition = false
     private var nextUid = 0L
+    private var reportedChapter = C.INDEX_UNSET         // chapter in the title; unset for music
+    private val chapterHandler = Handler(looper)
+    private val chapterCheck = object : Runnable {
+        override fun run() {
+            if (loaded && currentChapterOrUnset() != reportedChapter) invalidateState()
+            chapterHandler.postDelayed(this, CHAPTER_CHECK_MS)
+        }
+    }
 
     init {
         engine.onTrackEnded = ::onTrackEnded
+        chapterHandler.postDelayed(chapterCheck, CHAPTER_CHECK_MS)
     }
 
     /** What ResumeStore saves; null when the queue is empty. */
@@ -61,14 +89,29 @@ class BassPlayer(
         )
     }
 
+    /** The current book's place for book_progress; null unless a book is current (3b). */
+    fun bookPosition(): BookPosition? {
+        val item = currentItem()?.takeIf { it.isBook() } ?: return null
+        val ended = playbackState == Player.STATE_ENDED
+        // Ended without playing out means the file wouldn't load: there's no place to save.
+        if (ended && !playedToEnd) return null
+        return BookPosition(
+            bookId = item.mediaId,
+            positionMs = currentPositionMs(),
+            ended = ended
+        )
+    }
+
     override fun getState(): State {
+        reportedChapter = currentChapterOrUnset()
         val builder = State.Builder()
             .setAvailableCommands(AVAILABLE_COMMANDS)
             .setPlayWhenReady(playWhenReady, Player.PLAY_WHEN_READY_CHANGE_REASON_USER_REQUEST)
             .setPlaybackState(if (order.isEmpty()) Player.STATE_IDLE else playbackState)
             .setPlayerError(playerError)
-            .setRepeatMode(repeatMode)
+            .setRepeatMode(effectiveRepeatMode())
             .setShuffleModeEnabled(shuffle)
+            .setPlaybackParameters(currentPlaybackParameters())
             .setPlaylist(order.mapIndexed { position, entry -> itemData(entries[entry], position) })
             .setContentPositionMs(PositionSupplier { currentPositionMs() })
         if (order.isNotEmpty()) builder.setCurrentMediaItemIndex(current)
@@ -104,6 +147,7 @@ class BassPlayer(
     }
 
     override fun handleRelease(): ListenableFuture<*> {
+        chapterHandler.removeCallbacks(chapterCheck)
         engine.release()
         loaded = false
         return Futures.immediateVoidFuture()
@@ -129,6 +173,16 @@ class BassPlayer(
             }
             if (loaded) queueNext()
         }
+        return Futures.immediateVoidFuture()
+    }
+
+    // One speed for every book, kept by the service; music always plays at 1.0× (spec "Speed").
+    override fun handleSetPlaybackParameters(
+        playbackParameters: PlaybackParameters
+    ): ListenableFuture<*> {
+        bookSpeed = nearestBookSpeed(playbackParameters.speed)
+        onBookSpeedChanged?.invoke(bookSpeed)
+        if (loaded && isBookCurrent()) engine.setSpeed(bookSpeed)
         return Futures.immediateVoidFuture()
     }
 
@@ -202,23 +256,33 @@ class BassPlayer(
         seekCommand: Int
     ): ListenableFuture<*> {
         if (order.isEmpty()) return Futures.immediateVoidFuture()
-        current = mediaItemIndex.coerceIn(0, order.size - 1)
-        val position = if (positionMs == C.TIME_UNSET) 0L else positionMs
-        if (playbackState == Player.STATE_IDLE) idlePositionMs = position else loadCurrent(position)
+        // While a book plays, the system's previous and next skip instead (decision 12). Media3
+        // routes them here with these commands, even when there's nothing to skip to.
+        val skipMs = if (isBookCurrent()) systemSkipMs(seekCommand) else null
+        if (skipMs != null) {
+            moveTo(current, skipTarget(currentPositionMs(), skipMs, currentDurationMs()))
+        } else {
+            val position = if (positionMs == C.TIME_UNSET) 0L else positionMs
+            moveTo(mediaItemIndex.coerceIn(0, order.size - 1), position)
+        }
         return Futures.immediateVoidFuture()
     }
 
     // The catalogue's duration, or the engine's for the loaded track when the catalogue has none.
+    // A current book reports its chapter as the title (spec "Labels", decision 11).
     private fun itemData(entry: Entry, position: Int): MediaItemData {
         val extras = entry.item.mediaMetadata.extras
         val catalogueMs = extras?.getLong(TrackExtras.DURATION_MS, 0L) ?: 0L
         val useEngine = catalogueMs <= 0 && loaded && position == current
         val durationMs = if (useEngine) engine.durationMs() else catalogueMs
-        return MediaItemData.Builder(entry.uid)
+        val builder = MediaItemData.Builder(entry.uid)
             .setMediaItem(entry.item)
             .setDurationUs(if (durationMs > 0) durationMs * US_PER_MS else C.TIME_UNSET)
             .setIsSeekable(true)
-            .build()
+        if (position == current && reportedChapter != C.INDEX_UNSET) {
+            builder.setMediaMetadata(entry.item.chapterMetadata(reportedChapter))
+        }
+        return builder.build()
     }
 
     private fun currentPositionMs(): Long = if (loaded) engine.positionMs() else idlePositionMs
@@ -237,11 +301,12 @@ class BassPlayer(
             return
         }
         playerError = null
+        playedToEnd = false
         var position = current
         var startMs = positionMs
         repeat(order.size) {
             val path = pathAt(position)
-            if (path != null && engine.load(path, startMs)) {
+            if (path != null && engine.load(path, startMs, speedAt(position))) {
                 current = position
                 loaded = true
                 playbackState = Player.STATE_READY
@@ -260,7 +325,7 @@ class BassPlayer(
     /** Queues the track that follows the current one, skipping any that can't be decoded. */
     private fun queueNext() {
         queued = C.INDEX_UNSET
-        var candidate = QueueOrder.autoNextIndex(current, order.size, repeatMode)
+        var candidate = QueueOrder.autoNextIndex(current, order.size, effectiveRepeatMode())
         repeat(order.size) {
             val position = candidate ?: return@repeat
             val path = pathAt(position)
@@ -279,6 +344,7 @@ class BassPlayer(
             pendingAutoTransition = true
             queueNext()
         } else {
+            playedToEnd = true
             finish()
         }
         invalidateState()
@@ -301,6 +367,46 @@ class BassPlayer(
         playbackState = Player.STATE_IDLE
     }
 
+    // Seeking inside the loaded item moves its stream instead of reopening the file (decision
+    // 15); a refused seek, another item or an ended queue loads as before.
+    private fun moveTo(position: Int, positionMs: Long) {
+        val sameItem = position == current
+        current = position
+        when {
+            playbackState == Player.STATE_IDLE -> idlePositionMs = positionMs
+            sameItem && loaded && engine.seek(positionMs) -> Unit
+            else -> loadCurrent(positionMs)
+        }
+    }
+
+    private fun currentItem(): MediaItem? =
+        if (order.isEmpty()) null else entries[order[current]].item
+
+    private fun isBookCurrent(): Boolean = currentItem()?.isBook() == true
+
+    // A book counts as repeat off, so it ends rather than loops; music keeps the user's setting.
+    private fun effectiveRepeatMode(): Int =
+        if (isBookCurrent()) Player.REPEAT_MODE_OFF else repeatMode
+
+    private fun currentPlaybackParameters(): PlaybackParameters =
+        if (isBookCurrent()) PlaybackParameters(bookSpeed) else PlaybackParameters.DEFAULT
+
+    // A book loads into a tempo stream at the book speed; music plays as decoded.
+    private fun speedAt(position: Int): Float? =
+        if (entries[order[position]].item.isBook()) bookSpeed else null
+
+    private fun currentChapterOrUnset(): Int {
+        val item = currentItem()?.takeIf { it.isBook() } ?: return C.INDEX_UNSET
+        return currentChapterIndex(item.bookChapters().map { it.startMs }, currentPositionMs())
+    }
+
+    // For clamping skips: the catalogue's length, else the engine's (0, no end, when unknown).
+    private fun currentDurationMs(): Long {
+        val extras = currentItem()?.mediaMetadata?.extras
+        val catalogueMs = extras?.getLong(TrackExtras.DURATION_MS, 0L) ?: 0L
+        return if (catalogueMs > 0) catalogueMs else engine.durationMs()
+    }
+
     private companion object {
         val AVAILABLE_COMMANDS: Player.Commands = Player.Commands.Builder()
             .addAll(
@@ -310,6 +416,7 @@ class BassPlayer(
                 Player.COMMAND_RELEASE,
                 Player.COMMAND_SET_REPEAT_MODE,
                 Player.COMMAND_SET_SHUFFLE_MODE,
+                Player.COMMAND_SET_SPEED_AND_PITCH,
                 Player.COMMAND_SEEK_IN_CURRENT_MEDIA_ITEM,
                 Player.COMMAND_SEEK_TO_DEFAULT_POSITION,
                 Player.COMMAND_SEEK_TO_MEDIA_ITEM,

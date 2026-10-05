@@ -36,6 +36,7 @@
 
     </com.google.android.material.card.MaterialCardView>
 
+    <!-- A book's header opens its page (3b); PlayerFragment makes it clickable only then -->
     <LinearLayout
         android:id="@+id/playerContext"
         android:layout_width="0dp"
@@ -43,12 +44,14 @@
         android:layout_marginHorizontal="8dp"
         android:orientation="vertical"
         android:gravity="center_horizontal"
+        android:background="?attr/selectableItemBackground"
         app:layout_constraintTop_toTopOf="@id/btnClose"
         app:layout_constraintBottom_toBottomOf="@id/btnClose"
         app:layout_constraintStart_toEndOf="@id/btnClose"
         app:layout_constraintEnd_toStartOf="@id/headerBalance">
 
         <TextView
+            android:id="@+id/tvContextLabel"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="@string/player_playing_from_album"
@@ -187,14 +190,16 @@
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent" />
 
+    <!-- With music, tvBookLeft is gone and the gone margin keeps the old 16 dp gap -->
     <LinearLayout
         android:id="@+id/times"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
-        android:layout_marginBottom="16dp"
+        android:layout_marginBottom="4dp"
         android:orientation="horizontal"
         android:paddingHorizontal="16dp"
-        app:layout_constraintBottom_toTopOf="@id/controls"
+        app:layout_goneMarginBottom="16dp"
+        app:layout_constraintBottom_toTopOf="@id/tvBookLeft"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent">
 
@@ -217,7 +222,24 @@
 
     </LinearLayout>
 
-    <!-- Repeat, previous, play/pause, next, shuffle -->
+    <!-- "8 h 28 min left in book" under a book's chapter times (3b) -->
+    <TextView
+        android:id="@+id/tvBookLeft"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="16dp"
+        android:gravity="center"
+        android:textColor="@color/muted"
+        android:textSize="12sp"
+        android:fontFamily="@font/hk_regular"
+        android:visibility="gone"
+        app:layout_constraintBottom_toTopOf="@id/controls"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent" />
+
+    <!-- Music: repeat, previous, play/pause, next, shuffle. A book (3b): previous chapter, −15,
+         play/pause, +30, next chapter. Each optional control hides with one spacer, so the five
+         visible controls keep music's spacing. -->
     <LinearLayout
         android:id="@+id/controls"
         android:layout_width="0dp"
@@ -241,6 +263,7 @@
             app:tint="@color/muted" />
 
         <Space
+            android:id="@+id/spaceAfterRepeat"
             android:layout_width="0dp"
             android:layout_height="1dp"
             android:layout_weight="1" />
@@ -260,6 +283,28 @@
             android:layout_width="0dp"
             android:layout_height="1dp"
             android:layout_weight="1" />
+
+        <TextView
+            android:id="@+id/btnSkipBack"
+            android:layout_width="56dp"
+            android:layout_height="56dp"
+            android:gravity="center"
+            android:text="@string/skip_back_label"
+            android:textColor="@color/text_primary"
+            android:textSize="16sp"
+            android:fontFamily="@font/hk_extrabold"
+            android:clickable="true"
+            android:focusable="true"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:contentDescription="@string/cd_skip_back"
+            android:visibility="gone" />
+
+        <Space
+            android:id="@+id/spaceAfterSkipBack"
+            android:layout_width="0dp"
+            android:layout_height="1dp"
+            android:layout_weight="1"
+            android:visibility="gone" />
 
         <FrameLayout
             android:id="@+id/btnPlayPause"
@@ -282,6 +327,28 @@
         </FrameLayout>
 
         <Space
+            android:id="@+id/spaceBeforeSkipForward"
+            android:layout_width="0dp"
+            android:layout_height="1dp"
+            android:layout_weight="1"
+            android:visibility="gone" />
+
+        <TextView
+            android:id="@+id/btnSkipForward"
+            android:layout_width="56dp"
+            android:layout_height="56dp"
+            android:gravity="center"
+            android:text="@string/skip_forward_label"
+            android:textColor="@color/text_primary"
+            android:textSize="16sp"
+            android:fontFamily="@font/hk_extrabold"
+            android:clickable="true"
+            android:focusable="true"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:contentDescription="@string/cd_skip_forward"
+            android:visibility="gone" />
+
+        <Space
             android:layout_width="0dp"
             android:layout_height="1dp"
             android:layout_weight="1" />
@@ -298,6 +365,7 @@
             app:tint="@color/text_primary" />
 
         <Space
+            android:id="@+id/spaceBeforeShuffle"
             android:layout_width="0dp"
             android:layout_height="1dp"
             android:layout_weight="1" />
@@ -315,15 +383,81 @@
 
     </LinearLayout>
 
-    <!-- Output and Queue pills -->
+    <!-- Music: Output and Queue. A book (3b): Chapters, the speed and Output. The divider
+         spaces the visible pills evenly and skips hidden ones. -->
     <LinearLayout
         android:id="@+id/pills"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:orientation="horizontal"
+        android:divider="@drawable/divider_pill_gap"
+        android:showDividers="middle"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent">
+
+        <com.google.android.material.card.MaterialCardView
+            android:id="@+id/btnChapters"
+            android:layout_width="wrap_content"
+            android:layout_height="40dp"
+            android:clickable="true"
+            android:focusable="true"
+            android:visibility="gone"
+            app:cardBackgroundColor="@color/surface_2"
+            app:cardCornerRadius="20dp"
+            app:cardElevation="0dp"
+            app:strokeWidth="0dp">
+
+            <LinearLayout
+                android:layout_width="wrap_content"
+                android:layout_height="match_parent"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:paddingHorizontal="16dp">
+
+                <ImageView
+                    android:layout_width="18dp"
+                    android:layout_height="18dp"
+                    android:src="@drawable/ic_chapters"
+                    android:importantForAccessibility="no"
+                    app:tint="@color/text_primary" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="8dp"
+                    android:text="@string/player_chapters"
+                    android:textColor="@color/text_primary"
+                    android:textSize="14sp"
+                    android:fontFamily="@font/hk_regular" />
+
+            </LinearLayout>
+        </com.google.android.material.card.MaterialCardView>
+
+        <com.google.android.material.card.MaterialCardView
+            android:id="@+id/btnSpeed"
+            android:layout_width="wrap_content"
+            android:layout_height="40dp"
+            android:clickable="true"
+            android:focusable="true"
+            android:contentDescription="@string/cd_speed"
+            android:visibility="gone"
+            app:cardBackgroundColor="@color/surface_2"
+            app:cardCornerRadius="20dp"
+            app:cardElevation="0dp"
+            app:strokeWidth="0dp">
+
+            <TextView
+                android:id="@+id/tvSpeed"
+                android:layout_width="wrap_content"
+                android:layout_height="match_parent"
+                android:gravity="center"
+                android:paddingHorizontal="16dp"
+                android:textColor="@color/text_primary"
+                android:textSize="14sp"
+                android:fontFamily="@font/hk_regular" />
+
+        </com.google.android.material.card.MaterialCardView>
 
         <com.google.android.material.card.MaterialCardView
             android:id="@+id/btnOutput"
@@ -366,7 +500,6 @@
             android:id="@+id/btnQueue"
             android:layout_width="wrap_content"
             android:layout_height="40dp"
-            android:layout_marginStart="12dp"
             android:clickable="true"
             android:focusable="true"
             app:cardBackgroundColor="@color/surface_2"

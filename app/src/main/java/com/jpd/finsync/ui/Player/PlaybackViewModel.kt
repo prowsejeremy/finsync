@@ -9,15 +9,25 @@ import androidx.lifecycle.viewModelScope
 import androidx.media3.common.C
 import androidx.media3.common.MediaItem
 import androidx.media3.common.PlaybackException
+import androidx.media3.common.PlaybackParameters
 import androidx.media3.common.Player
 import androidx.media3.session.MediaController
 import com.jpd.finsync.R
 import com.jpd.finsync.library.BookRepository
+import com.jpd.finsync.library.Chapter
 import com.jpd.finsync.library.LibraryRepository
+import com.jpd.finsync.library.currentChapterIndex
+import com.jpd.finsync.library.nextChapterTarget
+import com.jpd.finsync.library.previousChapterTarget
 import com.jpd.finsync.library.resumePositionMs
+import com.jpd.finsync.library.skipTarget
 import com.jpd.finsync.playback.QueueOrder
+import com.jpd.finsync.playback.SKIP_BACK_MS
+import com.jpd.finsync.playback.SKIP_FORWARD_MS
 import com.jpd.finsync.playback.TrackExtras
 import com.jpd.finsync.playback.TrackResolver
+import com.jpd.finsync.playback.bookChapters
+import com.jpd.finsync.playback.isBook
 import com.jpd.finsync.playback.remapStartIndex
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -41,11 +51,32 @@ data class TrackInfo(
 
 data class QueueRow(val title: String, val artist: String, val durationMs: Long?)
 
+/**
+ * The playing book (3b), for the Player, its sheets and the mini-player. Screens read chapters
+ * here and move between them only through [PlaybackViewModel]'s chapter methods (spec "The
+ * chapter seam"), so playing chapters as separate items later wouldn't change any screen.
+ */
+data class BookPlayback(
+    val bookId: String,
+    val title: String,
+    val author: String?,
+    /** Never empty: a book without chapters is one chapter named after it. */
+    val chapters: List<Chapter>,
+    val chapterIndex: Int,
+    /** The book's length from the catalogue, or the player's when the catalogue has none. */
+    val durationMs: Long,
+    val speed: Float
+) {
+    val chapterStartsMs: List<Long> get() = chapters.map { it.startMs }
+}
+
 /** What the mini-player, Player, Queue sheet and album detail show about playback. */
 data class PlaybackUiState(
     val hasQueue: Boolean = false,
     val mediaId: String? = null,
+    /** For a book, the current chapter's name. */
     val title: String = "",
+    /** For a book, the book's title. */
     val artist: String = "",
     val albumTitle: String = "",
     val albumId: String? = null,
@@ -56,7 +87,9 @@ data class PlaybackUiState(
     val shuffle: Boolean = false,
     /** In play order. */
     val queue: List<QueueRow> = emptyList(),
-    val currentIndex: Int = 0
+    val currentIndex: Int = 0,
+    /** Set while a book plays; null for music. */
+    val book: BookPlayback? = null
 )
 
 data class PlaybackPosition(val positionMs: Long = 0L, val durationMs: Long = 0L)
@@ -97,7 +130,12 @@ class PlaybackViewModel(app: Application) : AndroidViewModel(app) {
         publish(mediaController)
         positionPoller = viewModelScope.launch {
             while (isActive) {
-                publishPosition(mediaController)
+                // A new chapter changes the title line, so the whole state is republished (3b).
+                if (chapterChanged(mediaController)) {
+                    publish(mediaController)
+                } else {
+                    publishPosition(mediaController)
+                }
                 delay(POSITION_POLL_MS)
             }
         }
@@ -150,10 +188,12 @@ class PlaybackViewModel(app: Application) : AndroidViewModel(app) {
      */
     fun playBook(bookId: String) {
         viewModelScope.launch {
+            val progress = books.bookProgress(bookId)
             if (isCurrentItem(bookId)) {
-                continueCurrent(startMs = null)
+                // A finished book restored at startup sits near its end, not ENDED: start over.
+                continueCurrent(startMs = if (progress?.finished == true) 0L else null)
             } else {
-                startBook(bookId, resumePositionMs(books.bookProgress(bookId)))
+                startBook(bookId, resumePositionMs(progress))
             }
         }
     }
@@ -163,6 +203,97 @@ class PlaybackViewModel(app: Application) : AndroidViewModel(app) {
 
     /** A chapter tapped on the book page: the book plays from that chapter's start. */
     fun playBookFrom(bookId: String, startMs: Long) = playBookAt(bookId, startMs)
+
+    fun togglePlayPause() {
+        val mediaController = controller ?: return
+        if (mediaController.isPlaying) {
+            mediaController.pause()
+            return
+        }
+        when (mediaController.playbackState) {
+            Player.STATE_ENDED -> mediaController.seekToDefaultPosition()
+            Player.STATE_IDLE -> mediaController.prepare()
+        }
+        mediaController.play()
+    }
+
+    /** During a book the player turns this into +30 s, as for the system's next (3b). */
+    fun next() {
+        controller?.seekToNext()
+    }
+
+    /** Media3 restarts the track instead when more than 3 s have played. */
+    fun previous() {
+        controller?.seekToPrevious()
+    }
+
+    fun seekTo(positionMs: Long) {
+        controller?.seekTo(positionMs)
+    }
+
+    fun cycleRepeatMode() {
+        controller?.let { it.repeatMode = QueueOrder.nextRepeatMode(it.repeatMode) }
+    }
+
+    fun toggleShuffle() {
+        controller?.let { it.shuffleModeEnabled = !it.shuffleModeEnabled }
+    }
+
+    /** [queueIndex] is in play order, as listed by [PlaybackUiState.queue]. */
+    fun jumpTo(queueIndex: Int) {
+        val mediaController = controller ?: return
+        mediaController.seekToDefaultPosition(queueIndex)
+        mediaController.play()
+    }
+
+    /** Logout: stop and empty the queue; the service then clears its saved copy. */
+    fun clearQueue() {
+        val mediaController = controller ?: return
+        mediaController.stop()
+        mediaController.clearMediaItems()
+    }
+
+    // The chapter seam (3b): screens never seek to chapters themselves.
+
+    /** Next chapter's start; on the last chapter it does nothing (spec "Next chapter"). */
+    fun nextChapter() {
+        val mediaController = controller ?: return
+        val book = _state.value?.book ?: return
+        nextChapterTarget(book.chapterStartsMs, mediaController.currentPosition)
+            ?.let { mediaController.seekTo(it) }
+    }
+
+    /** This chapter's start once more than 3 s of it has played, else the previous chapter's. */
+    fun previousChapter() {
+        val mediaController = controller ?: return
+        val book = _state.value?.book ?: return
+        val target = previousChapterTarget(book.chapterStartsMs, mediaController.currentPosition)
+        mediaController.seekTo(target)
+    }
+
+    /** The Chapters sheet's tap; playing or paused stays as it is. */
+    fun jumpToChapter(index: Int) {
+        val mediaController = controller ?: return
+        val chapter = _state.value?.book?.chapters?.getOrNull(index) ?: return
+        mediaController.seekTo(chapter.startMs)
+    }
+
+    /** −15 s, kept within the book (spec "Skip"). */
+    fun skipBack() = skipBy(-SKIP_BACK_MS)
+
+    /** +30 s, kept within the book (spec "Skip"). */
+    fun skipForward() = skipBy(SKIP_FORWARD_MS)
+
+    /** One of the six steps; the player keeps it for every book (spec "Speed"). */
+    fun setSpeed(speed: Float) {
+        controller?.setPlaybackParameters(PlaybackParameters(speed))
+    }
+
+    private fun skipBy(deltaMs: Long) {
+        val mediaController = controller ?: return
+        val book = _state.value?.book ?: return
+        mediaController.seekTo(skipTarget(mediaController.currentPosition, deltaMs, book.durationMs))
+    }
 
     private fun playBookAt(bookId: String, startMs: Long) {
         viewModelScope.launch {
@@ -201,64 +332,20 @@ class PlaybackViewModel(app: Application) : AndroidViewModel(app) {
     private fun isCurrentItem(itemId: String): Boolean =
         controller?.currentMediaItem?.mediaId == itemId
 
-    fun togglePlayPause() {
-        val mediaController = controller ?: return
-        if (mediaController.isPlaying) {
-            mediaController.pause()
-            return
-        }
-        when (mediaController.playbackState) {
-            Player.STATE_ENDED -> mediaController.seekToDefaultPosition()
-            Player.STATE_IDLE -> mediaController.prepare()
-        }
-        mediaController.play()
-    }
-
-    fun next() {
-        controller?.seekToNext()
-    }
-
-    /** Media3 restarts the track instead when more than 3 s have played. */
-    fun previous() {
-        controller?.seekToPrevious()
-    }
-
-    fun seekTo(positionMs: Long) {
-        controller?.seekTo(positionMs)
-    }
-
-    fun cycleRepeatMode() {
-        controller?.let { it.repeatMode = QueueOrder.nextRepeatMode(it.repeatMode) }
-    }
-
-    fun toggleShuffle() {
-        controller?.let { it.shuffleModeEnabled = !it.shuffleModeEnabled }
-    }
-
-    /** [queueIndex] is in play order, as listed by [PlaybackUiState.queue]. */
-    fun jumpTo(queueIndex: Int) {
-        val mediaController = controller ?: return
-        mediaController.seekToDefaultPosition(queueIndex)
-        mediaController.play()
-    }
-
-    /** Logout: stop and empty the queue; the service then clears its saved copy. */
-    fun clearQueue() {
-        val mediaController = controller ?: return
-        mediaController.stop()
-        mediaController.clearMediaItems()
-    }
-
     private fun publish(player: Player) {
         val metadata = player.mediaMetadata
         val extras = metadata.extras
+        val book = bookPlaybackOf(player)
         _state.value = PlaybackUiState(
             hasQueue = player.mediaItemCount > 0,
             mediaId = player.currentMediaItem?.mediaId,
-            title = metadata.title?.toString() ?: "",
-            artist = metadata.artist?.toString() ?: "",
-            albumTitle = metadata.albumTitle?.toString() ?: "",
-            albumId = extras?.getString(TrackExtras.ALBUM_ID),
+            // A book's title line is its chapter, over the book's title (spec "Labels"), so the
+            // mini-player shows both with no change of its own.
+            title = book?.let { it.chapters[it.chapterIndex].name }
+                ?: metadata.title?.toString() ?: "",
+            artist = book?.title ?: metadata.artist?.toString() ?: "",
+            albumTitle = book?.title ?: metadata.albumTitle?.toString() ?: "",
+            albumId = if (book == null) extras?.getString(TrackExtras.ALBUM_ID) else null,
             artworkPath = metadata.artworkUri?.path,
             info = TrackInfo(
                 codec = extras?.getString(TrackExtras.CODEC),
@@ -271,9 +358,33 @@ class PlaybackViewModel(app: Application) : AndroidViewModel(app) {
             repeatMode = player.repeatMode,
             shuffle = player.shuffleModeEnabled,
             queue = (0 until player.mediaItemCount).map { queueRow(player.getMediaItemAt(it)) },
-            currentIndex = player.currentMediaItemIndex
+            currentIndex = player.currentMediaItemIndex,
+            book = book
         )
         publishPosition(player)
+    }
+
+    // Read from the queue item's own extras; the player's metadata names the chapter instead.
+    private fun bookPlaybackOf(player: Player): BookPlayback? {
+        val item = player.currentMediaItem?.takeIf { it.isBook() } ?: return null
+        val chapters = item.bookChapters()
+        val extras = item.mediaMetadata.extras
+        val catalogueMs = extras?.longOrNull(TrackExtras.DURATION_MS) ?: 0L
+        val playerMs = player.duration.takeIf { it != C.TIME_UNSET } ?: 0L
+        return BookPlayback(
+            bookId = item.mediaId,
+            title = item.mediaMetadata.title?.toString() ?: "",
+            author = extras?.getString(TrackExtras.BOOK_AUTHOR),
+            chapters = chapters,
+            chapterIndex = currentChapterIndex(chapters.map { it.startMs }, player.currentPosition),
+            durationMs = if (catalogueMs > 0) catalogueMs else playerMs,
+            speed = player.playbackParameters.speed
+        )
+    }
+
+    private fun chapterChanged(player: Player): Boolean {
+        val book = _state.value?.book ?: return false
+        return currentChapterIndex(book.chapterStartsMs, player.currentPosition) != book.chapterIndex
     }
 
     private fun queueRow(item: MediaItem): QueueRow {

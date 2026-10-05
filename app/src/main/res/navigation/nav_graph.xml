@@ -114,6 +114,12 @@
             app:destination="@id/albumFragment"
             app:popUpTo="@id/playerFragment"
             app:popUpToInclusive="true" />
+        <!-- So does a book's page (3b) -->
+        <action
+            android:id="@+id/action_player_to_book"
+            app:destination="@id/bookFragment"
+            app:popUpTo="@id/playerFragment"
+            app:popUpToInclusive="true" />
     </fragment>
 
     <fragment

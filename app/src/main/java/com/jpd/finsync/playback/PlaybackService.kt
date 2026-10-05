@@ -12,6 +12,7 @@ import androidx.media3.session.MediaSession
 import androidx.media3.session.MediaSessionService
 import com.google.common.util.concurrent.ListenableFuture
 import com.google.common.util.concurrent.SettableFuture
+import com.jpd.finsync.db.BookProgress
 import com.jpd.finsync.library.BookRepository
 import com.jpd.finsync.library.LibraryRepository
 import com.jpd.finsync.ui.MainActivity
@@ -28,7 +29,8 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 
 private const val TAG = "PlaybackService"
-// "Process death while playing: the saved position is at most 10 s old" (spec).
+// "Process death while playing: the saved position is at most 10 s old" (spec). A book's
+// progress saves on the same tick (3b "Progress").
 private const val SAVE_INTERVAL_MS = 10_000L
 private val SAVE_EVENTS = intArrayOf(
     Player.EVENT_PLAY_WHEN_READY_CHANGED,
@@ -50,7 +52,8 @@ private class RestoredQueue(
 
 /**
  * Background playback. Media3 supplies the notification (its default, on its own channel), lock
- * screen and Bluetooth controls; BassPlayer plays.
+ * screen and Bluetooth controls; BassPlayer plays. While a book is current, its place is saved
+ * to book_progress alongside the resume state (3b).
  */
 @OptIn(UnstableApi::class)
 class PlaybackService : MediaSessionService() {
@@ -60,19 +63,35 @@ class PlaybackService : MediaSessionService() {
     private lateinit var focus: PlaybackFocus
     private lateinit var resolver: TrackResolver
     private lateinit var resumeStore: ResumeStore
+    private lateinit var progressWriter: BookProgressWriter
     private lateinit var restored: Deferred<RestoredQueue?>
     private var session: MediaSession? = null
     private var saveTicker: Job? = null
     // No saving until the restore decision is made, or the empty startup queue would wipe it.
     private var restoreSettled = false
     private var resumptionRequested = false
+    // A book restored paused isn't saved until it plays or seeks, so Finished survives a restart.
+    private var untouchedBookId: String? = null
 
     private val saveListener = object : Player.Listener {
         override fun onEvents(player: Player, events: Player.Events) {
-            if (events.containsAny(*SAVE_EVENTS)) saveResume()
+            // Reaching the end marks a book Finished (spec "Finishing"). Other state changes,
+            // such as logout's stop, don't save, so they can't undo logout's clearing.
+            val ended = events.contains(Player.EVENT_PLAYBACK_STATE_CHANGED) &&
+                player.playbackState == Player.STATE_ENDED
+            if (ended || events.containsAny(*SAVE_EVENTS)) saveResume()
+        }
+
+        override fun onPositionDiscontinuity(
+            oldPosition: Player.PositionInfo,
+            newPosition: Player.PositionInfo,
+            reason: Int
+        ) {
+            if (reason == Player.DISCONTINUITY_REASON_SEEK) untouchedBookId = null
         }
 
         override fun onIsPlayingChanged(isPlaying: Boolean) {
+            if (isPlaying) untouchedBookId = null
             saveTicker?.cancel()
             saveTicker = if (isPlaying) {
                 scope.launch {
@@ -90,9 +109,14 @@ class PlaybackService : MediaSessionService() {
     override fun onCreate() {
         super.onCreate()
         val engine = BassEngine(applicationInfo.nativeLibraryDir)
+        val speedStore = BookSpeedStore(this)
         player = BassPlayer(Looper.getMainLooper(), engine)
+        player.bookSpeed = speedStore.load()
+        player.onBookSpeedChanged = speedStore::save
         focus = PlaybackFocus(this, player, engine)
-        resolver = TrackResolver(LibraryRepository(this), BookRepository(this))
+        val books = BookRepository(this)
+        resolver = TrackResolver(LibraryRepository(this), books)
+        progressWriter = BookProgressWriter(books)
         resumeStore = ResumeStore(this)
         restored = scope.async { loadRestorableQueue() }
         player.addListener(saveListener)
@@ -108,6 +132,7 @@ class PlaybackService : MediaSessionService() {
                     applyQueueSettings(queue)
                     player.setMediaItems(queue.items, queue.index, queue.positionMs)
                     player.prepare()
+                    untouchedBookId = player.bookPosition()?.bookId
                 }
             } catch (e: CancellationException) {
                 throw e
@@ -130,6 +155,8 @@ class PlaybackService : MediaSessionService() {
 
     override fun onDestroy() {
         saveResume()
+        // After the last save: the writer drains its queue on its own scope (3b).
+        progressWriter.close()
         saveTicker?.cancel()
         scope.cancel()
         focus.release()
@@ -140,8 +167,20 @@ class PlaybackService : MediaSessionService() {
         super.onDestroy()
     }
 
+    // The queue, and the current book's place when a book is current (3b "Progress").
     private fun saveResume() {
-        if (restoreSettled) resumeStore.save(player.resumeState())
+        if (!restoreSettled) return
+        resumeStore.save(player.resumeState())
+        player.bookPosition()?.takeIf { it.bookId != untouchedBookId }?.let { book ->
+            progressWriter.save(
+                BookProgress(
+                    bookId = book.bookId,
+                    positionMs = book.positionMs,
+                    finished = book.ended,
+                    lastPlayedAt = System.currentTimeMillis()
+                )
+            )
+        }
     }
 
     private suspend fun loadRestorableQueue(): RestoredQueue? {
@@ -199,6 +238,8 @@ class PlaybackService : MediaSessionService() {
             startIndex: Int,
             startPositionMs: Long
         ): ListenableFuture<MediaSession.MediaItemsWithStartPosition> {
+            // The queue is about to be replaced: save the outgoing book's place first (3b).
+            saveResume()
             val future = SettableFuture.create<MediaSession.MediaItemsWithStartPosition>()
             scope.launch {
                 try {

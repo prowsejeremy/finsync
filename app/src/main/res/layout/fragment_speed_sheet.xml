@@ -1,0 +1,107 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:background="@drawable/bg_bottom_sheet"
+    android:paddingBottom="24dp">
+
+    <!-- Drag handle -->
+    <View
+        android:layout_width="40dp"
+        android:layout_height="4dp"
+        android:layout_gravity="center_horizontal"
+        android:layout_marginTop="12dp"
+        android:layout_marginBottom="16dp"
+        android:background="@color/muted" />
+
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:paddingHorizontal="24dp"
+        android:paddingBottom="12dp"
+        android:text="@string/speed_title"
+        android:textColor="@color/text_primary"
+        android:textSize="18sp"
+        android:fontFamily="@font/hk_extrabold" />
+
+    <!-- The six speeds in two rows of three; SpeedSheet fills in the labels -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:paddingHorizontal="18dp">
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btnSpeed1"
+            android:layout_width="0dp"
+            android:layout_height="52dp"
+            android:layout_weight="1"
+            android:layout_marginHorizontal="6dp"
+            android:textSize="14sp"
+            android:fontFamily="@font/hk_extrabold"
+            app:cornerRadius="22dp" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btnSpeed2"
+            android:layout_width="0dp"
+            android:layout_height="52dp"
+            android:layout_weight="1"
+            android:layout_marginHorizontal="6dp"
+            android:textSize="14sp"
+            android:fontFamily="@font/hk_extrabold"
+            app:cornerRadius="22dp" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btnSpeed3"
+            android:layout_width="0dp"
+            android:layout_height="52dp"
+            android:layout_weight="1"
+            android:layout_marginHorizontal="6dp"
+            android:textSize="14sp"
+            android:fontFamily="@font/hk_extrabold"
+            app:cornerRadius="22dp" />
+
+    </LinearLayout>
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="4dp"
+        android:orientation="horizontal"
+        android:paddingHorizontal="18dp">
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btnSpeed4"
+            android:layout_width="0dp"
+            android:layout_height="52dp"
+            android:layout_weight="1"
+            android:layout_marginHorizontal="6dp"
+            android:textSize="14sp"
+            android:fontFamily="@font/hk_extrabold"
+            app:cornerRadius="22dp" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btnSpeed5"
+            android:layout_width="0dp"
+            android:layout_height="52dp"
+            android:layout_weight="1"
+            android:layout_marginHorizontal="6dp"
+            android:textSize="14sp"
+            android:fontFamily="@font/hk_extrabold"
+            app:cornerRadius="22dp" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btnSpeed6"
+            android:layout_width="0dp"
+            android:layout_height="52dp"
+            android:layout_weight="1"
+            android:layout_marginHorizontal="6dp"
+            android:textSize="14sp"
+            android:fontFamily="@font/hk_extrabold"
+            app:cornerRadius="22dp" />
+
+    </LinearLayout>
+
+</LinearLayout>
