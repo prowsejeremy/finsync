@@ -5,9 +5,6 @@
     <color name="finsync_blue">#00A4DC</color>
     <color name="white">#FFFFFF</color>
     <color name="black">#000000</color>
-    <!-- Behind every screen and Android's launch screen. One value for both modes while M2
-         pins dark, so a cold launch on a light-mode phone stays dark -->
-    <color name="launch_background">#030505</color>
 
     <!-- ── Palette, light mode (dark mode: values-night/colors.xml) ─────────────
          These must equal appearance/Palette.kt; PaletteDriftTest checks them. -->

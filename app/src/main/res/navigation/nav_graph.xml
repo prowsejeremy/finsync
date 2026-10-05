@@ -168,9 +168,17 @@
                 android:id="@+id/action_settings_to_sync"
                 app:destination="@id/sync_graph" />
             <action
+                android:id="@+id/action_settings_to_appearance"
+                app:destination="@id/appearanceFragment" />
+            <action
                 android:id="@+id/action_settings_to_home_screen"
                 app:destination="@id/homeScreenFragment" />
         </fragment>
+
+        <!-- Settings → Appearance: Dark, Light or System, and the accent -->
+        <fragment
+            android:id="@+id/appearanceFragment"
+            android:name="com.jpd.finsync.ui.AppearanceFragment" />
 
         <!-- Settings → Home screen: Home's categories and their order (3b refinements) -->
         <fragment

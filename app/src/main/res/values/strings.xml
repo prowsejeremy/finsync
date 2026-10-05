@@ -195,4 +195,21 @@
     <string name="cd_drag_to_reorder">Drag to reorder</string>
     <string name="action_move_up">Move up</string>
     <string name="action_move_down">Move down</string>
+
+    <!-- Appearance (Settings restructure and Appearance) -->
+    <string name="settings_appearance_title">Appearance</string>
+    <string name="appearance_theme_title">Theme</string>
+    <string name="appearance_mode_dark">Dark</string>
+    <string name="appearance_mode_light">Light</string>
+    <string name="appearance_mode_system">System</string>
+    <string name="appearance_accent_title">Accent colour</string>
+    <!-- After "Accent colour": "· Green" -->
+    <string name="appearance_accent_name">· %1$s</string>
+    <string name="appearance_accent_green">Green</string>
+    <string name="appearance_accent_blue">Blue</string>
+    <string name="appearance_accent_purple">Purple</string>
+    <string name="appearance_accent_pink">Pink</string>
+    <string name="appearance_accent_red">Red</string>
+    <!-- An accent circle's description for TalkBack: "Green, selected" -->
+    <string name="appearance_accent_selected">%1$s, selected</string>
 </resources>

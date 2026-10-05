@@ -91,6 +91,14 @@
                 android:layout_height="wrap_content"
                 android:layout_marginBottom="12dp" />
 
+            <!-- Appearance: "Dark · Green" -->
+            <include
+                android:id="@+id/rowAppearance"
+                layout="@layout/view_settings_row"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="12dp" />
+
             <!-- Home screen: which categories Home shows, and their order (3b refinements) -->
             <include
                 android:id="@+id/rowHomeScreen"

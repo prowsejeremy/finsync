@@ -21,6 +21,7 @@ import androidx.navigation.NavController
 import androidx.navigation.fragment.NavHostFragment
 import com.google.common.util.concurrent.ListenableFuture
 import com.jpd.finsync.R
+import com.jpd.finsync.appearance.applyAccentOverlay
 import com.jpd.finsync.databinding.ActivityMainBinding
 import com.jpd.finsync.playback.PlaybackService
 import kotlinx.coroutines.launch
@@ -43,6 +44,9 @@ class MainActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        // Before anything is inflated, so every screen and sheet uses the saved accent. A new
+        // accent recreates the activity (AppearanceFragment), which comes back through here.
+        applyAccentOverlay()
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
 

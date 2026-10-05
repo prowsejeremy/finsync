@@ -8,6 +8,9 @@ import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.asLiveData
 import androidx.lifecycle.viewModelScope
+import com.jpd.finsync.appearance.Accent
+import com.jpd.finsync.appearance.AppearanceStore
+import com.jpd.finsync.appearance.ThemeMode
 import com.jpd.finsync.auth.JellyfinRepository
 import com.jpd.finsync.auth.Result
 import com.jpd.finsync.db.SyncDatabase
@@ -31,6 +34,7 @@ class SettingsViewModel(app: Application) : AndroidViewModel(app) {
     private val library = LibraryRepository(app)
     private val playlists = PlaylistRepository(app)
     private val books = BookRepository(app)
+    private val appearance = AppearanceStore(app)
     private var catalogueRefreshed = false
 
     /** Every audio playlist on the server, from the catalogue (3b). */
@@ -148,4 +152,14 @@ class SettingsViewModel(app: Application) : AndroidViewModel(app) {
             .apply()
         refreshSyncDir()
     }
+
+    // Appearance's choices (spec "Settings screens"); AppearanceFragment applies them.
+
+    fun themeMode(): ThemeMode = appearance.themeMode()
+
+    fun setThemeMode(mode: ThemeMode) = appearance.setThemeMode(mode)
+
+    fun accent(): Accent = appearance.accent()
+
+    fun setAccent(accent: Accent) = appearance.setAccent(accent)
 }

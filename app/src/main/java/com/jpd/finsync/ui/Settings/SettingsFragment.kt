@@ -12,7 +12,9 @@ import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.activityViewModels
 import androidx.navigation.fragment.findNavController
+import androidx.navigation.navGraphViewModels
 import com.jpd.finsync.R
+import com.jpd.finsync.appearance.nameRes
 import com.jpd.finsync.databinding.FragmentSettingsBinding
 import com.jpd.finsync.home.HomeLayoutStore
 
@@ -24,6 +26,7 @@ class SettingsFragment : Fragment() {
 
     private var _binding: FragmentSettingsBinding? = null
     private val binding get() = _binding!!
+    private val viewModel: SettingsViewModel by navGraphViewModels(R.id.settings_graph)
     private val mainViewModel: MainViewModel by activityViewModels()
 
     override fun onCreateView(
@@ -42,12 +45,14 @@ class SettingsFragment : Fragment() {
 
         bindServer()
         bindSyncRow()
+        bindAppearanceRow()
         bindHomeScreenRow()
     }
 
     override fun onResume() {
         super.onResume()
-        // The Home screen settings may have changed what Home shows.
+        // Appearance and the Home screen settings may have changed since this was shown.
+        renderAppearanceSummary()
         renderHomeScreenSummary()
     }
 
@@ -105,6 +110,23 @@ class SettingsFragment : Fragment() {
             Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
         )
         binding.rowSync.tvRowSummary.text = text
+    }
+
+    // ── Appearance row ────────────────────────────────────────────────────────
+
+    private fun bindAppearanceRow() {
+        binding.rowAppearance.ivRowIcon.setImageResource(R.drawable.ic_palette)
+        binding.rowAppearance.tvRowTitle.setText(R.string.settings_appearance_title)
+        binding.rowAppearance.root.setOnClickListener {
+            navigateSafely(R.id.settingsFragment, R.id.action_settings_to_appearance)
+        }
+    }
+
+    // "Dark · Green" (spec "Settings (top level)").
+    private fun renderAppearanceSummary() {
+        val mode = getString(viewModel.themeMode().nameRes)
+        val accent = getString(viewModel.accent().nameRes)
+        binding.rowAppearance.tvRowSummary.text = joinWithDots(listOf(mode, accent))
     }
 
     // ── Home screen row ───────────────────────────────────────────────────────

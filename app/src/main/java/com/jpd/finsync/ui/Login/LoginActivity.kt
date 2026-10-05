@@ -6,6 +6,7 @@ import android.view.View
 import android.view.inputmethod.EditorInfo
 import androidx.activity.viewModels
 import androidx.appcompat.app.AppCompatActivity
+import com.jpd.finsync.appearance.applyAccentOverlay
 import com.jpd.finsync.databinding.ActivityLoginBinding
 import com.google.android.material.snackbar.Snackbar
 
@@ -16,6 +17,8 @@ class LoginActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        // Before the layout is inflated, so the fields' focus colour is the saved accent.
+        applyAccentOverlay()
         binding = ActivityLoginBinding.inflate(layoutInflater)
         setContentView(binding.root)
 

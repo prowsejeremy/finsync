@@ -12,6 +12,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import com.jpd.finsync.R
+import com.jpd.finsync.appearance.applyAccentOverlay
 import com.jpd.finsync.databinding.ActivityPermissionsBinding
 
 class PermissionsActivity : AppCompatActivity() {
@@ -38,6 +39,8 @@ class PermissionsActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        // Before the layout is inflated, so this screen uses the saved accent.
+        applyAccentOverlay()
 
         if (allPermissionsGranted()) {
             proceed()
