@@ -47,7 +47,11 @@ class SongsAdapter(
         fun bind(song: SongRow) {
             val context = binding.root.context
             val playing = song.itemId == playingItemId
-            val titleColour = if (playing) R.color.accent_green else R.color.text_primary
+            val titleColour = if (playing) {
+                context.accentColor()
+            } else {
+                ContextCompat.getColor(context, R.color.text_primary)
+            }
             val showsArt = style == SongListStyle.SONGS
             val subtitle = if (showsArt) {
                 joinWithDots(listOf(song.artists, song.albumName))
@@ -55,7 +59,7 @@ class SongsAdapter(
                 song.albumName.orEmpty()
             }
             binding.tvTitle.text = song.title
-            binding.tvTitle.setTextColor(ContextCompat.getColor(context, titleColour))
+            binding.tvTitle.setTextColor(titleColour)
             binding.tvSubtitle.text = subtitle
             binding.tvSubtitle.visibility = if (subtitle.isNotEmpty()) View.VISIBLE else View.GONE
             binding.tvDuration.text = song.durationMs?.let(::formatDuration) ?: ""

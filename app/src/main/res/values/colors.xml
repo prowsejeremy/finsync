@@ -5,17 +5,32 @@
     <color name="finsync_blue">#00A4DC</color>
     <color name="white">#FFFFFF</color>
     <color name="black">#000000</color>
+    <!-- Behind every screen and Android's launch screen. One value for both modes while M2
+         pins dark, so a cold launch on a light-mode phone stays dark -->
+    <color name="launch_background">#030505</color>
 
-    <!-- ── Style guide palette ────────────────────────────────────── -->
+    <!-- ── Palette, light mode (dark mode: values-night/colors.xml) ─────────────
+         These must equal appearance/Palette.kt; PaletteDriftTest checks them. -->
 
-    <!-- Backgrounds (darkest → lightest) -->
-    <color name="bg_primary">#030505</color>
-    <color name="surface_1">#111416</color>
-    <color name="surface_2">#1F262B</color>
-    <!-- Accent -->
-    <color name="accent_green">#00FFAA</color>
-    <!-- Muted / secondary -->
+    <!-- Page, cards, raised cards and text: each layer on the page is darker -->
+    <color name="bg_primary">#F5FAFA</color>
+    <color name="surface_1">#F0F5F5</color>
+    <color name="surface_2">#E4ECEC</color>
+    <color name="text_primary">#030505</color>
     <color name="muted">#506575</color>
-    <!-- Primary text on dark backgrounds -->
-    <color name="text_primary">#F0F7FC</color>
+    <!-- Connected, Synced, Finished and granted; doesn't follow the accent -->
+    <color name="status_good">#00FFAA</color>
+
+    <!-- Accents, for themes.xml only: everything else uses ?attr/colorPrimary and
+         ?attr/colorOnPrimary. on_accent_* is black or white, whichever contrasts more. -->
+    <color name="accent_green">#05D18D</color>
+    <color name="on_accent_green">#030505</color>
+    <color name="accent_blue">#0E8DCD</color>
+    <color name="on_accent_blue">#030505</color>
+    <color name="accent_purple">#9429FF</color>
+    <color name="on_accent_purple">#FFFFFF</color>
+    <color name="accent_pink">#FF1F9E</color>
+    <color name="on_accent_pink">#030505</color>
+    <color name="accent_red">#FF0040</color>
+    <color name="on_accent_red">#030505</color>
 </resources>

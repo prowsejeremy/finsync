@@ -13,7 +13,7 @@ import com.jpd.finsync.R
 import com.jpd.finsync.databinding.FragmentQueueSheetBinding
 import com.jpd.finsync.databinding.ItemQueueTrackBinding
 
-/** The queue in play order, with the current track in green. Tapping a row jumps to it. */
+/** The queue in play order, with the current track in the accent. Tapping a row jumps to it. */
 class QueueSheet : BottomSheetDialogFragment() {
 
     private var _binding: FragmentQueueSheetBinding? = null
@@ -86,9 +86,14 @@ private class QueueAdapter(
     inner class Holder(private val binding: ItemQueueTrackBinding) :
         RecyclerView.ViewHolder(binding.root) {
         fun bind(row: QueueRow, index: Int) {
-            val colour = if (index == currentIndex) R.color.accent_green else R.color.text_primary
+            val context = binding.root.context
+            val colour = if (index == currentIndex) {
+                context.accentColor()
+            } else {
+                ContextCompat.getColor(context, R.color.text_primary)
+            }
             binding.tvTitle.text = row.title
-            binding.tvTitle.setTextColor(ContextCompat.getColor(binding.root.context, colour))
+            binding.tvTitle.setTextColor(colour)
             binding.tvArtist.text = row.artist
             binding.tvDuration.text = row.durationMs?.let(::formatDuration) ?: ""
             binding.root.setOnClickListener { onClick(index) }

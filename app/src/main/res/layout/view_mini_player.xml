@@ -95,7 +95,7 @@
                     android:id="@+id/btnMiniPlayPause"
                     android:layout_width="40dp"
                     android:layout_height="40dp"
-                    android:background="@drawable/circle_accent_green"
+                    android:background="@drawable/circle_accent"
                     android:clickable="true"
                     android:focusable="true"
                     android:contentDescription="@string/cd_play">
@@ -107,7 +107,7 @@
                         android:layout_gravity="center"
                         android:src="@drawable/ic_play"
                         android:importantForAccessibility="no"
-                        app:tint="@color/bg_primary" />
+                        app:tint="?attr/colorOnPrimary" />
 
                 </FrameLayout>
 
@@ -133,7 +133,7 @@
                 android:max="1000"
                 app:trackThickness="2dp"
                 app:trackCornerRadius="0dp"
-                app:indicatorColor="@color/accent_green"
+                app:indicatorColor="?attr/colorPrimary"
                 app:trackColor="@color/surface_1" />
 
         </LinearLayout>

@@ -69,7 +69,7 @@ class SettingsFragment : Fragment() {
 
     private fun renderServerStatus(connected: Boolean) {
         binding.serverStatusDot.setBackgroundResource(
-            if (connected) R.drawable.circle_accent_green else R.drawable.circle_accent_muted
+            if (connected) R.drawable.circle_status_good else R.drawable.circle_accent_muted
         )
         binding.tvServerStatus.setText(
             if (connected) R.string.server_connected else R.string.server_offline

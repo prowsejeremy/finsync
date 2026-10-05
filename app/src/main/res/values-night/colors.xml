@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- ── Palette, dark mode (light mode: values/colors.xml) ────────────────────
+         These must equal appearance/Palette.kt; PaletteDriftTest checks them. Brand colours,
+         white and black don't change with the mode, so they're in values/ only. -->
+
+    <!-- Page, cards, raised cards and text: each layer on the page is lighter -->
+    <color name="bg_primary">#030505</color>
+    <color name="surface_1">#111416</color>
+    <color name="surface_2">#1F262B</color>
+    <color name="text_primary">#F0F7FC</color>
+    <color name="muted">#506575</color>
+    <!-- Connected, Synced, Finished and granted; doesn't follow the accent -->
+    <color name="status_good">#00FFAA</color>
+
+    <!-- Accents, for themes.xml only: everything else uses ?attr/colorPrimary and
+         ?attr/colorOnPrimary. on_accent_* is black or white, whichever contrasts more. -->
+    <color name="accent_green">#00FFAA</color>
+    <color name="on_accent_green">#030505</color>
+    <color name="accent_blue">#33BBFF</color>
+    <color name="on_accent_blue">#030505</color>
+    <color name="accent_purple">#9C49EE</color>
+    <color name="on_accent_purple">#FFFFFF</color>
+    <color name="accent_pink">#FF1F9E</color>
+    <color name="on_accent_pink">#030505</color>
+    <color name="accent_red">#FF0040</color>
+    <color name="on_accent_red">#030505</color>
+</resources>

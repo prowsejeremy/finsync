@@ -191,9 +191,9 @@
         android:id="@+id/seekBar"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
-        android:progressTint="@color/accent_green"
+        android:progressTint="?attr/colorPrimary"
         android:progressBackgroundTint="@color/surface_2"
-        android:thumbTint="@color/accent_green"
+        android:thumbTint="?attr/colorPrimary"
         app:layout_constraintBottom_toTopOf="@id/times"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent" />
@@ -318,7 +318,7 @@
             android:id="@+id/btnPlayPause"
             android:layout_width="72dp"
             android:layout_height="72dp"
-            android:background="@drawable/circle_accent_green"
+            android:background="@drawable/circle_accent"
             android:clickable="true"
             android:focusable="true"
             android:contentDescription="@string/cd_play">
@@ -330,7 +330,7 @@
                 android:layout_gravity="center"
                 android:src="@drawable/ic_play"
                 android:importantForAccessibility="no"
-                app:tint="@color/bg_primary" />
+                app:tint="?attr/colorOnPrimary" />
 
         </FrameLayout>
 

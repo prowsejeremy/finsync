@@ -96,7 +96,7 @@ class BookFragment : Fragment() {
         binding.progressBar.visibility = if (inProgress != null) View.VISIBLE else View.GONE
         binding.progressBar.progress = ((inProgress?.fraction ?: 0f) * BOOK_PROGRESS_MAX).toInt()
         binding.tvProgress.text = bookStatusText(resources, status)
-        val colour = if (status == BookStatus.Finished) R.color.accent_green else R.color.muted
+        val colour = if (status == BookStatus.Finished) R.color.status_good else R.color.muted
         binding.tvProgress.setTextColor(ContextCompat.getColor(requireContext(), colour))
         binding.btnResume.setText(if (inProgress != null) R.string.btn_resume else R.string.btn_play)
     }

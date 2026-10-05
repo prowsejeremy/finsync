@@ -53,12 +53,15 @@ class ChaptersAdapter(
         fun bind(row: ChapterRow) {
             val context = binding.root.context
             val current = row.index == currentIndex
-            val nameColour = if (current) R.color.accent_green else R.color.text_primary
-            val numberColour = if (current) R.color.accent_green else R.color.muted
+            val accent = context.accentColor()
+            val nameColour =
+                if (current) accent else ContextCompat.getColor(context, R.color.text_primary)
+            val numberColour =
+                if (current) accent else ContextCompat.getColor(context, R.color.muted)
             binding.tvNumber.text = (row.index + 1).toString()
-            binding.tvNumber.setTextColor(ContextCompat.getColor(context, numberColour))
+            binding.tvNumber.setTextColor(numberColour)
             binding.tvName.text = row.name
-            binding.tvName.setTextColor(ContextCompat.getColor(context, nameColour))
+            binding.tvName.setTextColor(nameColour)
             binding.tvStart.text = formatDuration(row.startMs)
             binding.tvStart.visibility = if (showsStartTimes) View.VISIBLE else View.GONE
             binding.tvLength.text = formatDuration(row.lengthMs)

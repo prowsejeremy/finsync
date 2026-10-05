@@ -68,11 +68,13 @@ class SpeedSheet : BottomSheetDialogFragment() {
         _binding = null
     }
 
+    // The selected chip is filled with the accent, its label in the accent's icon colour.
     private fun style(button: MaterialButton, selected: Boolean) {
-        val background = if (selected) R.color.accent_green else R.color.surface_2
-        val text = if (selected) R.color.bg_primary else R.color.text_primary
-        button.backgroundTintList = ColorStateList.valueOf(color(background))
-        button.setTextColor(color(text))
+        val context = requireContext()
+        val background = if (selected) context.accentColor() else color(R.color.surface_2)
+        val text = if (selected) context.onAccentColor() else color(R.color.text_primary)
+        button.backgroundTintList = ColorStateList.valueOf(background)
+        button.setTextColor(text)
     }
 
     private fun color(@ColorRes colorRes: Int) = ContextCompat.getColor(requireContext(), colorRes)

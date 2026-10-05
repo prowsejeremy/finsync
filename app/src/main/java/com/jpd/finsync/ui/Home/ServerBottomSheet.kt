@@ -50,7 +50,7 @@ class ServerBottomSheet : BottomSheetDialogFragment() {
         viewModel.uiState.observe(viewLifecycleOwner) { state ->
             val statusDot = binding.root.findViewById<View>(R.id.serverStatusDot)
             statusDot?.setBackgroundResource(
-                if (state.serverConnected) R.drawable.circle_accent_green else R.drawable.circle_accent_muted
+                if (state.serverConnected) R.drawable.circle_status_good else R.drawable.circle_accent_muted
             )
         }
 

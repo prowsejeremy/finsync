@@ -87,12 +87,12 @@ class PermissionsActivity : AppCompatActivity() {
 
         binding.tvStorageStatus.text = if (storageOk) "✓ Storage access granted" else "✗ Storage access needed"
         binding.tvStorageStatus.setTextColor(
-            getColor(if (storageOk) android.R.color.holo_green_dark else android.R.color.holo_red_dark)
+            getColor(if (storageOk) R.color.status_good else android.R.color.holo_red_dark)
         )
 
         binding.tvNotifStatus.text = if (notifOk) "✓ Notifications granted" else "✗ Notifications needed (for sync progress)"
         binding.tvNotifStatus.setTextColor(
-            getColor(if (notifOk) android.R.color.holo_green_dark else android.R.color.holo_orange_dark)
+            getColor(if (notifOk) R.color.status_good else android.R.color.holo_orange_dark)
         )
 
         binding.btnGrantPermissions.text = when {

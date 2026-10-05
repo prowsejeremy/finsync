@@ -76,7 +76,7 @@
             android:layout_marginTop="5dp"
             android:max="1000"
             android:visibility="gone"
-            app:indicatorColor="@color/accent_green"
+            app:indicatorColor="?attr/colorPrimary"
             app:trackColor="@color/surface_2"
             app:trackCornerRadius="2dp"
             app:trackThickness="3dp" />

@@ -42,7 +42,7 @@
                 app:indicatorSize="58dp"
                 app:indicatorInset="0dp"
                 app:trackThickness="3dp"
-                app:indicatorColor="@color/accent_green"
+                app:indicatorColor="?attr/colorPrimary"
                 app:trackColor="@android:color/transparent" />
 
             <com.google.android.material.card.MaterialCardView

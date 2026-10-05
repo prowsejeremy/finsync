@@ -62,12 +62,15 @@ class AlbumTracksAdapter(
         fun bind(row: AlbumListRow.Track) {
             val context = binding.root.context
             val playing = row.itemId == playingItemId
-            val titleColour = if (playing) R.color.accent_green else R.color.text_primary
-            val numberColour = if (playing) R.color.accent_green else R.color.muted
+            val accent = context.accentColor()
+            val titleColour =
+                if (playing) accent else ContextCompat.getColor(context, R.color.text_primary)
+            val numberColour =
+                if (playing) accent else ContextCompat.getColor(context, R.color.muted)
             binding.tvNumber.text = row.number
-            binding.tvNumber.setTextColor(ContextCompat.getColor(context, numberColour))
+            binding.tvNumber.setTextColor(numberColour)
             binding.tvTitle.text = row.title
-            binding.tvTitle.setTextColor(ContextCompat.getColor(context, titleColour))
+            binding.tvTitle.setTextColor(titleColour)
             binding.tvTrackArtists.text = row.artists
             binding.tvTrackArtists.visibility = if (row.artists != null) View.VISIBLE else View.GONE
             binding.tvDuration.text = row.durationMs?.let(::formatDuration) ?: ""

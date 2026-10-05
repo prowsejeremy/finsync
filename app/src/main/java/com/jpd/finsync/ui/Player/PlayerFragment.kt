@@ -8,7 +8,7 @@ import android.view.ViewGroup
 import android.widget.ImageView
 import android.widget.SeekBar
 import android.widget.Toast
-import androidx.annotation.ColorRes
+import androidx.annotation.ColorInt
 import androidx.core.content.ContextCompat
 import androidx.core.os.bundleOf
 import androidx.core.widget.ImageViewCompat
@@ -124,7 +124,7 @@ class PlayerFragment : Fragment() {
         binding.btnPlayPause.contentDescription = getString(playLabel)
 
         renderRepeat(state.repeatMode)
-        tint(binding.btnShuffle, if (state.shuffle) R.color.accent_green else R.color.muted)
+        tint(binding.btnShuffle, if (state.shuffle) accent() else muted())
         renderMode(state.book)
     }
 
@@ -178,22 +178,26 @@ class PlayerFragment : Fragment() {
         }
     }
 
-    // Muted when off, green for all, green with a "1" for one.
+    // Muted when off, the accent for all, the accent with a "1" for one.
     private fun renderRepeat(repeatMode: Int) {
         val icon = if (repeatMode == Player.REPEAT_MODE_ONE) {
             R.drawable.ic_repeat_one
         } else {
             R.drawable.ic_repeat
         }
-        val colour = if (repeatMode == Player.REPEAT_MODE_OFF) R.color.muted else R.color.accent_green
         binding.btnRepeat.setImageResource(icon)
-        tint(binding.btnRepeat, colour)
+        tint(binding.btnRepeat, if (repeatMode == Player.REPEAT_MODE_OFF) muted() else accent())
     }
 
-    private fun tint(view: ImageView, @ColorRes colour: Int) {
-        val colourList = ColorStateList.valueOf(ContextCompat.getColor(requireContext(), colour))
-        ImageViewCompat.setImageTintList(view, colourList)
+    private fun tint(view: ImageView, @ColorInt colour: Int) {
+        ImageViewCompat.setImageTintList(view, ColorStateList.valueOf(colour))
     }
+
+    @ColorInt
+    private fun accent(): Int = requireContext().accentColor()
+
+    @ColorInt
+    private fun muted(): Int = ContextCompat.getColor(requireContext(), R.color.muted)
 
     // Closes the Player if that album's detail is directly beneath it; otherwise opens it.
     private fun openAlbum() {

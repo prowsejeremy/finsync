@@ -93,7 +93,7 @@
             android:layout_marginTop="16dp"
             android:max="1000"
             android:visibility="gone"
-            app:indicatorColor="@color/accent_green"
+            app:indicatorColor="?attr/colorPrimary"
             app:trackColor="@color/surface_2"
             app:trackCornerRadius="2dp"
             app:trackThickness="3dp" />
@@ -122,10 +122,10 @@
                 android:layout_height="44dp"
                 android:minWidth="120dp"
                 android:text="@string/btn_resume"
-                android:textColor="@color/bg_primary"
+                android:textColor="?attr/colorOnPrimary"
                 android:textSize="15sp"
                 android:fontFamily="@font/hk_extrabold"
-                app:backgroundTint="@color/accent_green"
+                app:backgroundTint="?attr/colorPrimary"
                 app:cornerRadius="22dp" />
 
             <com.google.android.material.button.MaterialButton

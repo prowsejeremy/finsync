@@ -85,10 +85,10 @@
                 android:layout_height="44dp"
                 android:minWidth="120dp"
                 android:text="@string/btn_play"
-                android:textColor="@color/bg_primary"
+                android:textColor="?attr/colorOnPrimary"
                 android:textSize="15sp"
                 android:fontFamily="@font/hk_extrabold"
-                app:backgroundTint="@color/accent_green"
+                app:backgroundTint="?attr/colorPrimary"
                 app:cornerRadius="22dp" />
 
             <com.google.android.material.button.MaterialButton

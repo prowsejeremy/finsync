@@ -27,7 +27,7 @@ val SyncDisplay.Status.labelRes: Int
 
 @get:ColorRes
 val SyncDisplay.Status.labelColorRes: Int
-    get() = if (this == SyncDisplay.Status.SYNCED) R.color.accent_green else R.color.muted
+    get() = if (this == SyncDisplay.Status.SYNCED) R.color.status_good else R.color.muted
 
 @get:StringRes
 val SyncDisplay.buttonLabelRes: Int

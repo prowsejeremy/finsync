@@ -82,8 +82,8 @@ private class BooksAdapter(
             binding.tvTitle.text = book.name
             binding.tvAuthor.text = book.author ?: context.getString(R.string.unknown_author)
             binding.tvStatus.text = bookStatusText(context.resources, status)
-            // "Finished" is in accent (spec).
-            val statusColour = if (status == BookStatus.Finished) R.color.accent_green else R.color.muted
+            // "Finished" is a status, so it stays status_good whatever the accent.
+            val statusColour = if (status == BookStatus.Finished) R.color.status_good else R.color.muted
             binding.tvStatus.setTextColor(ContextCompat.getColor(context, statusColour))
             val inProgress = status as? BookStatus.InProgress
             binding.progressBar.visibility = if (inProgress != null) View.VISIBLE else View.GONE
