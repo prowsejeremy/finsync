@@ -59,7 +59,7 @@ class AlbumsFragment : Fragment() {
     )
 }
 
-/** Downloads' row layout, with "2018 · 13 tracks" where Downloads shows sync status. */
+/** Album rows (`item_album`), with "2018 · 13 tracks" in the `tvSyncStatus` line. */
 private class AlbumsAdapter(
     private val onClick: (AlbumSummary) -> Unit
 ) : ListAdapter<AlbumSummary, AlbumsAdapter.Holder>(AlbumDiff) {

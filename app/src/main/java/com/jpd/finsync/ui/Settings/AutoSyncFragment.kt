@@ -28,7 +28,7 @@ class AutoSyncFragment : Fragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
-        binding.header.tvTitle.setText(R.string.header_settings)
+        binding.header.tvTitle.setText(R.string.settings_auto_sync_title)
         binding.header.btnBack.setOnClickListener { findNavController().navigateUp() }
 
         // Pre-select the current interval

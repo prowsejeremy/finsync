@@ -6,7 +6,11 @@ import android.view.ContextThemeWrapper
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.widget.Button
 import androidx.annotation.IdRes
+import androidx.core.view.AccessibilityDelegateCompat
+import androidx.core.view.ViewCompat
+import androidx.core.view.accessibility.AccessibilityNodeInfoCompat
 import androidx.fragment.app.Fragment
 import androidx.navigation.fragment.findNavController
 import androidx.navigation.navGraphViewModels
@@ -101,7 +105,21 @@ class AppearanceFragment : Fragment() {
             circle.root.contentDescription =
                 if (selected) getString(R.string.appearance_accent_selected, name) else name
             circle.root.setOnClickListener { chooseAccent(accent) }
+            circle.root.announceAsButton()
         }
+    }
+
+    // A clickable FrameLayout reads as plain text in TalkBack; this adds "button" after the name.
+    private fun View.announceAsButton() {
+        ViewCompat.setAccessibilityDelegate(this, object : AccessibilityDelegateCompat() {
+            override fun onInitializeAccessibilityNodeInfo(
+                host: View,
+                info: AccessibilityNodeInfoCompat
+            ) {
+                super.onInitializeAccessibilityNodeInfo(host, info)
+                info.className = Button::class.java.name
+            }
+        })
     }
 
     private fun chooseAccent(accent: Accent) {
