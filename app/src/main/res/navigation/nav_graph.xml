@@ -154,8 +154,9 @@
             app:argType="string" />
     </fragment>
 
-    <!-- Nested so SettingsViewModel lives exactly as long as you're in Settings, and so the
-         sync notification's deep link builds the Home → Settings back stack. -->
+    <!-- Nested so SettingsViewModel lives exactly as long as you're in Settings. The sync
+         notification's deep link opens Sync; each nested graph adds its start screen, so the
+         back stack is Home → Settings → Sync. -->
     <navigation
         android:id="@+id/settings_graph"
         app:startDestination="@id/settingsFragment">
@@ -164,49 +165,58 @@
             android:id="@+id/settingsFragment"
             android:name="com.jpd.finsync.ui.SettingsFragment">
             <action
-                android:id="@+id/action_settings_to_downloads"
-                app:destination="@id/downloadsFragment" />
-            <action
-                android:id="@+id/action_settings_to_album_selection"
-                app:destination="@id/albumSelectionFragment" />
-            <action
-                android:id="@+id/action_settings_to_auto_sync"
-                app:destination="@id/autoSyncFragment" />
-            <action
-                android:id="@+id/action_settings_to_playlist_selection"
-                app:destination="@id/playlistSelectionFragment" />
-            <action
-                android:id="@+id/action_settings_to_book_selection"
-                app:destination="@id/bookSelectionFragment" />
+                android:id="@+id/action_settings_to_sync"
+                app:destination="@id/sync_graph" />
             <action
                 android:id="@+id/action_settings_to_home_screen"
                 app:destination="@id/homeScreenFragment" />
         </fragment>
 
-        <fragment
-            android:id="@+id/downloadsFragment"
-            android:name="com.jpd.finsync.ui.DownloadsFragment" />
-
-        <fragment
-            android:id="@+id/albumSelectionFragment"
-            android:name="com.jpd.finsync.ui.AlbumSelectionFragment" />
-
-        <fragment
-            android:id="@+id/autoSyncFragment"
-            android:name="com.jpd.finsync.ui.AutoSyncFragment" />
-
-        <fragment
-            android:id="@+id/playlistSelectionFragment"
-            android:name="com.jpd.finsync.ui.PlaylistSelectionFragment" />
-
-        <fragment
-            android:id="@+id/bookSelectionFragment"
-            android:name="com.jpd.finsync.ui.BookSelectionFragment" />
-
         <!-- Settings → Home screen: Home's categories and their order (3b refinements) -->
         <fragment
             android:id="@+id/homeScreenFragment"
             android:name="com.jpd.finsync.ui.HomeScreenFragment" />
+
+        <!-- Settings → Sync and its choice screens, whose Back and Cancel / Apply return to
+             Sync. They still use SettingsViewModel: settings_graph stays on the back stack. -->
+        <navigation
+            android:id="@+id/sync_graph"
+            app:startDestination="@id/syncSettingsFragment">
+
+            <fragment
+                android:id="@+id/syncSettingsFragment"
+                android:name="com.jpd.finsync.ui.SyncSettingsFragment">
+                <action
+                    android:id="@+id/action_settings_to_album_selection"
+                    app:destination="@id/albumSelectionFragment" />
+                <action
+                    android:id="@+id/action_settings_to_auto_sync"
+                    app:destination="@id/autoSyncFragment" />
+                <action
+                    android:id="@+id/action_settings_to_playlist_selection"
+                    app:destination="@id/playlistSelectionFragment" />
+                <action
+                    android:id="@+id/action_settings_to_book_selection"
+                    app:destination="@id/bookSelectionFragment" />
+            </fragment>
+
+            <fragment
+                android:id="@+id/albumSelectionFragment"
+                android:name="com.jpd.finsync.ui.AlbumSelectionFragment" />
+
+            <fragment
+                android:id="@+id/autoSyncFragment"
+                android:name="com.jpd.finsync.ui.AutoSyncFragment" />
+
+            <fragment
+                android:id="@+id/playlistSelectionFragment"
+                android:name="com.jpd.finsync.ui.PlaylistSelectionFragment" />
+
+            <fragment
+                android:id="@+id/bookSelectionFragment"
+                android:name="com.jpd.finsync.ui.BookSelectionFragment" />
+
+        </navigation>
 
     </navigation>
 

@@ -46,13 +46,27 @@ fun Resources.syncIncompleteMessage(failedItems: Int): String =
  * "1,280 of 1,400 songs · 0 of 2 books synced" or "0 of 2 books synced". Null when nothing is
  * selected.
  */
-fun Resources.syncCountsLine(counts: SyncCounts): String? {
+fun Resources.syncCountsLine(counts: SyncCounts): String? =
+    syncCountsText(counts)?.let { getString(R.string.sync_counts_synced, it) }
+
+/**
+ * The same counts without "synced", for the Settings Sync row (spec "Sync row summary"):
+ * "1,280 of 1,400 songs", "1,280 of 1,400 songs · 0 of 2 books" or "0 of 2 books". Null when
+ * nothing is selected.
+ */
+fun Resources.syncCountsText(counts: SyncCounts): String? {
     val parts = listOfNotNull(
         countPart(R.plurals.sync_songs_of, counts.songsSynced, counts.songsTotal),
         countPart(R.plurals.sync_books_of, counts.booksSynced, counts.booksTotal)
     )
-    if (parts.isEmpty()) return null
-    return getString(R.string.sync_counts_synced, joinWithDots(parts))
+    return if (parts.isEmpty()) null else joinWithDots(parts)
+}
+
+/** What the Sync row shows after its label: "45%", the counts, or null for the label alone. */
+fun Resources.syncRowDetail(summary: SyncRowSummary): String? = when {
+    summary.percent != null -> getString(R.string.settings_sync_row_percent, summary.percent)
+    summary.counts != null -> syncCountsText(summary.counts)
+    else -> null
 }
 
 /** A running sync's "45 of 1,402 items", or null before its total is known. */

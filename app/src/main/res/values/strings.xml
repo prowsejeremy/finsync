@@ -28,7 +28,6 @@
 
     <!-- Screen headers -->
     <string name="cd_back">Back</string>
-    <string name="header_downloads">Downloads</string>
     <string name="header_home">Home</string>
     <string name="cd_settings">Settings</string>
 
@@ -97,13 +96,21 @@
     </plurals>
     <!-- "1,280 of 1,400 songs · 0 of 2 books" + " synced" -->
     <string name="sync_counts_synced">%1$s synced</string>
-    <string name="settings_downloads_title">Downloads</string>
-    <string name="settings_downloads_none">No albums on this device yet</string>
-    <string name="settings_downloads_hint">Tap to manage downloads</string>
-    <plurals name="settings_downloads_count">
-        <item quantity="one">%d album on this device</item>
-        <item quantity="other">%d albums on this device</item>
+    <!-- The Settings Sync row's "Syncing… · 45%" (Settings restructure) -->
+    <string name="settings_sync_row_percent">%1$d%%</string>
+    <!-- The Sync screen's section labels, and text moved there from the Settings cards -->
+    <string name="settings_section_what_to_sync">What to sync</string>
+    <string name="settings_section_schedule_storage">Schedule and storage</string>
+    <string name="settings_albums_title">Albums to Sync</string>
+    <string name="settings_albums_summary">%1$d of %2$d albums selected</string>
+    <string name="settings_loading">Loading...</string>
+    <string name="settings_auto_sync_title">Auto-sync</string>
+    <string name="settings_auto_sync_disabled">Disabled</string>
+    <plurals name="settings_auto_sync_every">
+        <item quantity="one">Every %d hour</item>
+        <item quantity="other">Every %d hours</item>
     </plurals>
+    <string name="settings_sync_dir_title">Sync Directory</string>
 
     <!-- Sync status -->
     <string name="status_offline">Lost connection to server</string>
