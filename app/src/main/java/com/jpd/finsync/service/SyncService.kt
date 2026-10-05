@@ -36,13 +36,13 @@ class SyncService : Service() {
     private lateinit var repo: JellyfinRepository
     private lateinit var notificationManager: NotificationManager
 
-    // Opens Sync Status with Settings and Home behind it. The component is set explicitly
-    // because the launcher activity is PermissionsActivity, not MainActivity.
-    private val openSyncStatusIntent: PendingIntent by lazy {
+    // Opens Settings, whose Sync card shows the sync, with Home behind it. The component is set
+    // explicitly because the launcher activity is PermissionsActivity, not MainActivity.
+    private val openSettingsIntent: PendingIntent by lazy {
         NavDeepLinkBuilder(this)
             .setComponentName(MainActivity::class.java)
             .setGraph(R.navigation.nav_graph)
-            .setDestination(R.id.syncStatusFragment)
+            .setDestination(R.id.settingsFragment)
             .createPendingIntent()
     }
 
@@ -108,7 +108,7 @@ class SyncService : Service() {
             .setContentTitle("Finsync")
             .setContentText(text)
             .setSmallIcon(R.drawable.ic_sync)
-            .setContentIntent(openSyncStatusIntent)
+            .setContentIntent(openSettingsIntent)
             .addAction(R.drawable.ic_stop, "Stop", stopIntent)
             .setProgress(100, progress, progress == 0)
             .setOngoing(true)
@@ -140,7 +140,7 @@ class SyncService : Service() {
             .setContentText(text)
             .setStyle(NotificationCompat.BigTextStyle().bigText(text))
             .setSmallIcon(R.drawable.ic_sync)
-            .setContentIntent(openSyncStatusIntent)
+            .setContentIntent(openSettingsIntent)
             .setAutoCancel(true)
             .build()
         notificationManager.notify(NOTIFICATION_ID, notice)

@@ -62,9 +62,9 @@ class SettingsFragment : Fragment() {
 
     override fun onResume() {
         super.onResume()
-        // Sub-screens can change the album selection, the downloads and the schedule. The Sync
-        // card's track total depends on the selection, so reload it too.
-        mainViewModel.loadAlbums()
+        // Sub-screens can change the selections, the downloads and the schedule. The Sync card's
+        // counts depend on the selections, so recount them (from the stored catalogue).
+        mainViewModel.refreshSyncCounts()
         viewModel.refreshDownloadedAlbumCount()
         binding.tvAutoSync.text = autoSyncLabel(viewModel.getAutoSyncInterval())
     }
@@ -87,9 +87,7 @@ class SettingsFragment : Fragment() {
         binding.cardServer.setOnClickListener {
             ServerBottomSheet().show(childFragmentManager, ServerBottomSheet.TAG)
         }
-        binding.cardSync.setOnClickListener {
-            navigateSafely(R.id.settingsFragment, R.id.action_settings_to_sync_status)
-        }
+        // The card itself has no listener since Sync Status went, so it has no ripple either.
         binding.btnSyncCard.setOnClickListener { mainViewModel.toggleSync() }
     }
 
@@ -107,12 +105,16 @@ class SettingsFragment : Fragment() {
         binding.tvSyncCardStatus.setText(display.status.labelRes)
         binding.tvSyncCardStatus.setTextColor(color(display.status.labelColorRes))
 
-        val detail = when {
-            isOffline -> getString(R.string.sync_detail_offline)
-            display.failedItems > 0 -> resources.syncIncompleteDetail(display.failedItems)
-            display.totalTracks > 0 ->
-                getString(R.string.sync_card_detail, display.trackCount ?: 0, display.totalTracks)
-            else -> null
+        // The words come from string resources; the line is put together here (spec "Sync card
+        // detail line").
+        val detail = when (display.status) {
+            SyncDisplay.Status.OFFLINE -> getString(R.string.sync_detail_offline)
+            SyncDisplay.Status.SYNCING -> resources.syncRunLine(display.runDone, display.runTotal)
+            SyncDisplay.Status.FAILED ->
+                getString(R.string.sync_error, display.errorMessage.orEmpty())
+            SyncDisplay.Status.INCOMPLETE -> resources.syncIncompleteDetail(display.failedItems)
+            // Stopped, synced or not synced: the counts, or nothing when nothing is selected.
+            else -> resources.syncCountsLine(display.counts)
         }
         binding.tvSyncCardDetail.text = detail
         binding.tvSyncCardDetail.isVisible = detail != null

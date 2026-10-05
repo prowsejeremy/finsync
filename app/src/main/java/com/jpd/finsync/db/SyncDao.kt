@@ -17,6 +17,10 @@ interface SyncDao {
     @Query("SELECT localPath FROM synced_tracks")
     suspend fun getAllLocalPaths(): List<String>
 
+    /** Every downloaded item, books included, for the Sync card's counts (3b refinements). */
+    @Query("SELECT itemId FROM synced_tracks")
+    suspend fun allItemIds(): List<String>
+
     @Query("DELETE FROM synced_tracks WHERE localPath = :localPath")
     suspend fun deleteByLocalPath(localPath: String)
 

@@ -80,6 +80,12 @@ data class PlaylistAlbumRow(
     val albumId: String
 )
 
+/** A catalogue track's ID and album (null for none), for the Sync card's counts. */
+data class TrackAlbumRow(
+    val itemId: String,
+    val albumId: String?
+)
+
 /** A book with its downloaded file (its synced_tracks row). */
 data class DownloadedBookRow(
     @Embedded val book: CatalogueBook,

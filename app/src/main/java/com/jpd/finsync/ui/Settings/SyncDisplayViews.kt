@@ -3,9 +3,12 @@ package com.jpd.finsync.ui
 import android.content.res.Resources
 import android.view.View
 import androidx.annotation.ColorRes
+import androidx.annotation.PluralsRes
 import androidx.annotation.StringRes
 import com.google.android.material.progressindicator.BaseProgressIndicator
 import com.jpd.finsync.R
+import com.jpd.finsync.sync.SyncCounts
+import java.text.NumberFormat
 import kotlin.math.roundToInt
 
 // Android-side helpers, kept out of SyncDisplay so that class stays JVM-testable.
@@ -34,9 +37,38 @@ val SyncDisplay.buttonLabelRes: Int
 fun Resources.syncIncompleteDetail(failedItems: Int): String =
     getQuantityString(R.plurals.sync_incomplete_detail, failedItems, failedItems)
 
-/** The same with "Sync incomplete: " in front, for Sync Status and the notification. */
+/** The same with "Sync incomplete: " in front, for the sync notification. */
 fun Resources.syncIncompleteMessage(failedItems: Int): String =
     getString(R.string.sync_incomplete_message, syncIncompleteDetail(failedItems))
+
+/**
+ * The Sync card's counts line (spec "Sync card detail line"): "1,280 of 1,400 songs synced",
+ * "1,280 of 1,400 songs · 0 of 2 books synced" or "0 of 2 books synced". Null when nothing is
+ * selected.
+ */
+fun Resources.syncCountsLine(counts: SyncCounts): String? {
+    val parts = listOfNotNull(
+        countPart(R.plurals.sync_songs_of, counts.songsSynced, counts.songsTotal),
+        countPart(R.plurals.sync_books_of, counts.booksSynced, counts.booksTotal)
+    )
+    if (parts.isEmpty()) return null
+    return getString(R.string.sync_counts_synced, joinWithDots(parts))
+}
+
+/** A running sync's "45 of 1,402 items", or null before its total is known. */
+fun Resources.syncRunLine(done: Int, total: Int): String? =
+    countPart(R.plurals.sync_items_of, done, total)
+
+// "1,280 of 1,400 songs", with the plural picked by the total; null when the total is 0.
+private fun Resources.countPart(@PluralsRes pluralsRes: Int, done: Int, total: Int): String? {
+    if (total <= 0) return null
+    return getQuantityString(pluralsRes, total, formatCount(done), formatCount(total))
+}
+
+// The one formatter for these counts: the locale's digit grouping ("1,280"). The plurals take
+// it as a string (%1$s), because %d wouldn't group.
+private fun formatCount(count: Int): String =
+    NumberFormat.getIntegerInstance().format(count.toLong())
 
 /** Shows [progress] from 0 to 1, or an indeterminate animation when it's null. */
 fun BaseProgressIndicator<*>.showSyncProgress(progress: Float?) {

@@ -99,7 +99,8 @@ class PlayerFragment : Fragment() {
         albumId = state.albumId
         book = state.book
         binding.tvAlbumName.text = state.albumTitle
-        binding.tvTitle.text = state.title
+        // Called on every state update; the view ignores the same title, so its cycle carries on.
+        binding.tvTitle.setTitle(state.title)
         // A book's chips are its author and the book (spec "Labels").
         val artistChip = state.book?.let { it.author ?: getString(R.string.unknown_author) }
             ?: state.artist

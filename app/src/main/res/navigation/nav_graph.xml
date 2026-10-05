@@ -155,7 +155,7 @@
     </fragment>
 
     <!-- Nested so SettingsViewModel lives exactly as long as you're in Settings, and so the
-         notification deep link builds the Home → Settings → Sync Status back stack. -->
+         sync notification's deep link builds the Home → Settings back stack. -->
     <navigation
         android:id="@+id/settings_graph"
         app:startDestination="@id/settingsFragment">
@@ -163,9 +163,6 @@
         <fragment
             android:id="@+id/settingsFragment"
             android:name="com.jpd.finsync.ui.SettingsFragment">
-            <action
-                android:id="@+id/action_settings_to_sync_status"
-                app:destination="@id/syncStatusFragment" />
             <action
                 android:id="@+id/action_settings_to_downloads"
                 app:destination="@id/downloadsFragment" />
@@ -182,10 +179,6 @@
                 android:id="@+id/action_settings_to_book_selection"
                 app:destination="@id/bookSelectionFragment" />
         </fragment>
-
-        <fragment
-            android:id="@+id/syncStatusFragment"
-            android:name="com.jpd.finsync.ui.SyncStatusFragment" />
 
         <fragment
             android:id="@+id/downloadsFragment"

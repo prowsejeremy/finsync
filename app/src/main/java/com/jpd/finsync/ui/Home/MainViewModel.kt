@@ -3,6 +3,7 @@ package com.jpd.finsync.ui
 import android.app.Application
 import android.content.Context
 import android.content.Intent
+import android.util.Log
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.LiveData
@@ -10,23 +11,29 @@ import androidx.lifecycle.MediatorLiveData
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.viewModelScope
 import com.jpd.finsync.auth.JellyfinRepository
-import com.jpd.finsync.auth.Result
 import com.jpd.finsync.db.SyncDatabase
 import com.jpd.finsync.library.BookRepository
 import com.jpd.finsync.library.LibraryRepository
 import com.jpd.finsync.library.PlaylistRepository
-import com.jpd.finsync.model.AlbumSelection
+import com.jpd.finsync.library.SyncSelections
 import com.jpd.finsync.model.ServerConfig
 import com.jpd.finsync.model.SyncState
 import com.jpd.finsync.playback.ResumeStore
 import com.jpd.finsync.service.SyncScheduler
 import com.jpd.finsync.service.SyncService
+import com.jpd.finsync.sync.SyncCounts
 import com.jpd.finsync.sync.SyncEngine
+import com.jpd.finsync.sync.SyncSelection
+import com.jpd.finsync.sync.syncCountsOf
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.ensureActive
-import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
+
+private const val TAG = "MainViewModel"
 
 class MainViewModel(app: Application) : AndroidViewModel(app) {
     fun checkServerConnection() {
@@ -43,13 +50,15 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
 
     private val repo = JellyfinRepository(app)
     private val dao = SyncDatabase.getInstance(app).syncDao()
+    private val catalogueDao = SyncDatabase.getInstance(app).catalogueDao()
 
     private val _serverConnected = MutableLiveData<Boolean>(true)
     // val serverConnected: LiveData<Boolean> = _serverConnected
 
-    // /** (syncedTracks, totalSelectedTracks) — updated whenever album selection or DB changes. */
-    private val _trackStats = MutableLiveData(Pair(0, 0))
-    // val trackStats: LiveData<Pair<Int, Int>> = _trackStats
+    // The Sync card's counts, from the stored catalogue (spec "Counts").
+    private val _syncCounts = MutableLiveData(SyncCounts.NONE)
+    // Refreshes run one at a time, so an older read can't land after a newer one.
+    private val syncCountsLock = Mutex()
 
     private val _syncState = MutableLiveData<SyncState>()
     // val syncState: LiveData<SyncState> = _syncState
@@ -60,18 +69,16 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     private val _syncDir   = MutableLiveData<String>()
     val syncDir: LiveData<String> = _syncDir
 
-    private val _albums = MutableLiveData<List<AlbumSelection>>()
-    val albums: LiveData<List<AlbumSelection>> = _albums
-
     data class UiState(
         val syncState: SyncState? = null,
-        val trackStats: Pair<Int, Int> = Pair(0, 0),
+        val syncCounts: SyncCounts = SyncCounts.NONE,
         val serverConnected: Boolean = true
     )
 
+    // Counts first: when the screen comes back, they're delivered before the sync state too.
     private val _uiState = MediatorLiveData<UiState>().apply {
+        addSource(_syncCounts)      { value = (value ?: UiState()).copy(syncCounts = it) }
         addSource(_syncState)       { value = (value ?: UiState()).copy(syncState = it) }
-        addSource(_trackStats)      { value = (value ?: UiState()).copy(trackStats = it) }
         addSource(_serverConnected) { value = (value ?: UiState()).copy(serverConnected = it) }
     }
     val uiState: LiveData<UiState> = _uiState
@@ -79,10 +86,14 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     init {
         refreshConfig()
         viewModelScope.launch {
-            SyncEngine.syncState.collectLatest { state ->
-                _syncState.postValue(state)
-                if (state.syncComplete) loadAlbums()
-            }
+            // An ended sync (completed, stopped or failed) recounts before its state is posted,
+            // so the card doesn't flash "Not synced yet" (spec "MainViewModel"). This scope runs
+            // on the main thread, so both values are set in that order.
+            relaySyncStates(
+                SyncEngine.syncState,
+                refreshCounts = { updateSyncCounts() },
+                post = { _syncState.value = it }
+            )
         }
     }
 
@@ -91,37 +102,42 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         _config.value = cfg
         if (cfg != null) {
             _syncDir.value = SyncEngine.getSyncDirectoryPath(getApplication(), cfg)
-            loadAlbums()
+            refreshSyncCounts()
         }
     }
 
-    fun loadAlbums() {
-        val cfg = _config.value ?: return
-        viewModelScope.launch {
-            val result = repo.getAlbums(cfg)
-            if (result is Result.Success) {
-                val selectedIds = getSelectedAlbumIds()
-                val isAll = selectedIds.isEmpty() || selectedIds.contains("all")
+    /** Recounts the Sync card from the stored catalogue and selections; no server call. */
+    fun refreshSyncCounts() {
+        viewModelScope.launch { updateSyncCounts() }
+    }
 
-                // Single pass: collect synced count per album to avoid duplicate DB queries
-                data class AlbumRow(val album: com.jpd.finsync.model.MediaItem, val synced: Int)
-                val rows = result.data.items.map { album ->
-                    AlbumRow(album, dao.getSyncedTrackCountForAlbum(album.id))
-                }
-
-                val albumList = rows.map { (album, synced) ->
-                    val isDownloaded = (album.childCount ?: 0) > 0 && synced >= album.childCount!!
-                    AlbumSelection(item = album, isSelected = selectedIds.contains(album.id) || isDownloaded, isDownloaded = isDownloaded)
-                }.sortedBy { it.item.name }
-                _albums.postValue(albumList)
-
-                // Track stats: only count albums that are in the current selection
-                val selectedRows = if (isAll) rows else rows.filter { selectedIds.contains(it.album.id) }
-                val totalTracks  = selectedRows.sumOf { it.album.childCount ?: 0 }
-                val syncedTracks = selectedRows.sumOf { it.synced }
-                _trackStats.postValue(Pair(syncedTracks, totalTracks))
+    private suspend fun updateSyncCounts() {
+        syncCountsLock.withLock {
+            try {
+                _syncCounts.value = loadSyncCounts()
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                // The card keeps its last counts; a failed read mustn't stop the sync states.
+                Log.w(TAG, "Couldn't count the synced items", e)
             }
         }
+    }
+
+    // syncPlanOf's rules over what the last catalogue write stored (spec "Counts").
+    private suspend fun loadSyncCounts(): SyncCounts {
+        val selections = SyncSelections(getApplication())
+        return syncCountsOf(
+            tracks = catalogueDao.trackAlbums(),
+            playlistItems = catalogueDao.allPlaylistItems(),
+            bookIds = catalogueDao.allBooks().mapTo(HashSet()) { it.bookId },
+            syncedIds = dao.allItemIds().toHashSet(),
+            selection = SyncSelection(
+                getSelectedAlbumIds(),
+                selections.playlistIds(),
+                selections.bookIds()
+            )
+        )
     }
 
     fun getSelectedAlbumIds(): Set<String> {

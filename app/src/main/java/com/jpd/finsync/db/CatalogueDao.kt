@@ -124,6 +124,10 @@ abstract class CatalogueDao {
     @Query("SELECT COUNT(*) FROM catalogue_tracks")
     abstract fun observeTrackCount(): Flow<Int>
 
+    /** Every catalogue track's ID and album, for the Sync card's counts (3b refinements). */
+    @Query("SELECT itemId, albumId FROM catalogue_tracks")
+    abstract suspend fun trackAlbums(): List<TrackAlbumRow>
+
     @Query(
         """
         SELECT a.albumId AS albumId, a.name AS name, a.albumArtist AS albumArtist, a.year AS year,

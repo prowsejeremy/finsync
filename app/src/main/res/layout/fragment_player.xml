@@ -105,20 +105,28 @@
 
     </com.google.android.material.card.MaterialCardView>
 
-    <TextView
+    <!-- One line: a long title scrolls sideways instead of wrapping and shrinking the art.
+         Same id and constraints as before; the text styling moves to the TextView inside. -->
+    <com.jpd.finsync.ui.ScrollingTitleView
         android:id="@+id/tvTitle"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
         android:layout_marginBottom="10dp"
-        android:gravity="center"
-        android:maxLines="2"
-        android:ellipsize="end"
-        android:textColor="@color/text_primary"
-        android:textSize="22sp"
-        android:fontFamily="@font/hk_extrabold"
         app:layout_constraintBottom_toTopOf="@id/chips"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent" />
+        app:layout_constraintEnd_toEndOf="parent">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:gravity="center"
+            android:singleLine="true"
+            android:ellipsize="end"
+            android:textColor="@color/text_primary"
+            android:textSize="22sp"
+            android:fontFamily="@font/hk_extrabold" />
+
+    </com.jpd.finsync.ui.ScrollingTitleView>
 
     <LinearLayout
         android:id="@+id/chips"

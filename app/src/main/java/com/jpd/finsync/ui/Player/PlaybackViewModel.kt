@@ -227,6 +227,32 @@ class PlaybackViewModel(app: Application) : AndroidViewModel(app) {
         controller?.seekToPrevious()
     }
 
+    // The mini-player's moves (3b refinements): its Next button, its swipes and their TalkBack
+    // actions. The Player screen, the notification and headset buttons keep their own rules.
+
+    /** The next chapter while a book plays (nothing on the last), else the next track. */
+    fun nextTrackOrChapter() {
+        if (_state.value?.book != null) nextChapter() else next()
+    }
+
+    /** The previous chapter while a book plays (this one's start after 3 s), else previous(). */
+    fun previousTrackOrChapter() {
+        if (_state.value?.book != null) previousChapter() else previous()
+    }
+
+    /**
+     * Whether a swipe left would move: a book has a next chapter, or the queue a next item.
+     * Media3's answer follows repeat and shuffle, and BassPlayer reports its queue in play order.
+     */
+    fun canGoNext(): Boolean {
+        val mediaController = controller ?: return false
+        val book = _state.value?.book ?: return mediaController.hasNextMediaItem()
+        return nextChapterTarget(book.chapterStartsMs, mediaController.currentPosition) != null
+    }
+
+    /** Previous always does something once connected: it restarts or goes back. */
+    fun canGoPrevious(): Boolean = controller != null
+
     fun seekTo(positionMs: Long) {
         controller?.seekTo(positionMs)
     }

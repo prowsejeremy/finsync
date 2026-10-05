@@ -11,6 +11,7 @@ import android.widget.Toast
 import androidx.activity.viewModels
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
+import androidx.core.view.ViewCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
@@ -108,16 +109,37 @@ class MainActivity : AppCompatActivity() {
         }
 
         val mini = binding.miniPlayer
-        mini.root.setOnClickListener {
+        val openPlayer = View.OnClickListener {
             navController.navigateUnlessShowing(R.id.playerFragment, R.id.action_global_player)
         }
+        // The swipe layout takes every touch the buttons don't (it must, to see a drag), so a
+        // tap opens the Player through it. The card keeps the listener for TalkBack's double tap.
+        mini.root.setOnClickListener(openPlayer)
+        mini.miniSwipe.setOnClickListener(openPlayer)
+        mini.miniSwipe.listener =
+            MiniPlayerSwipe(mini.miniSwipe, mini.miniTrackInfo, playbackViewModel)
+        addMiniPlayerActions()
         mini.btnMiniPlayPause.setOnClickListener { playbackViewModel.togglePlayPause() }
-        mini.btnMiniNext.setOnClickListener { playbackViewModel.next() }
+        // On a book this is now the next chapter, not +30 s (the user's choice, 3b refinements).
+        mini.btnMiniNext.setOnClickListener { playbackViewModel.nextTrackOrChapter() }
 
         playbackViewModel.state.observe(this) { renderMiniPlayer(it) }
         playbackViewModel.position.observe(this) { position ->
             mini.miniProgress.progress =
                 progressPermille(position.positionMs, position.durationMs)
+        }
+    }
+
+    // TalkBack can't swipe the card, so it gets the same two moves as actions (spec "TalkBack").
+    private fun addMiniPlayerActions() {
+        val card = binding.miniPlayer.root
+        ViewCompat.addAccessibilityAction(card, getString(R.string.cd_next)) { _, _ ->
+            playbackViewModel.nextTrackOrChapter()
+            true
+        }
+        ViewCompat.addAccessibilityAction(card, getString(R.string.cd_previous)) { _, _ ->
+            playbackViewModel.previousTrackOrChapter()
+            true
         }
     }
 
@@ -131,6 +153,8 @@ class MainActivity : AppCompatActivity() {
         val playLabel = if (state.isPlaying) R.string.cd_pause else R.string.cd_play
         mini.ivMiniPlayPause.setImageResource(playIcon)
         mini.btnMiniPlayPause.contentDescription = getString(playLabel)
+        val nextLabel = if (state.book != null) R.string.cd_next_chapter else R.string.cd_next
+        mini.btnMiniNext.contentDescription = getString(nextLabel)
         if (state.artworkPath != miniArtworkPath) {
             miniArtworkPath = state.artworkPath
             loadArtwork(mini.ivMiniArt, state.artworkPath)

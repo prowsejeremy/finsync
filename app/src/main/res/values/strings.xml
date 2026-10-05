@@ -28,7 +28,6 @@
 
     <!-- Screen headers -->
     <string name="cd_back">Back</string>
-    <string name="header_sync_status">Sync Status</string>
     <string name="header_downloads">Downloads</string>
     <string name="header_home">Home</string>
     <string name="cd_settings">Settings</string>
@@ -82,7 +81,22 @@
     <string name="server_connected">Connected</string>
     <string name="server_offline">Offline</string>
     <string name="settings_sync_title">Sync</string>
-    <string name="sync_card_detail">%1$d of %2$d tracks synced</string>
+    <!-- The Sync card's counts (3b refinements). The numbers arrive with the locale's digit
+         grouping ("1,280"), so they're strings (%s); the total picks the plural. -->
+    <plurals name="sync_songs_of">
+        <item quantity="one">%1$s of %2$s song</item>
+        <item quantity="other">%1$s of %2$s songs</item>
+    </plurals>
+    <plurals name="sync_books_of">
+        <item quantity="one">%1$s of %2$s book</item>
+        <item quantity="other">%1$s of %2$s books</item>
+    </plurals>
+    <plurals name="sync_items_of">
+        <item quantity="one">%1$s of %2$s item</item>
+        <item quantity="other">%1$s of %2$s items</item>
+    </plurals>
+    <!-- "1,280 of 1,400 songs · 0 of 2 books" + " synced" -->
+    <string name="sync_counts_synced">%1$s synced</string>
     <string name="settings_downloads_title">Downloads</string>
     <string name="settings_downloads_none">No albums on this device yet</string>
     <string name="settings_downloads_hint">Tap to manage downloads</string>
@@ -95,10 +109,7 @@
     <string name="status_offline">Lost connection to server</string>
     <string name="status_sync_stopped">Sync stopped</string>
     <string name="status_synced">Synced</string>
-    <string name="sync_count_none">—</string>
-    <string name="sync_count_offline">OFFLINE</string>
     <string name="sync_detail_offline">Please reconnect to sync.</string>
-    <string name="sync_track_total">of %1$d tracks synced</string>
     <string name="sync_error">Sync error: %1$s</string>
     <string name="status_sync_incomplete">Sync incomplete</string>
     <plurals name="sync_incomplete_detail">

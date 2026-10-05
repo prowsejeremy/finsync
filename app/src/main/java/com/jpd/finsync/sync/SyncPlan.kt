@@ -35,7 +35,7 @@ fun syncPlanOf(
     written: PlaylistBookRows,
     selection: SyncSelection
 ): SyncPlan {
-    val albumTracks = catalogue.audio.filter { isInAlbumSelection(it, selection.albumIds) }
+    val albumTracks = catalogue.audio.filter { isInAlbumSelection(it.albumId, selection.albumIds) }
     val audioById = catalogue.audio.associateBy { it.id }
     val playlistItems = written.playlistItems.filter { it.playlistId in selection.playlistIds }
     // Entries are looked up in the audio list, which carries the paths and media sources.
@@ -67,8 +67,11 @@ fun failedFetchCount(catalogue: ServerCatalogue, selection: SyncSelection): Int 
     return playlists + books
 }
 
-// As before 3b: a specific album selection doesn't sync tracks without an album.
-private fun isInAlbumSelection(item: MediaItem, selectedAlbumIds: Set<String>): Boolean {
-    val albumId = item.albumId ?: return selectsEveryAlbum(selectedAlbumIds)
+/**
+ * As before 3b: a specific album selection doesn't sync tracks without an album. Shared with
+ * the Sync card's counts ([syncCountsOf]), so both apply one rule.
+ */
+internal fun isInAlbumSelection(albumId: String?, selectedAlbumIds: Set<String>): Boolean {
+    if (albumId == null) return selectsEveryAlbum(selectedAlbumIds)
     return isAlbumSelected(albumId, selectedAlbumIds)
 }
