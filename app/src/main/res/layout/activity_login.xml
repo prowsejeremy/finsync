@@ -18,7 +18,7 @@
             android:layout_width="80dp"
             android:layout_height="80dp"
             android:layout_marginTop="120dp"
-            android:src="@drawable/ic_finsync"
+            android:src="@drawable/ic_hz"
             android:contentDescription="@string/app_name" />
 
         <!-- App name -->

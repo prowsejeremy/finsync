@@ -1,4 +1,4 @@
-# Finsync: architecture and feature reference
+# hz: architecture and feature reference
 
 Updated 2026-10-06, on `feature/player` after `3863dee`, with the EQ saved presets built but not
 yet committed. 256 unit tests in 39 suites pass.
@@ -12,7 +12,7 @@ change follows. The specs hold the full reasoning behind each decision.
 
 ## Contents
 
-1. [What Finsync is](#what-finsync-is)
+1. [What hz is](#what-hz-is)
 2. [Status by sub-project](#status-by-sub-project)
 3. [Ground rules for new work](#ground-rules-for-new-work)
 4. [Code map](#code-map)
@@ -28,10 +28,14 @@ change follows. The specs hold the full reasoning behind each decision.
 14. [Known issues and loose ends](#known-issues-and-loose-ends)
 15. [What's next](#whats-next)
 
-## What Finsync is
+## What hz is
 
 A native Android music and audiobook player for a Jellyfin server. It syncs chosen music and
 books to the device, then plays only those local files. Playback always works offline.
+
+It was called Finsync until 2026-10-06. The rename changed the application ID to `com.jpd.hz`, so
+hz installs beside Finsync instead of upgrading it. The local specs, plans and handovers predate
+the rename and still say Finsync and `com/jpd/finsync`.
 
 - **Sign-in** to Jellyfin 12+. Credentials are kept in `EncryptedSharedPreferences`.
 - **Sync** of chosen albums, playlists and audiobooks. Sync is incremental, runs in a foreground
@@ -96,8 +100,8 @@ Streaming from the server is a likely later addition. These four rules keep it c
 
 ### Server and auth
 
-- **Finsync never changes anything on the server.** API calls pass through `ReadOnlyInterceptor`
-  (`app/src/main/java/com/jpd/finsync/api/JellyfinClient.kt`). It allows GET and HEAD, plus the
+- **hz never changes anything on the server.** API calls pass through `ReadOnlyInterceptor`
+  (`app/src/main/java/com/jpd/hz/api/JellyfinClient.kt`). It allows GET and HEAD, plus the
   login POST, and throws on anything else. There is no play reporting. Adding some (play counts,
   now playing, book positions) would need a deliberate exception.
 - **Jellyfin 12 auth.** Every request sends `Authorization: MediaBrowser Client=…, Token=…`
@@ -126,7 +130,7 @@ Streaming from the server is a likely later addition. These four rules keep it c
   double taps.
 - Put text in `strings.xml`, with plurals for counts. Durations are `m:ss`, or `h:mm:ss` from an
   hour. Time left reads "8 h 28 min".
-- Every UI file uses the package `com.jpd.finsync.ui`, whatever its folder (`ui/Home`,
+- Every UI file uses the package `com.jpd.hz.ui`, whatever its folder (`ui/Home`,
   `ui/Library`, `ui/Player`, `ui/Settings`, `ui/Equaliser`, `ui/Login`).
 - Album selections: **an empty selection means every album**, which is the original behaviour.
   For playlists and books, **an empty selection means none**, so a fresh install doesn't download
@@ -134,10 +138,10 @@ Streaming from the server is a likely later addition. These four rules keep it c
 
 ## Code map
 
-All paths are under `app/src/main/java/com/jpd/finsync/`.
+All paths are under `app/src/main/java/com/jpd/hz/`.
 
 ```
-Finsync.kt                Application: applies the saved night mode before any activity starts
+Hz.kt                     Application: applies the saved night mode before any activity starts
 api/                      Retrofit interface, OkHttp client, auth header, ReadOnlyInterceptor
 auth/                     CredentialStore (encrypted prefs), JellyfinRepository (every server call)
 model/Models.kt           Server DTOs (MediaItem, MediaStream…), ServerConfig, SyncState
@@ -159,7 +163,7 @@ com/un4seen/bass/         BASS, BASSmix and BASS_FX Java bindings (package fixed
 Native libraries are in `app/src/main/jniLibs/<abi>/` for arm64-v8a, armeabi-v7a, x86 and x86_64:
 `libbass`, `libbassmix`, `libbass_fx`, plus the format add-ons `libbassflac`, `libbassalac`,
 `libbass_aac`, `libbassopus`, `libbassape` and `libbasswv`. BASS is free for non-commercial use
-only, and Finsync is never sold.
+only, and hz is never sold.
 
 ## Data
 
@@ -210,7 +214,7 @@ service's EQ listener.
 
 Entry points: `SyncService` for a manual sync (a foreground service of type `dataSync`), and
 `SyncWorker` for scheduled syncs (in `service/BootReceiver.kt`, unique work
-`finsync_periodic_sync`). Both run `SyncEngine.syncLibrary`. Its state flows into
+`hz_periodic_sync`). Both run `SyncEngine.syncLibrary`. Its state flows into
 `MainViewModel.uiState`, which every screen that shows sync or server state reads.
 
 One run:
@@ -241,7 +245,7 @@ a failed item might own.
 | Music | `<syncDir>/<album artist>/<album>/<track>`, with `folder.jpg` |
 | Books | `<syncDir>/Audiobooks/<author>/<title>/`, the `.m4b` plus `folder.jpg` |
 
-The default `syncDir` is public `Music/Finsync/<server name>`. If that isn't writable it falls
+The default `syncDir` is public `Music/hz/<server name>`. If that isn't writable it falls
 back to the app's own external music folder. The user can pick another in Settings → Sync.
 
 **Sync card.** `ui/Settings/SyncDisplay.kt` is a pure, ordered rule table that turns the state
@@ -378,12 +382,12 @@ from the Findroid app.
   values. `values/colors.xml` (light) and `values-night/colors.xml` (dark) must match it, which
   `PaletteDriftTest` checks. The user tuned these values by hand, so treat them as final.
 - **Themes.**
-  - `Theme.Finsync` has the parent `Theme.Material3.DayNight.NoActionBar`.
-  - Five overlays, `ThemeOverlay.Finsync.Accent.<Name>`, each set only `colorPrimary` and
+  - `Theme.Hz` has the parent `Theme.Material3.DayNight.NoActionBar`.
+  - Five overlays, `ThemeOverlay.Hz.Accent.<Name>`, each set only `colorPrimary` and
     `colorOnPrimary`.
   - `Activity.applyAccentOverlay()` applies the saved accent in each activity before
     `setContentView`.
-  - `Finsync.onCreate()` applies the saved mode, so there's no flash on launch.
+  - `Hz.onCreate()` applies the saved mode, so there's no flash on launch.
   - Changing the mode lets AppCompat recreate the activities. Changing the accent calls
     `recreate()`. Neither interrupts playback.
 - **Rules for any new UI:**
@@ -424,7 +428,7 @@ Commands, run from the repo root:
     them.
 - **New features and fixes get tests.** Logic that can be pulled out into a pure function
   should be, so it can be tested on the JVM.
-- **Alpha builds** install beside the release app as `com.jpd.finsync.alpha`, "Finsync Alpha":
+- **Alpha builds** install beside the release app as `com.jpd.hz.alpha`, "hz Alpha":
 
   ```sh
   ./gradlew -q -I .superpowers/alpha.init.gradle :app:assembleDebug
@@ -511,7 +515,7 @@ None is scheduled.
   later release may remove it. Move them to `GET Items?userId=`.
 - **Dead code.** `JellyfinApi.downloadAudio` is unused; real downloads use the client in
   `JellyfinClient`.
-- **Device ID.** It's hard-coded as `finsync-android-001`, so every install shares one device
+- **Device ID.** It's hard-coded as `hz-android-001`, so every install shares one device
   identity on the server.
 - **HTTP logging** is always on at BASIC level (`JellyfinRepository`, `debug = true`).
 - **Cancellation.** `JellyfinRepository.isServerHealthy()` and `safeCall` catch
@@ -525,7 +529,6 @@ None is scheduled.
 - **Not seen yet.** Home may open twice on the first Android 12+ launch after an upgrade. If it
   happens, the fix is `CLEAR_TOP|SINGLE_TOP` in `PermissionsActivity.proceed()`.
 - **README is stale** in places:
-  - the default sync folder is `Music/Finsync/<server>`, not `Music/Jellyfin/…`;
   - "No in-app playback" is no longer true;
   - the API table lists `/Audio/{id}/file`;
   - the architecture tree and the screenshots predate the overhaul.
@@ -536,7 +539,7 @@ None is scheduled.
   reviewed, awaiting the user's device check and commit. Alpha:
   `finsync-0.0.2-alpha-eq-presets.apk`.
   - Users save the curve on screen under a name, then choose, rename or delete it, with Undo.
-  - The `error` role is `#FF0040` in both modes; `Theme.Finsync` sets it as `colorError`, and
+  - The `error` role is `#FF0040` in both modes; `Theme.Hz` sets it as `colorError`, and
     `colorSurfaceContainer` is `surface_2` for popup menus.
 - **Sub-project 4, Search.** Not designed yet. It will search albums, artists, songs, playlists
   and audiobooks. Points to settle:

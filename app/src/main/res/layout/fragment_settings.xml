@@ -50,7 +50,7 @@
                         android:layout_height="35dp"
                         android:padding="3dp"
                         android:layout_marginEnd="2dp"
-                        android:src="@drawable/ic_finsync"
+                        android:src="@drawable/ic_hz"
                         android:importantForAccessibility="no" />
 
                     <TextView

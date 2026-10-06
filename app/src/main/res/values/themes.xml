@@ -2,7 +2,7 @@
 <resources>
     <!-- The one app theme (spec "Resources"). DayNight takes values-night/ colours in dark mode.
          The accent comes from an overlay below; without one it's Green. -->
-    <style name="Theme.Finsync" parent="Theme.Material3.DayNight.NoActionBar">
+    <style name="Theme.Hz" parent="Theme.Material3.DayNight.NoActionBar">
         <item name="colorPrimary">@color/accent_green</item>
         <item name="colorOnPrimary">@color/on_accent_green</item>
         <item name="colorSurface">@color/surface_1</item>
@@ -30,13 +30,13 @@
 
     <!-- Bottom sheet theme for every sheet's getTheme(). An overlay, so each sheet keeps its
          activity's mode and accent. -->
-    <style name="Theme.Finsync.BottomSheet" parent="ThemeOverlay.Material3.BottomSheetDialog">
+    <style name="Theme.Hz.BottomSheet" parent="ThemeOverlay.Material3.BottomSheetDialog">
         <item name="android:windowBackground">@android:color/transparent</item>
         <item name="colorSurface">@color/surface_1</item>
         <item name="colorOnSurface">@color/text_primary</item>
         <item name="colorOnSurfaceVariant">@color/muted</item>
         <item name="elevationOverlayEnabled">false</item>
-        <item name="bottomSheetStyle">@style/Widget.Finsync.BottomSheet</item>
+        <item name="bottomSheetStyle">@style/Widget.Hz.BottomSheet</item>
         <!-- The Material 3 overlay turns edge-to-edge on; the sheets have never drawn under the
              navigation bar -->
         <item name="enableEdgeToEdge">false</item>
@@ -47,11 +47,11 @@
         <!-- Default Font -->
         <item name="android:fontFamily">@font/hk_regular</item>
     </style>
-    <style name="Widget.Finsync.BottomSheet" parent="Widget.Material3.BottomSheet.Modal">
+    <style name="Widget.Hz.BottomSheet" parent="Widget.Material3.BottomSheet.Modal">
         <item name="backgroundTint">@color/surface_1</item>
-        <item name="shapeAppearance">@style/ShapeAppearance.Finsync.BottomSheet</item>
+        <item name="shapeAppearance">@style/ShapeAppearance.Hz.BottomSheet</item>
     </style>
-    <style name="ShapeAppearance.Finsync.BottomSheet" parent="">
+    <style name="ShapeAppearance.Hz.BottomSheet" parent="">
         <item name="cornerFamily">rounded</item>
         <item name="cornerSizeTopLeft">24dp</item>
         <item name="cornerSizeTopRight">24dp</item>
@@ -60,38 +60,38 @@
     </style>
 
     <!-- LoginActivity: its text fields sit on the page colour -->
-    <style name="Theme.Finsync.Login" parent="Theme.Finsync">
+    <style name="Theme.Hz.Login" parent="Theme.Hz">
         <item name="colorSurface">@color/bg_primary</item>
         <!-- colorOutline (the base theme's muted) drives the unfocused field border -->
         <item name="colorSurfaceVariant">@color/surface_1</item>
     </style>
 
-    <!-- Accent overlays, one per Appearance choice, each laid over Theme.Finsync. Only these and
-         Theme.Finsync name the accent_* colours; layouts, drawables and code use
+    <!-- Accent overlays, one per Appearance choice, each laid over Theme.Hz. Only these and
+         Theme.Hz name the accent_* colours; layouts, drawables and code use
          ?attr/colorPrimary and ?attr/colorOnPrimary. The mode picks the dark or light value. -->
-    <style name="ThemeOverlay.Finsync.Accent.Green" parent="">
+    <style name="ThemeOverlay.Hz.Accent.Green" parent="">
         <item name="colorPrimary">@color/accent_green</item>
         <item name="colorOnPrimary">@color/on_accent_green</item>
     </style>
-    <style name="ThemeOverlay.Finsync.Accent.Blue" parent="">
+    <style name="ThemeOverlay.Hz.Accent.Blue" parent="">
         <item name="colorPrimary">@color/accent_blue</item>
         <item name="colorOnPrimary">@color/on_accent_blue</item>
     </style>
-    <style name="ThemeOverlay.Finsync.Accent.Purple" parent="">
+    <style name="ThemeOverlay.Hz.Accent.Purple" parent="">
         <item name="colorPrimary">@color/accent_purple</item>
         <item name="colorOnPrimary">@color/on_accent_purple</item>
     </style>
-    <style name="ThemeOverlay.Finsync.Accent.Pink" parent="">
+    <style name="ThemeOverlay.Hz.Accent.Pink" parent="">
         <item name="colorPrimary">@color/accent_pink</item>
         <item name="colorOnPrimary">@color/on_accent_pink</item>
     </style>
-    <style name="ThemeOverlay.Finsync.Accent.Red" parent="">
+    <style name="ThemeOverlay.Hz.Accent.Red" parent="">
         <item name="colorPrimary">@color/accent_red</item>
         <item name="colorOnPrimary">@color/on_accent_red</item>
     </style>
 
     <!-- Appearance's Dark · Light · System segments, in a MaterialButtonToggleGroup -->
-    <style name="Widget.Finsync.SegmentButton" parent="Widget.Material3.Button.OutlinedButton">
+    <style name="Widget.Hz.SegmentButton" parent="Widget.Material3.Button.OutlinedButton">
         <item name="backgroundTint">@color/segment_background</item>
         <item name="android:textColor">@color/segment_text</item>
         <item name="strokeColor">@color/muted</item>

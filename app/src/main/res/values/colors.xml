@@ -1,8 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- Finsync brand colours — taken from the icon gradient -->
-    <color name="finsync_purple">#AA5CC3</color>
-    <color name="finsync_blue">#00A4DC</color>
     <color name="white">#FFFFFF</color>
     <color name="black">#000000</color>
 

@@ -1,8 +1,8 @@
 <p align="center">
-  <img src="design-assets/finsync-logo.svg" alt="Finsync" width="300" />
+  <img src="design-assets/hz-logo.svg" alt="hz" width="300" />
 </p>
 
-# Finsync
+# hz
 
 A native Android app that authenticates with a [Jellyfin](https://jellyfin.org) media server and syncs your music library to local device storage.
 
@@ -43,7 +43,7 @@ I borrowed the design language quite heavily from the amazing [Findroid](https:/
 ## Architecture
 
 ```
-app/src/main/java/com/jpd/finsync/
+app/src/main/java/com/jpd/hz/
 ├── api/
 │   ├── JellyfinApi.kt          Retrofit service interface
 │   └── JellyfinClient.kt       OkHttp + Retrofit factory
@@ -83,7 +83,7 @@ app/src/main/java/com/jpd/finsync/
 ### Default sync directory
 
 ```
-/sdcard/Music/Jellyfin/<ServerName>/
+/sdcard/Music/hz/<ServerName>/
 ```
 
 ---

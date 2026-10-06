@@ -9,5 +9,5 @@ pluginManagement {
     }
 }
 
-rootProject.name = "Finsync"
+rootProject.name = "hz"
 include ':app'

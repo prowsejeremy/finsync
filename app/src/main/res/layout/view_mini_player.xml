@@ -13,7 +13,7 @@
 
     <!-- Takes every touch its buttons don't: a tap opens the Player, and a sideways drag moves
          to the next or previous track (3b refinements). TalkBack uses the card itself. -->
-    <com.jpd.finsync.ui.HorizontalSwipeLayout
+    <com.jpd.hz.ui.HorizontalSwipeLayout
         android:id="@+id/miniSwipe"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
@@ -140,5 +140,5 @@
                 app:trackColor="@color/surface_1" />
 
         </LinearLayout>
-    </com.jpd.finsync.ui.HorizontalSwipeLayout>
+    </com.jpd.hz.ui.HorizontalSwipeLayout>
 </com.google.android.material.card.MaterialCardView>

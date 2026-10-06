@@ -59,7 +59,7 @@
 
                         <com.google.android.material.button.MaterialButton
                             android:id="@+id/btnModeDark"
-                            style="@style/Widget.Finsync.SegmentButton"
+                            style="@style/Widget.Hz.SegmentButton"
                             android:layout_width="0dp"
                             android:layout_height="48dp"
                             android:layout_weight="1"
@@ -67,7 +67,7 @@
 
                         <com.google.android.material.button.MaterialButton
                             android:id="@+id/btnModeLight"
-                            style="@style/Widget.Finsync.SegmentButton"
+                            style="@style/Widget.Hz.SegmentButton"
                             android:layout_width="0dp"
                             android:layout_height="48dp"
                             android:layout_weight="1"
@@ -75,7 +75,7 @@
 
                         <com.google.android.material.button.MaterialButton
                             android:id="@+id/btnModeSystem"
-                            style="@style/Widget.Finsync.SegmentButton"
+                            style="@style/Widget.Hz.SegmentButton"
                             android:layout_width="0dp"
                             android:layout_height="48dp"
                             android:layout_weight="1"

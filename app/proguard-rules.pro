@@ -13,14 +13,14 @@
 -keep,allowobfuscation,allowoptimization class retrofit2.Response
 
 # Keep the API interfaces specifically
--keep interface com.jpd.finsync.api.** { *; }
+-keep interface com.jpd.hz.api.** { *; }
 
 # Gson rules
 -keep class com.google.gson.** { *; }
--keep class com.jpd.finsync.model.** { *; }
--keepclassmembers class com.jpd.finsync.model.** { <fields>; }
+-keep class com.jpd.hz.model.** { *; }
+-keepclassmembers class com.jpd.hz.model.** { <fields>; }
 # Read only by Gson's reflection, so R8 would otherwise shrink it and saves would come back empty.
--keep class com.jpd.finsync.playback.ResumeJson { *; }
+-keep class com.jpd.hz.playback.ResumeJson { *; }
 -keepclassmembernames class * {
     @com.google.gson.annotations.SerializedName <fields>;
 }

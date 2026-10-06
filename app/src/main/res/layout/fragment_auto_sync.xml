@@ -46,7 +46,7 @@
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="Choose how often Finsync should automatically sync your music library in the background. You can also sync manually at any time from the Sync card in Settings."
+                android:text="Choose how often hz should automatically sync your music library in the background. You can also sync manually at any time from the Sync card in Settings."
                 android:textColor="@color/text_primary"
                 android:textSize="14sp"
                 android:fontFamily="@font/hk_regular"

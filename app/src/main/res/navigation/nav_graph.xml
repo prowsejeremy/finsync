@@ -7,7 +7,7 @@
 
     <fragment
         android:id="@+id/homeFragment"
-        android:name="com.jpd.finsync.ui.HomeFragment">
+        android:name="com.jpd.hz.ui.HomeFragment">
         <action
             android:id="@+id/action_home_to_settings"
             app:destination="@id/settings_graph" />
@@ -33,7 +33,7 @@
 
     <fragment
         android:id="@+id/albumsFragment"
-        android:name="com.jpd.finsync.ui.AlbumsFragment">
+        android:name="com.jpd.hz.ui.AlbumsFragment">
         <action
             android:id="@+id/action_albums_to_album"
             app:destination="@id/albumFragment" />
@@ -41,7 +41,7 @@
 
     <fragment
         android:id="@+id/albumFragment"
-        android:name="com.jpd.finsync.ui.AlbumFragment">
+        android:name="com.jpd.hz.ui.AlbumFragment">
         <argument
             android:name="albumId"
             app:argType="string" />
@@ -49,7 +49,7 @@
 
     <fragment
         android:id="@+id/albumArtistsFragment"
-        android:name="com.jpd.finsync.ui.AlbumArtistsFragment">
+        android:name="com.jpd.hz.ui.AlbumArtistsFragment">
         <action
             android:id="@+id/action_album_artists_to_group"
             app:destination="@id/groupFragment" />
@@ -57,7 +57,7 @@
 
     <fragment
         android:id="@+id/genresFragment"
-        android:name="com.jpd.finsync.ui.GenresFragment">
+        android:name="com.jpd.hz.ui.GenresFragment">
         <action
             android:id="@+id/action_genres_to_group"
             app:destination="@id/groupFragment" />
@@ -65,12 +65,12 @@
 
     <fragment
         android:id="@+id/songsFragment"
-        android:name="com.jpd.finsync.ui.SongsFragment" />
+        android:name="com.jpd.hz.ui.SongsFragment" />
 
     <!-- An artist's or genre's page; groupType is "artist" or "genre" -->
     <fragment
         android:id="@+id/groupFragment"
-        android:name="com.jpd.finsync.ui.GroupFragment">
+        android:name="com.jpd.hz.ui.GroupFragment">
         <argument
             android:name="groupType"
             app:argType="string" />
@@ -87,7 +87,7 @@
 
     <fragment
         android:id="@+id/allSongsFragment"
-        android:name="com.jpd.finsync.ui.AllSongsFragment">
+        android:name="com.jpd.hz.ui.AllSongsFragment">
         <argument
             android:name="groupType"
             app:argType="string" />
@@ -111,7 +111,7 @@
 
     <fragment
         android:id="@+id/playerFragment"
-        android:name="com.jpd.finsync.ui.PlayerFragment">
+        android:name="com.jpd.hz.ui.PlayerFragment">
         <!-- The album replaces the Player rather than stacking above it -->
         <action
             android:id="@+id/action_player_to_album"
@@ -138,7 +138,7 @@
 
     <fragment
         android:id="@+id/playlistsFragment"
-        android:name="com.jpd.finsync.ui.PlaylistsFragment">
+        android:name="com.jpd.hz.ui.PlaylistsFragment">
         <action
             android:id="@+id/action_playlists_to_playlist"
             app:destination="@id/playlistFragment" />
@@ -146,7 +146,7 @@
 
     <fragment
         android:id="@+id/playlistFragment"
-        android:name="com.jpd.finsync.ui.PlaylistFragment">
+        android:name="com.jpd.hz.ui.PlaylistFragment">
         <argument
             android:name="playlistId"
             app:argType="string" />
@@ -154,7 +154,7 @@
 
     <fragment
         android:id="@+id/audioBooksFragment"
-        android:name="com.jpd.finsync.ui.AudioBooksFragment">
+        android:name="com.jpd.hz.ui.AudioBooksFragment">
         <action
             android:id="@+id/action_audio_books_to_book"
             app:destination="@id/bookFragment" />
@@ -162,7 +162,7 @@
 
     <fragment
         android:id="@+id/bookFragment"
-        android:name="com.jpd.finsync.ui.BookFragment">
+        android:name="com.jpd.hz.ui.BookFragment">
         <argument
             android:name="bookId"
             app:argType="string" />
@@ -172,7 +172,7 @@
          starting Settings. Back returns to the Player or to Settings. -->
     <fragment
         android:id="@+id/equaliserFragment"
-        android:name="com.jpd.finsync.ui.EqualiserFragment" />
+        android:name="com.jpd.hz.ui.EqualiserFragment" />
 
     <!-- Nested so SettingsViewModel lives exactly as long as you're in Settings. The sync
          notification's deep link opens Sync; each nested graph adds its start screen, so the
@@ -183,7 +183,7 @@
 
         <fragment
             android:id="@+id/settingsFragment"
-            android:name="com.jpd.finsync.ui.SettingsFragment">
+            android:name="com.jpd.hz.ui.SettingsFragment">
             <action
                 android:id="@+id/action_settings_to_sync"
                 app:destination="@id/sync_graph" />
@@ -202,12 +202,12 @@
         <!-- Settings → Appearance: Dark, Light or System, and the accent -->
         <fragment
             android:id="@+id/appearanceFragment"
-            android:name="com.jpd.finsync.ui.AppearanceFragment" />
+            android:name="com.jpd.hz.ui.AppearanceFragment" />
 
         <!-- Settings → Home screen: Home's categories and their order (3b refinements) -->
         <fragment
             android:id="@+id/homeScreenFragment"
-            android:name="com.jpd.finsync.ui.HomeScreenFragment" />
+            android:name="com.jpd.hz.ui.HomeScreenFragment" />
 
         <!-- Settings → Sync and its choice screens, whose Back and Cancel / Apply return to
              Sync. They still use SettingsViewModel: settings_graph stays on the back stack. -->
@@ -217,7 +217,7 @@
 
             <fragment
                 android:id="@+id/syncSettingsFragment"
-                android:name="com.jpd.finsync.ui.SyncSettingsFragment">
+                android:name="com.jpd.hz.ui.SyncSettingsFragment">
                 <action
                     android:id="@+id/action_settings_to_album_selection"
                     app:destination="@id/albumSelectionFragment" />
@@ -234,19 +234,19 @@
 
             <fragment
                 android:id="@+id/albumSelectionFragment"
-                android:name="com.jpd.finsync.ui.AlbumSelectionFragment" />
+                android:name="com.jpd.hz.ui.AlbumSelectionFragment" />
 
             <fragment
                 android:id="@+id/autoSyncFragment"
-                android:name="com.jpd.finsync.ui.AutoSyncFragment" />
+                android:name="com.jpd.hz.ui.AutoSyncFragment" />
 
             <fragment
                 android:id="@+id/playlistSelectionFragment"
-                android:name="com.jpd.finsync.ui.PlaylistSelectionFragment" />
+                android:name="com.jpd.hz.ui.PlaylistSelectionFragment" />
 
             <fragment
                 android:id="@+id/bookSelectionFragment"
-                android:name="com.jpd.finsync.ui.BookSelectionFragment" />
+                android:name="com.jpd.hz.ui.BookSelectionFragment" />
 
         </navigation>
 

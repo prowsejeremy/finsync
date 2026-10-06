@@ -6,11 +6,11 @@ plugins {
 }
 
 android {
-    namespace 'com.jpd.finsync'
+    namespace 'com.jpd.hz'
     compileSdk 34
 
     defaultConfig {
-        applicationId "com.jpd.finsync"
+        applicationId "com.jpd.hz"
         minSdk 26
         targetSdk 34
         versionCode 1
