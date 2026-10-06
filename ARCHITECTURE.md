@@ -242,11 +242,12 @@ a failed item might own.
 
 | What | Where |
 |---|---|
-| Music | `<syncDir>/<album artist>/<album>/<track>`, with `folder.jpg` |
+| Music | `<syncDir>/Music/<album artist>/<album>/<track>`, with `folder.jpg` |
 | Books | `<syncDir>/Audiobooks/<author>/<title>/`, the `.m4b` plus `folder.jpg` |
 
-The default `syncDir` is public `Music/hz/<server name>`. If that isn't writable it falls
-back to the app's own external music folder. The user can pick another in Settings → Sync.
+The default `syncDir` is public `Media/hz/<server name>`. If that isn't writable (no all-files
+access) it falls back to `Media/hz/<server name>` in the app's own external files folder. The
+user can pick another in Settings → Sync.
 
 **Sync card.** `ui/Settings/SyncDisplay.kt` is a pure, ordered rule table that turns the state
 into a status: OFFLINE, SYNCING, STOPPED, FAILED, INCOMPLETE, SYNCED or NOT_SYNCED. The counts

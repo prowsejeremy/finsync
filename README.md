@@ -83,7 +83,9 @@ app/src/main/java/com/jpd/hz/
 ### Default sync directory
 
 ```
-/sdcard/Music/hz/<ServerName>/
+/sdcard/Media/hz/<ServerName>/
+├── Music/<AlbumArtist>/<Album>/
+└── Audiobooks/<Author>/<Title>/
 ```
 
 ---

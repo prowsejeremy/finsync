@@ -122,7 +122,7 @@ class SyncPlanTest {
     }
 
     @Test
-    fun `files to keep are each track and its album's folder art`() {
+    fun `files to keep are each track and its album's folder art, under Music`() {
         val plan = SyncPlan(
             tracks = listOf(audio("t1", "alb1", album = "Bottle It In")),
             books = emptyList(),
@@ -130,8 +130,8 @@ class SyncPlanTest {
         )
         assertEquals(
             setOf(
-                "/sync/Kurt Vile/Bottle It In/t1.flac",
-                "/sync/Kurt Vile/Bottle It In/folder.jpg"
+                "/sync/Music/Kurt Vile/Bottle It In/t1.flac",
+                "/sync/Music/Kurt Vile/Bottle It In/folder.jpg"
             ),
             filesToKeep(File("/sync"), plan)
         )

@@ -4,6 +4,7 @@ import com.jpd.hz.library.bookAuthorOf
 import com.jpd.hz.model.MediaItem
 import java.io.File
 
+private const val MUSIC_FOLDER = "Music"
 private const val BOOKS_FOLDER = "Audiobooks"
 private const val UNKNOWN_AUTHOR = "Unknown Author"
 private const val BOOK_TYPE = "AudioBook"
@@ -13,8 +14,6 @@ private const val BOOK_COVER = "folder.jpg"
 // without Android. SyncEngine still calls them by the same names.
 
 internal fun buildRelativePath(item: MediaItem): String {
-    val artist = sanitizeFilename(item.albumArtist ?: item.artists?.firstOrNull() ?: "Unknown Artist")
-    val album  = sanitizeFilename(item.album ?: "Unknown Album")
     // Use the filename from the server if available, since it may contain a track number prefix that we don't want to lose.
     // If not, construct a filename ourselves.
     val filename = item.path
@@ -26,7 +25,7 @@ internal fun buildRelativePath(item: MediaItem): String {
             val ext   = resolveExtension(item)
             "$track$name.$ext"
         }
-    return "$artist/$album/$filename"
+    return "${albumFolder(item)}/$filename"
 }
 
 internal fun resolveExtension(item: MediaItem): String {
@@ -41,10 +40,13 @@ internal fun resolveExtension(item: MediaItem): String {
     return "mp3"
 }
 
-internal fun buildArtworkPath(item: MediaItem): String {
+internal fun buildArtworkPath(item: MediaItem): String = "${albumFolder(item)}/folder.jpg"
+
+/** `Music/<album artist>/<album>`, beside Audiobooks so all the music sits in one folder. */
+private fun albumFolder(item: MediaItem): String {
     val artist = sanitizeFilename(item.albumArtist ?: item.artists?.firstOrNull() ?: "Unknown Artist")
     val album  = sanitizeFilename(item.album ?: "Unknown Album")
-    return "$artist/$album/folder.jpg"
+    return "$MUSIC_FOLDER/$artist/$album"
 }
 
 internal fun sanitizeFilename(name: String): String =
@@ -53,7 +55,7 @@ internal fun sanitizeFilename(name: String): String =
 /** True for a Jellyfin AudioBook item. */
 internal fun isBookItem(item: MediaItem): Boolean = item.type == BOOK_TYPE
 
-/** Where an item goes in the sync folder: a book under Audiobooks, music under artist/album. */
+/** Where an item goes in the sync folder: a book under Audiobooks, music under Music. */
 internal fun syncRelativePath(item: MediaItem): String =
     if (isBookItem(item)) buildBookPath(item) else buildRelativePath(item)
 

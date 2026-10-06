@@ -26,6 +26,8 @@ import java.io.File
 import java.io.FileOutputStream
 
 private const val TAG = "SyncEngine"
+// Music and Audiobooks both sit under Media/hz/<server name> (folders in SyncPaths).
+private const val SYNC_ROOT = "Media/hz"
 
 object SyncEngine {
 
@@ -110,7 +112,7 @@ object SyncEngine {
                 return@forEachIndexed
             }
 
-            // Books go under Audiobooks/<author>/<title>/ (3b).
+            // Music goes under Music/<artist>/<album>/, books under Audiobooks/<author>/<title>/.
             val localFile = File(syncDir, syncRelativePath(item))
             var isSuccessfullyProcessed = false
             var attempts = 0
@@ -263,18 +265,13 @@ object SyncEngine {
         val custom = prefs.getString("sync_directory", null)
         if (!custom.isNullOrBlank()) return File(custom)
 
-        val publicMusic = File(
-            Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_MUSIC),
-            "hz/${sanitizeFilename(config.serverName)}"
-        )
-        publicMusic.mkdirs()
-        if (publicMusic.exists() && publicMusic.canWrite()) return publicMusic
+        val serverFolder = "$SYNC_ROOT/${sanitizeFilename(config.serverName)}"
+        val publicMedia = File(Environment.getExternalStorageDirectory(), serverFolder)
+        publicMedia.mkdirs()
+        if (publicMedia.exists() && publicMedia.canWrite()) return publicMedia
 
-        val appMusic = File(
-            context.getExternalFilesDir(Environment.DIRECTORY_MUSIC),
-            "hz/${sanitizeFilename(config.serverName)}"
-        )
-        return appMusic
+        // Media isn't one of Android's standard folders, so writing it needs all-files access.
+        return File(context.getExternalFilesDir(null), serverFolder)
     }
 
     fun getSyncDirectoryPath(context: Context, config: ServerConfig): String =

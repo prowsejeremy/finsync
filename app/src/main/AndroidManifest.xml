@@ -15,7 +15,7 @@
     <uses-permission android:name="android.permission.READ_MEDIA_AUDIO" />
     <!--
         MANAGE_EXTERNAL_STORAGE: required on Android 11+ to write to arbitrary
-        public directories (e.g. /sdcard/Music/...).
+        public directories (e.g. /sdcard/Media/hz/...).
         If not granted the app falls back to its own external files dir, which
         needs no permission and is always writable.
         Note: apps using this must declare it in Play Store listing.
