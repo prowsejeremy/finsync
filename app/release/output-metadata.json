@@ -4,7 +4,7 @@
     "type": "APK",
     "kind": "Directory"
   },
-  "applicationId": "com.jpd.finsync",
+  "applicationId": "com.jpd.hz",
   "variantName": "release",
   "elements": [
     {
@@ -12,8 +12,8 @@
       "filters": [],
       "attributes": [],
       "versionCode": 1,
-      "versionName": "0.0.2",
-      "outputFile": "finsync-0.0.2.apk"
+      "versionName": "0.0.1",
+      "outputFile": "hz-0.0.1.apk"
     }
   ],
   "elementType": "File",
