@@ -21,14 +21,20 @@ fun bookRowsFrom(items: List<MediaItem>): BookRows = BookRows(
  * A book's author: People entries of kind Author, else the album artist, else the artists. Null
  * when none is set, and screens show "Unknown Author" (spec "Server data").
  */
-fun bookAuthorOf(item: MediaItem): String? {
+fun bookAuthorOf(item: MediaItem): String? =
+    bookAuthorsOf(item).takeIf { it.isNotEmpty() }?.joinToString(NAME_SEPARATOR)
+
+/**
+ * The same choice as a list, which sync writes to a book's tags (T2). bookAuthorOf joins it, so
+ * the two can't drift apart. Empty when none is set.
+ */
+fun bookAuthorsOf(item: MediaItem): List<String> {
     val authors = item.people.orEmpty()
         .filter { it.type == AUTHOR_KIND }
         .mapNotNull { person -> person.name?.takeIf { it.isNotBlank() } }
-    if (authors.isNotEmpty()) return authors.joinToString(NAME_SEPARATOR)
-    item.albumArtist?.takeIf { it.isNotBlank() }?.let { return it }
-    val artists = item.artists.orEmpty().filter { it.isNotBlank() }
-    return artists.takeIf { it.isNotEmpty() }?.joinToString(NAME_SEPARATOR)
+    if (authors.isNotEmpty()) return authors
+    item.albumArtist?.takeIf { it.isNotBlank() }?.let { return listOf(it) }
+    return item.artists.orEmpty().filter { it.isNotBlank() }
 }
 
 // The audio details follow the track mapping (sub-project 2), so the Player's info row works.

@@ -28,3 +28,16 @@ val MIGRATION_4_5 = object : Migration(4, 5) {
         db.execSQL(CREATE_CATALOGUE_TRACKS_ALBUM_INDEX)
     }
 }
+
+private const val ADD_TAG_FINGERPRINT =
+    "ALTER TABLE `synced_tracks` ADD COLUMN `tagFingerprint` TEXT"
+
+/**
+ * Adds synced_tracks.tagFingerprint (version 8, T2). A real migration, because book_progress
+ * holds data no sync can restore. Every row starts null, so the next sync tags each file once.
+ */
+val MIGRATION_7_8 = object : Migration(7, 8) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL(ADD_TAG_FINGERPRINT)
+    }
+}

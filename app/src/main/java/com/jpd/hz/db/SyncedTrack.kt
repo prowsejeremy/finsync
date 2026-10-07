@@ -19,5 +19,10 @@ data class SyncedTrack(
     val albumId: String?,
     val fileSize: Long,
     val dateModified: String? = null,
-    val syncedAt: Long = System.currentTimeMillis()
+    val syncedAt: Long = System.currentTimeMillis(),
+    /**
+     * TagFingerprint of the fields sync last wrote into the file (version 8, T2). Null until the
+     * file is tagged, so a sync whose fields give another fingerprint re-tags it.
+     */
+    val tagFingerprint: String? = null
 )

@@ -1,5 +1,6 @@
 package com.jpd.hz.sync
 
+import com.jpd.hz.adapter.sanitizeFilename
 import com.jpd.hz.library.bookAuthorOf
 import com.jpd.hz.model.MediaItem
 import java.io.File
@@ -48,9 +49,6 @@ private fun albumFolder(item: MediaItem): String {
     val album  = sanitizeFilename(item.album ?: "Unknown Album")
     return "$MUSIC_FOLDER/$artist/$album"
 }
-
-internal fun sanitizeFilename(name: String): String =
-    name.replace(Regex("[/\\\\:*?\"<>|]"), "_").trim()
 
 /** True for a Jellyfin AudioBook item. */
 internal fun isBookItem(item: MediaItem): Boolean = item.type == BOOK_TYPE

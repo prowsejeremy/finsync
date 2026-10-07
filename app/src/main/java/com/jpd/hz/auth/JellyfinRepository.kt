@@ -23,8 +23,9 @@ private const val TAG = "JellyfinRepository"
 private const val PAGE_SIZE = 500
 private const val PLAYLIST_TYPE = "Playlist"
 private const val AUDIOBOOK_TYPE = "AudioBook"
-// Only values ItemFields lists (P0): the file, its audio details, chapters and authors.
-private const val BOOK_FIELDS = "Path,MediaSources,Chapters,People"
+// Only values ItemFields lists (P0): the file, its audio details, chapters and authors, plus
+// the genres sync writes into the file's tags (T2).
+private const val BOOK_FIELDS = "Path,MediaSources,Chapters,People,Genres"
 
 sealed class Result<out T> {
     data class Success<T>(val data: T) : Result<T>()

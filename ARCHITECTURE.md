@@ -1,7 +1,7 @@
 # hz: architecture and feature reference
 
-Updated 2026-10-08, on `feature/fragment` after `4a62e00`, with T1 of the player and adapter
-split (the tag engine) built but not yet committed. 297 unit tests in 45 suites pass: 256 in 39
+Updated 2026-10-08, on `feature/fragment` after `23bcac1`, with T2 of the player and adapter
+split (the adapter writes the format) in progress. 336 unit tests in 53 suites pass: 295 in 47
 for `:app` and 41 in 6 for `:tags`. `:tags` also has 95 instrumented tests, which run on a phone.
 
 Start here before extending the app. This document summarises what is built and the rules every
@@ -74,8 +74,9 @@ its own spec, plan and alpha build, and each left the app working.
 | 3b+ | Refinements: sync counts, mini-player, title, Home layout | Done | `59fd363`, `12c042b` | `2026-10-05-sp3b-refinements-design.md` |
 | — | Settings restructure and Appearance | Done | `cecf0d8`, `81f5c39`, `16e5a63`, `93e3ec6` | `2026-10-05-settings-appearance-design.md` |
 | 5 | Equaliser, plus swiping the Player to change track | Done | `3863dee` | `2026-10-05-equaliser-design.md` |
-| 5+ | Equaliser saved presets | Built, awaiting device check and commit | — | `2026-10-05-equaliser-saved-presets-design.md` |
-| T1 | Player and adapter split, T1: the tag engine (`:tags`) | Built, awaiting device check and commit | — | `2026-10-07-player-adapter-split-design.md` |
+| 5+ | Equaliser saved presets | Done | `a2dd48d` | `2026-10-05-equaliser-saved-presets-design.md` |
+| T1 | Player and adapter split, T1: the tag engine (`:tags`) | Done | `4a62e00`, `23bcac1` | `2026-10-07-player-adapter-split-design.md` |
+| T2 | Player and adapter split, T2: the adapter writes the format | In progress | — | `2026-10-07-player-adapter-split-design.md` |
 | 4 | Search | Not designed | — | Overview row 4 only |
 
 Sub-project 5 was built before 4 at the user's request. The plans are in `docs/superpowers/plans/`
@@ -147,11 +148,14 @@ Hz.kt                     Application: applies the saved night mode before any a
 api/                      Retrofit interface, OkHttp client, auth header, ReadOnlyInterceptor
 auth/                     CredentialStore (encrypted prefs), JellyfinRepository (every server call)
 model/Models.kt           Server DTOs (MediaItem, MediaStream…), ServerConfig, SyncState
-db/                       Room: SyncDatabase v7, sync tables, catalogue tables, book_progress, DAOs
+db/                       Room: SyncDatabase v8, sync tables, catalogue tables, book_progress, DAOs
 library/                  Repositories for screens and playback, plus pure rules: visibility,
                           grouping, ordering, mapping server items to rows, book chapters, artwork
+adapter/                  Code any adapter shares (T2, D12): folder naming and adapter_folders,
+                          FileTagger in front of TagLibBridge, tag-then-rename, playlist files,
+                          cleanup scoped to the adapter's folder
 sync/                     SyncEngine and its pure parts: SyncPlan, SyncPaths, SyncCounts,
-                          cover and artist-photo sync
+                          JellyfinTagMapping, cover and artist-photo sync
 service/                  SyncService (foreground sync), BootReceiver and SyncWorker (WorkManager)
 playback/                 PlaybackService, BassPlayer, BassEngine, TrackResolver, QueueOrder,
                           resume, audio focus, book controls, speed and progress
@@ -183,11 +187,11 @@ depends on. Nothing in the app calls it yet; T2's sync and T3's scanner will.
 
 ## Data
 
-### Room database (`db/SyncDatabase.kt`, version 7)
+### Room database (`db/SyncDatabase.kt`, version 8)
 
 | Group | Tables | Notes |
 |---|---|---|
-| Sync records | `synced_tracks`, `synced_albums` | One row per file sync wrote. A `synced_tracks` row is the "downloaded" flag. Books have rows too. |
+| Sync records | `synced_tracks`, `synced_albums` | One row per file sync wrote. A `synced_tracks` row is the "downloaded" flag. Books have rows too. From version 8, `tagFingerprint` is the `TagFingerprint` of the fields sync last wrote into the file (null until it's tagged), and `fileSize` is the size after tagging. |
 | Catalogue | `catalogue_albums`, `catalogue_tracks`, `catalogue_artists`, `catalogue_album_artists`, `catalogue_track_artists`, `catalogue_genres`, `catalogue_track_genres`, `catalogue_playlists`, `catalogue_playlist_items`, `catalogue_books`, `catalogue_book_chapters` | The whole server library. A single transaction replaces every table on each refresh, and logout clears them. |
 | Progress | `book_progress` | `bookId`, `positionMs`, `finished`, `lastPlayedAt`. Refreshes don't touch it; logout clears it. |
 
@@ -197,11 +201,15 @@ depends on. Nothing in the app calls it yet; T2's sync and T3's scanner will.
   it's in a selected playlist. A downloaded track with no album is always visible. An album is
   visible when it has a visible track. A track downloaded only for a playlist therefore makes its
   album a partial album.
-- **Migrations.** `MIGRATION_4_5` is a real migration. Versions 6 and 7 rebuilt the database
-  through `fallbackToDestructiveMigration()`, because the user is the only user. The next sync
-  re-links files already on disk without downloading them again.
-  - **Watch out:** since version 7, `book_progress` holds data that no sync can restore. Weigh a
-    real migration before the next schema change.
+- **Migrations.** `MIGRATION_4_5` and `MIGRATION_7_8` (T2, adds `tagFingerprint`) are real
+  migrations. Versions 6 and 7 rebuilt the database through `fallbackToDestructiveMigration()`,
+  because the user is the only user. The next sync re-links files already on disk without
+  downloading them again.
+  - **No effort goes into preserving data from earlier versions** (the user, 2026-10-08): hz has
+    one user, so a schema change may rebuild the database, even though `book_progress` holds
+    data no sync can restore. `MIGRATION_7_8` was approved before that note. The schema isn't
+    exported, so `SyncDatabaseMigrationTest` builds a version 7 file by hand and opens it
+    through the migration alone.
 
 ### SharedPreferences
 
@@ -399,7 +407,9 @@ from the Findroid app.
   values. `values/colors.xml` (light) and `values-night/colors.xml` (dark) must match it, which
   `PaletteDriftTest` checks. The user tuned these values by hand, so treat them as final.
 - **Themes.**
-  - `Theme.Hz` has the parent `Theme.Material3.DayNight.NoActionBar`.
+  - `Theme.Hz` has the parent `Theme.Material3.DayNight.NoActionBar`. It sets `colorError` to
+    the `error` role (`#FF0040` in both modes), and `colorSurfaceContainer` to `surface_2` for
+    popup menus.
   - Five overlays, `ThemeOverlay.Hz.Accent.<Name>`, each set only `colorPrimary` and
     `colorOnPrimary`.
   - `Activity.applyAccentOverlay()` applies the saved accent in each activity before
@@ -557,12 +567,9 @@ None is scheduled.
 
 ## What's next
 
-- **Equaliser saved presets.** Built (plan `2026-10-06-equaliser-saved-presets.md`, M1 and M2),
-  reviewed, awaiting the user's device check and commit. Alpha:
-  `finsync-0.0.2-alpha-eq-presets.apk`.
-  - Users save the curve on screen under a name, then choose, rename or delete it, with Undo.
-  - The `error` role is `#FF0040` in both modes; `Theme.Hz` sets it as `colorError`, and
-    `colorSurfaceContainer` is `surface_2` for popup menus.
+- **The player and adapter split** (spec `2026-10-07-player-adapter-split-design.md`). T1 is
+  done and T2 is being built. Then T3, the player reading the Library folder; T4, Settings,
+  launch and sign-out; and the optional T5, Gradle modules. Search builds after it.
 - **Sub-project 4, Search.** Not designed yet. It will search albums, artists, songs, playlists
   and audiobooks. Points to settle:
   - Search reads the catalogue through the repositories and applies the visibility rule.

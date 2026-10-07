@@ -23,7 +23,7 @@ import androidx.room.TypeConverters
         CatalogueBookChapter::class,
         BookProgress::class
     ],
-    version = 7,
+    version = 8,
     exportSchema = false
 )
 @TypeConverters(StringListConverter::class)
@@ -44,7 +44,7 @@ abstract class SyncDatabase : RoomDatabase() {
                     SyncDatabase::class.java,
                     "hz_sync.db"
                 )
-                    .addMigrations(MIGRATION_4_5)
+                    .addMigrations(MIGRATION_4_5, MIGRATION_7_8)
                     // Versions 6 and 7 have no migrations on purpose: the database is rebuilt,
                     // and the next sync recreates download records from files on disk (3a and 3b
                     // specs). Book progress starts empty after a rebuild. This also covers

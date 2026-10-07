@@ -3,6 +3,7 @@ package com.jpd.hz.sync
 import android.content.Context
 import android.os.Environment
 import android.util.Log
+import com.jpd.hz.adapter.sanitizeFilename
 import com.jpd.hz.auth.JellyfinRepository
 import com.jpd.hz.auth.Result
 import com.jpd.hz.db.SyncDatabase
