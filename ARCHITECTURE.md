@@ -1,7 +1,8 @@
 # hz: architecture and feature reference
 
-Updated 2026-10-06, on `feature/player` after `3863dee`, with the EQ saved presets built but not
-yet committed. 256 unit tests in 39 suites pass.
+Updated 2026-10-08, on `feature/fragment` after `4a62e00`, with T1 of the player and adapter
+split (the tag engine) built but not yet committed. 297 unit tests in 45 suites pass: 256 in 39
+for `:app` and 41 in 6 for `:tags`. `:tags` also has 95 instrumented tests, which run on a phone.
 
 Start here before extending the app. This document summarises what is built and the rules every
 change follows. The specs hold the full reasoning behind each decision.
@@ -74,6 +75,7 @@ its own spec, plan and alpha build, and each left the app working.
 | — | Settings restructure and Appearance | Done | `cecf0d8`, `81f5c39`, `16e5a63`, `93e3ec6` | `2026-10-05-settings-appearance-design.md` |
 | 5 | Equaliser, plus swiping the Player to change track | Done | `3863dee` | `2026-10-05-equaliser-design.md` |
 | 5+ | Equaliser saved presets | Built, awaiting device check and commit | — | `2026-10-05-equaliser-saved-presets-design.md` |
+| T1 | Player and adapter split, T1: the tag engine (`:tags`) | Built, awaiting device check and commit | — | `2026-10-07-player-adapter-split-design.md` |
 | 4 | Search | Not designed | — | Overview row 4 only |
 
 Sub-project 5 was built before 4 at the user's request. The plans are in `docs/superpowers/plans/`
@@ -164,6 +166,20 @@ Native libraries are in `app/src/main/jniLibs/<abi>/` for arm64-v8a, armeabi-v7a
 `libbass`, `libbassmix`, `libbass_fx`, plus the format add-ons `libbassflac`, `libbassalac`,
 `libbass_aac`, `libbassopus`, `libbassape` and `libbasswv`. BASS is free for non-commercial use
 only, and hz is never sold.
+
+The tag engine is its own Gradle module, `tags/` (package `com.jpd.hz.tags`), which the app
+depends on. Nothing in the app calls it yet; T2's sync and T3's scanner will.
+- `src/main/cpp/`:
+  - TagLib 2.3.2, vendored unmodified in `taglib/` with its licences;
+  - hz's bridge: `hz_tags.cpp` holds the logic, and `hz_tags_jni.cpp` is the JNI glue;
+  - CMake builds them into `libhztags.so` for the same four ABIs.
+- `TagLibBridge`: `read`, `write` and `readCover`. Each takes a path plus the real extension, so
+  a `.part` download works.
+- Plain-Kotlin rules with no Android imports:
+  - `TagField`, our fields;
+  - `TagWriting`, `TagReading` and `Normalising`, which makes IDs;
+  - `TagFingerprint`;
+  - `BookChapters`, where Nero chapters win.
 
 ## Data
 
@@ -405,7 +421,7 @@ from the Findroid app.
 
 | | |
 |---|---|
-| Toolchain | JDK 17, Kotlin 1.9.22, AGP 8.5.2, KSP, Room 2.6.1 |
+| Toolchain | JDK 17, Kotlin 1.9.22, AGP 8.5.2, KSP, Room 2.6.1; NDK 28.2.13676358 and the SDK's CMake 3.22.1 for `:tags` |
 | SDK | compileSdk and targetSdk 34, minSdk 26 |
 | Version | `versionName "0.0.2"`, `versionCode 1` |
 | Release | `minifyEnabled true` (R8) with no signing config, giving `app-release-unsigned.apk` |
@@ -414,6 +430,8 @@ Commands, run from the repo root:
 
 ```sh
 ./gradlew :app:testDebugUnitTest --rerun --console=plain   # unit tests
+./gradlew :tags:testDebugUnitTest --rerun --console=plain  # the tag engine's unit tests
+./gradlew :tags:connectedDebugAndroidTest                  # TagLib on a connected phone
 ./gradlew :app:assembleDebug                               # debug APK
 ./gradlew :app:assembleRelease                             # checks R8 and lintVitalRelease
 ```
@@ -427,6 +445,9 @@ Commands, run from the repo root:
     SDK 34, because SDK 35 needs JDK 21.
   - BASS, the service and the screens aren't unit-tested. Each spec's device checklist covers
     them.
+  - TagLib can't load on the JVM, so `:tags` has instrumented tests in `tags/src/androidTest/`.
+    On a phone, they write our fields into one sample per format (`assets/samples/`, described
+    in `SAMPLES.md`) and check that everything else survives.
 - **New features and fixes get tests.** Logic that can be pulled out into a pure function
   should be, so it can be tested on the JVM.
 - **Alpha builds** install beside the release app as `com.jpd.hz.alpha`, "hz Alpha":
