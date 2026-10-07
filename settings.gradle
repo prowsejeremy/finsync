@@ -11,3 +11,4 @@ pluginManagement {
 
 rootProject.name = "hz"
 include ':app'
+include ':tags'

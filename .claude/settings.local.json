@@ -122,7 +122,8 @@
       "Bash(./gradlew -q :app:assembleRelease)",
       "Bash(./gradlew -I /private/tmp/claude-501/-Users-jeremyprowse-Sites--personal-finsync/fe7a0ad7-c8ae-4527-9e0a-805e36a436bf/scratchpad/alpha.init.gradle :app:assembleDebug --console=plain -q)",
       "Bash(/Users/jeremyprowse/Library/Android/sdk/build-tools/36.1.0/aapt2 dump *)",
-      "Bash(unzip -l finsync-0.0.2-alpha-sp2-m2.apk \"lib/*\")"
+      "Bash(unzip -l finsync-0.0.2-alpha-sp2-m2.apk \"lib/*\")",
+      "Bash(sed -i '' /keepDebugSymbols.add/d /Users/jeremyprowse/Sites/_personal/hz/.superpowers/t1-spike/agp/demo/build.gradle)"
     ],
     "additionalDirectories": [
       "/Users/jeremyprowse/Sites/_personal/finsync/app/src/test/java/com/jpd/finsync",

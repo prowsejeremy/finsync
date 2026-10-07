@@ -8,6 +8,9 @@ plugins {
 android {
     namespace 'com.jpd.hz'
     compileSdk 34
+    // Lets AGP strip libhztags.so from :tags while packaging. AGP 8.5.2's default NDK isn't
+    // installed, and without one each ABI's copy would ship unstripped at about 16 MB.
+    ndkVersion '28.2.13676358'
 
     defaultConfig {
         applicationId "com.jpd.hz"
@@ -104,6 +107,9 @@ dependencies {
     // Output pill: opens Android's system output switcher. 1.7.0 predates AndroidX's move to
     // compileSdk 35 (1.8.x's minimum compile SDK is unverified).
     implementation 'androidx.mediarouter:mediarouter:1.7.0'
+
+    // hz's tag engine: TagLib behind a JNI bridge. Nothing calls it until T2.
+    implementation project(':tags')
 
     // Testing
     testImplementation 'junit:junit:4.13.2'
