@@ -1,7 +1,7 @@
 # hz: architecture and feature reference
 
-Updated 2026-10-08, on `feature/fragment` after `23bcac1`, with T2 of the player and adapter
-split (the adapter writes the format) built but not yet committed. 342 unit tests in 55 suites
+Updated 2026-10-08, on `feature/fragment` after `2ca5ece`, with T2 of the player and adapter
+split (the adapter writes the format) done and checked on the phone. 342 unit tests in 55 suites
 pass: 301 in 49 for `:app` and 41 in 6 for `:tags`. `:tags` also has 95 instrumented tests, which
 run on a phone.
 
@@ -77,7 +77,7 @@ its own spec, plan and alpha build, and each left the app working.
 | 5 | Equaliser, plus swiping the Player to change track | Done | `3863dee` | `2026-10-05-equaliser-design.md` |
 | 5+ | Equaliser saved presets | Done | `a2dd48d` | `2026-10-05-equaliser-saved-presets-design.md` |
 | T1 | Player and adapter split, T1: the tag engine (`:tags`) | Done | `4a62e00`, `23bcac1` | `2026-10-07-player-adapter-split-design.md` |
-| T2 | Player and adapter split, T2: the adapter writes the format | Built, awaiting device check and commit | — | `2026-10-07-player-adapter-split-design.md` |
+| T2 | Player and adapter split, T2: the adapter writes the format | Done | `3fa93a8`, `2ca5ece` | `2026-10-07-player-adapter-split-design.md` |
 | 4 | Search | Not designed | — | Overview row 4 only |
 
 Sub-project 5 was built before 4 at the user's request. The plans are in `docs/superpowers/plans/`
@@ -599,10 +599,11 @@ None is scheduled.
 
 ## What's next
 
-- **The player and adapter split** (spec `2026-10-07-player-adapter-split-design.md`). T1 is
-  done and T2 is built, awaiting the user's device check and commit. Then T3, the player reading
-  the Library folder; T4, Settings, launch and sign-out; and the optional T5, Gradle modules.
-  Search builds after it.
+- **The player and adapter split** (spec `2026-10-07-player-adapter-split-design.md`). T1 and
+  T2 are done. Next is T3, the player reading the Library folder; then T4, Settings, launch and
+  sign-out; and the optional T5, Gradle modules. Search builds after it.
+  - T2's phone check found that a re-tag keeps a file's size and last-modified time, so T3's
+    scan needs another way to see re-tagged files.
 - **Sub-project 4, Search.** Not designed yet. It will search albums, artists, songs, playlists
   and audiobooks. Points to settle:
   - Search reads the catalogue through the repositories and applies the visibility rule.

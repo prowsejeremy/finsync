@@ -15,8 +15,6 @@ private const val DEFAULT_DEVICE = -1
 private const val MIXER_SAMPLE_RATE = 48_000
 private const val STEREO = 2
 private const val MS_PER_SECOND = 1_000.0
-// BASS tries plugins in load order for each file (BASS_PluginLoad docs).
-private val PLUGINS = listOf("bassflac", "bassalac", "bass_aac", "bassopus", "bassape", "basswv")
 // The mixer's only effect, so its priority doesn't matter.
 private const val EQ_PRIORITY = 0
 
@@ -220,11 +218,8 @@ class BassEngine(private val nativeLibraryDir: String) {
             Log.e(TAG, "BASS_Init failed: ${BASS.BASS_ErrorGetCode()}")
             return false
         }
-        PLUGINS.forEach { name ->
-            if (BASS.BASS_PluginLoad("$nativeLibraryDir/lib$name.so", 0) == 0) {
-                Log.w(TAG, "Plugin $name not loaded: ${BASS.BASS_ErrorGetCode()}")
-            }
-        }
+        // Shared with the scanner's decode check, which may have loaded them first.
+        loadBassPlugins(nativeLibraryDir)
         val flags = BASS.BASS_SAMPLE_FLOAT or BASSmix.BASS_MIXER_QUEUE
         mixer = BASSmix.BASS_Mixer_StreamCreate(MIXER_SAMPLE_RATE, STEREO, flags)
         if (mixer == 0) {
