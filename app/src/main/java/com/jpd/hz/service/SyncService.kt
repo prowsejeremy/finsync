@@ -12,6 +12,7 @@ import androidx.navigation.NavDeepLinkBuilder
 import com.jpd.hz.R
 import com.jpd.hz.auth.JellyfinRepository
 import com.jpd.hz.model.SyncState
+import com.jpd.hz.requestLibraryRescan
 import com.jpd.hz.sync.SyncEngine
 import com.jpd.hz.ui.MainActivity
 import com.jpd.hz.ui.syncIncompleteMessage
@@ -75,11 +76,16 @@ class SyncService : Service() {
         startForeground(NOTIFICATION_ID, buildNotification("Starting sync...", 0))
 
         syncJob = scope.launch {
-            SyncEngine.syncLibrary(this@SyncService, config) { state ->
-                updateNotification(state)
+            try {
+                SyncEngine.syncLibrary(this@SyncService, config) { state ->
+                    updateNotification(state)
+                }
+                leaveIncompleteNotice(SyncEngine.syncState.value)
+                stopSelf()
+            } finally {
+                // Stopped, failed or done: the player scans whatever reached the folder.
+                requestLibraryRescan(this@SyncService)
             }
-            leaveIncompleteNotice(SyncEngine.syncState.value)
-            stopSelf()
         }
     }
 

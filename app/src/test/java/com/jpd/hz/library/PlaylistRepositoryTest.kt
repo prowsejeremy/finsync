@@ -3,47 +3,62 @@ package com.jpd.hz.library
 import android.content.Context
 import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
-import com.jpd.hz.db.SyncDatabase
-import com.jpd.hz.db.SyncedTrack
-import com.jpd.hz.model.MediaItem
-import com.jpd.hz.model.NameId
-import com.jpd.hz.model.ServerPlaylist
+import com.jpd.hz.library.db.FileKind
+import com.jpd.hz.library.db.LibraryContents
+import com.jpd.hz.library.db.LibraryDatabase
+import com.jpd.hz.library.db.LibraryFile
+import com.jpd.hz.library.db.LibraryTrack
+import com.jpd.hz.library.scan.EmbeddedCovers
+import com.jpd.hz.library.scan.ParsedPlaylist
+import com.jpd.hz.library.scan.deriveLibrary
+import com.jpd.hz.tags.Normalising
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertTrue
+import org.junit.Assert.assertNull
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
+import java.io.File
 
-private const val PREFS = "settings"
-private const val SELECTED_ALBUMS = "selected_albums"
+private const val LIBRARY = "/lib"
+private const val ART_CACHE = "/cache"
+private const val ID_PREFIX = "id-"
+private const val ONE_MORE_TIME = "Music/Daft Punk/Discovery/01 One More Time.mp3"
+private const val AERODYNAMIC = "Music/Daft Punk/Discovery/02 Aerodynamic.mp3"
+private const val ONE_MORE_TIME_MS = 320_000L
+private const val AERODYNAMIC_MS = 212_000L
+private const val DISCOVERY_ART = "Music/Daft Punk/Discovery/folder.jpg"
+private const val MIX = "Playlists/Mix.m3u8"
+private const val MIX_COVER = "Playlists/Mix.jpg"
 
-/**
- * PlaylistRepository, and the playlist side of LibraryRepository (the catalogue write and the
- * visibility rule), against an in-memory Room database.
- */
+/** Runs the playlist queries and rules against an in-memory library database. */
 @RunWith(RobolectricTestRunner::class)
 class PlaylistRepositoryTest {
 
-    private val kim = NameId(name = "Kim Gordon", id = "kim")
+    private lateinit var database: LibraryDatabase
+    private lateinit var repository: PlaylistRepository
 
-    private lateinit var context: Context
-    private lateinit var database: SyncDatabase
-    private lateinit var library: LibraryRepository
-    private lateinit var playlists: PlaylistRepository
+    private val tracks = listOf(
+        track(ONE_MORE_TIME, "One More Time", ONE_MORE_TIME_MS),
+        track(AERODYNAMIC, "Aerodynamic", AERODYNAMIC_MS)
+    )
+
+    // Each track's path, by its file ID.
+    private val paths = tracks.associate { it.trackId to it.trackId.removePrefix(ID_PREFIX) }
 
     @Before
     fun setUp() {
-        context = ApplicationProvider.getApplicationContext()
-        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().clear().commit()
-        database = Room.inMemoryDatabaseBuilder(context, SyncDatabase::class.java)
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        database = Room.inMemoryDatabaseBuilder(context, LibraryDatabase::class.java)
             .allowMainThreadQueries()
             .build()
-        library = LibraryRepository(context, database.catalogueDao())
-        playlists = PlaylistRepository(context, database.catalogueDao())
+        repository = PlaylistRepository(
+            database.libraryDao(),
+            LibraryFiles({ File(LIBRARY) }, File(ART_CACHE))
+        )
     }
 
     @After
@@ -51,111 +66,156 @@ class PlaylistRepositoryTest {
         database.close()
     }
 
-    private fun audio(id: String, albumId: String?, albumArtists: List<NameId> = emptyList()) =
-        MediaItem(
-            id = id,
-            name = "Track $id",
-            type = "Audio",
-            album = albumId?.let { "Album $it" },
-            albumId = albumId,
+    // A file's ID is its path with a prefix, so no test can pass by mistaking one for the other.
+    private fun idOf(path: String) = ID_PREFIX + path
+
+    private fun track(path: String, title: String, durationMs: Long): LibraryTrack {
+        val albumArtists = listOf("Daft Punk")
+        return LibraryTrack(
+            trackId = idOf(path),
+            title = title,
+            artistNames = albumArtists,
+            album = "Discovery",
+            albumArtistNames = albumArtists,
+            genreNames = emptyList(),
+            year = 2001,
             discNumber = 1,
-            albumArtists = albumArtists
+            trackNumber = null,
+            durationMs = durationMs,
+            codec = null,
+            bitDepth = null,
+            sampleRate = null,
+            bitrate = null,
+            size = 1,
+            albumId = Normalising.albumIdOf(albumArtists, "Discovery")
+        )
+    }
+
+    private fun images(vararg paths: String) = paths.associateBy { it.lowercase() }
+
+    /** Writes what a scan of [tracks], the [playlists] and [images] would. */
+    private suspend fun scan(
+        playlists: List<Pair<String, ParsedPlaylist>>,
+        images: Map<String, String> = images(DISCOVERY_ART)
+    ) {
+        val derived = deriveLibrary(
+            tracks, emptyList(), paths, playlists, images, EmbeddedCovers { _, _ -> null }
+        )
+        val files = tracks.map { track ->
+            LibraryFile(
+                fileId = track.trackId,
+                path = paths.getValue(track.trackId),
+                size = 1,
+                modifiedSec = 0,
+                changedSec = 0,
+                inode = 0,
+                kind = FileKind.TRACK
+            )
+        }
+        database.scanDao().replaceLibrary(
+            LibraryContents(
+                files = files,
+                tracks = tracks,
+                albums = derived.albums,
+                artists = derived.artists,
+                albumArtists = derived.albumArtists,
+                trackArtists = derived.trackArtists,
+                genres = derived.genres,
+                trackGenres = derived.trackGenres,
+                playlists = derived.playlists,
+                playlistItems = derived.playlistItems,
+                books = derived.books,
+                chapters = emptyList()
+            )
+        )
+    }
+
+    private fun playlist(path: String, name: String, vararg entries: String) =
+        path to ParsedPlaylist(name, entries.toList())
+
+    @Test
+    fun `playlists with a song are listed A to Z`() = runBlocking {
+        scan(
+            listOf(
+                playlist("Playlists/zeta.m3u8", "zeta", AERODYNAMIC),
+                playlist(MIX, "mix", ONE_MORE_TIME, AERODYNAMIC),
+                playlist("Playlists/Alpha.m3u8", "Alpha", ONE_MORE_TIME)
+            )
         )
 
-    private fun playlist(id: String, name: String, vararg entryIds: String) = ServerPlaylist(
-        MediaItem(id = id, name = name, type = "Playlist"),
-        entryIds.map { MediaItem(id = it, name = "Entry $it", type = "Audio") }
-    )
+        val playlists = repository.playlists().first()
 
-    /** Marks [itemIds] as synced, with their albums. */
-    private suspend fun download(items: List<MediaItem>, vararg itemIds: String) {
-        val albumIds = items.associate { it.id to it.albumId }
-        for (itemId in itemIds) {
-            database.syncDao().upsertTrack(
-                SyncedTrack(
-                    itemId = itemId,
-                    localPath = "/music/$itemId.flac",
-                    serverPath = null,
-                    albumId = albumIds[itemId],
-                    fileSize = 1L
-                )
+        assertEquals(listOf("Alpha", "mix", "zeta"), playlists.map { it.name })
+        val mix = playlists[1]
+        assertEquals(MIX, mix.playlistId)
+        assertEquals(2, mix.songCount)
+        assertEquals(listOf(ONE_MORE_TIME_MS, AERODYNAMIC_MS), mix.durationsMs)
+    }
+
+    @Test
+    fun `a playlist with no song in the library is hidden`() = runBlocking {
+        val gone = "Playlists/Gone.m3u8"
+        scan(
+            listOf(
+                playlist(MIX, "Mix", ONE_MORE_TIME),
+                playlist(gone, "Gone", "Music/Nobody/Nothing/01.mp3")
             )
-        }
-    }
+        )
 
-    private fun selectAlbums(vararg albumIds: String) {
-        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
-            .putStringSet(SELECTED_ALBUMS, albumIds.toSet())
-            .commit()
-    }
-
-    private fun countRows(table: String): Int =
-        database.openHelper.readableDatabase.query("SELECT COUNT(*) FROM $table").use { cursor ->
-            cursor.moveToFirst()
-            cursor.getInt(0)
-        }
-
-    @Test
-    fun `playlist entries keep server order and repeats, and skip songs not downloaded`() {
-        runBlocking {
-            val items = listOf(audio("t1", "alb1"), audio("t2", "alb1"), audio("t3", "alb2"))
-            library.writeCatalogue(items, listOf(playlist("p1", "Mix", "t3", "t1", "t2", "t3")))
-            download(items, "t1", "t3")
-            val page = checkNotNull(playlists.playlist("p1").first())
-            assertEquals(listOf("t3", "t1", "t3"), page.songs.map { it.itemId })
-        }
+        assertEquals(listOf(MIX), repository.playlists().first().map { it.playlistId })
+        assertNull(repository.playlist(gone).first())
     }
 
     @Test
-    fun `a playlist-only track makes its album, album artist and song visible`() {
-        runBlocking {
-            val items = listOf(
-                audio("t1", "alb1"),
-                audio("t2", "alb2", albumArtists = listOf(kim)),
-                audio("t3", "alb2", albumArtists = listOf(kim))
+    fun `a playlist's own cover comes before its first song's album art`() = runBlocking {
+        val plain = "Playlists/Plain.m3u8"
+        scan(
+            listOf(
+                playlist(MIX, "Mix", AERODYNAMIC),
+                playlist(plain, "Plain", ONE_MORE_TIME)
+            ),
+            images(DISCOVERY_ART, MIX_COVER)
+        )
+
+        val covers = repository.playlists().first().associate { it.playlistId to it.coverPath }
+
+        assertEquals("$LIBRARY/$MIX_COVER", covers[MIX])
+        assertEquals("$LIBRARY/$DISCOVERY_ART", covers[plain])
+        assertEquals("$LIBRARY/$MIX_COVER", repository.playlist(MIX).first()?.coverPath)
+        assertEquals("$LIBRARY/$DISCOVERY_ART", repository.playlist(plain).first()?.coverPath)
+    }
+
+    @Test
+    fun `a playlist's songs are in file order with a repeated song repeated`() = runBlocking {
+        scan(listOf(playlist(MIX, "Mix", AERODYNAMIC, ONE_MORE_TIME, AERODYNAMIC)))
+
+        val detail = repository.playlist(MIX).first()!!
+
+        assertEquals("Mix", detail.name)
+        assertEquals(
+            listOf(AERODYNAMIC, ONE_MORE_TIME, AERODYNAMIC).map(::idOf),
+            detail.songs.map { it.itemId }
+        )
+        assertEquals("Discovery", detail.songs.first().albumName)
+    }
+
+    @Test
+    fun `an unknown playlist is null`() = runBlocking {
+        scan(listOf(playlist(MIX, "Mix", ONE_MORE_TIME)))
+
+        assertNull(repository.playlist("Playlists/Unknown.m3u8").first())
+    }
+
+    @Test
+    fun `the playlist count leaves out playlists with no songs`() = runBlocking {
+        scan(
+            listOf(
+                playlist(MIX, "Mix", ONE_MORE_TIME),
+                playlist("Playlists/Other.m3u8", "Other", AERODYNAMIC),
+                playlist("Playlists/Gone.m3u8", "Gone", "Music/Nobody/Nothing/01.mp3")
             )
-            library.writeCatalogue(items, listOf(playlist("p1", "Mix", "t2")))
-            download(items, "t1", "t2")
-            selectAlbums("alb1")
-            playlists.setSelectedIds(setOf("p1"))
-            val albums = library.albums().first()
-            assertEquals(listOf("alb1", "alb2"), albums.map { it.albumId })
-            assertEquals(1, albums.last().downloadedTrackCount)
-            assertEquals(listOf("kim"), library.albumArtists().first().map { it.artistId })
-            assertEquals(listOf("t1", "t2"), library.songs().first().map { it.itemId })
-        }
-    }
+        )
 
-    @Test
-    fun `Playlists lists selected playlists with a downloaded song, A to Z`() {
-        runBlocking {
-            val items = listOf(audio("t1", "alb1"), audio("t2", "alb1"))
-            library.writeCatalogue(
-                items,
-                listOf(
-                    playlist("p1", "Zed", "t1"),
-                    playlist("p2", "alpha", "t2"),
-                    playlist("p3", "Beta", "t1"),
-                    playlist("p4", "Gamma", "t1")
-                )
-            )
-            download(items, "t1")
-            playlists.setSelectedIds(setOf("p1", "p2", "p3"))
-            assertEquals(listOf("p3", "p1"), playlists.playlists().first().map { it.playlistId })
-            assertEquals(2, playlists.playlistCount().first())
-        }
-    }
-
-    @Test
-    fun `clearing the catalogue empties the playlist tables`() {
-        runBlocking {
-            val items = listOf(audio("t1", "alb1"))
-            library.writeCatalogue(items, listOf(playlist("p1", "Mix", "t1")))
-            download(items, "t1")
-            val tables = listOf("catalogue_playlists", "catalogue_playlist_items")
-            assertTrue(tables.all { countRows(it) > 0 })
-            library.clearCatalogue()
-            assertEquals(listOf(0, 0), tables.map { countRows(it) })
-        }
+        assertEquals(2, repository.playlistCount().first())
     }
 }

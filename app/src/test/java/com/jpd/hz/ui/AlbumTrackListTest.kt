@@ -1,6 +1,6 @@
 package com.jpd.hz.ui
 
-import com.jpd.hz.db.CatalogueTrack
+import com.jpd.hz.library.db.LibraryTrack
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -8,13 +8,14 @@ import org.junit.Test
 
 class AlbumTrackListTest {
 
-    private fun track(id: String, disc: Int?, number: Int?) = CatalogueTrack(
-        itemId = id,
-        albumId = "album",
-        name = "Song $id",
+    private fun track(id: String, disc: Int?, number: Int?) = LibraryTrack(
+        trackId = id,
+        title = "Song $id",
         artistNames = listOf("Kurt Vile"),
-        artistIds = emptyList(),
-        albumArtist = "Kurt Vile",
+        album = "Album",
+        albumArtistNames = listOf("Kurt Vile"),
+        genreNames = emptyList(),
+        year = null,
         discNumber = disc,
         trackNumber = number,
         durationMs = 1_000L,
@@ -22,7 +23,8 @@ class AlbumTrackListTest {
         bitDepth = null,
         sampleRate = null,
         bitrate = null,
-        size = null
+        size = 1L,
+        albumId = "album"
     )
 
     private fun labels(rows: List<AlbumListRow>) = rows.map { row ->

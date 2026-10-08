@@ -12,7 +12,10 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.File
 
-/** Turns queued Jellyfin IDs into playable file MediaItems at play time (overview rule 3). */
+/**
+ * Turns queued library IDs, each a file's fileId (A2), into playable MediaItems at play time, as
+ * the file at its path in today's Library folder.
+ */
 class TrackResolver(
     private val library: LibraryRepository,
     private val books: BookRepository
@@ -41,7 +44,7 @@ class TrackResolver(
         }.toSet()
     }
 
-    // Only IDs that aren't downloaded tracks are looked up as books, so music costs no extra query.
+    // Only IDs that aren't tracks are looked up as books, so music costs no extra query.
     private suspend fun booksAmong(
         itemIds: List<String>,
         tracks: List<PlayableSource?>

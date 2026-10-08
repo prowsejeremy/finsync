@@ -10,22 +10,18 @@ import androidx.room.TypeConverters
     entities = [
         SyncedTrack::class,
         SyncedAlbum::class,
-        CatalogueAlbum::class,
         CatalogueTrack::class,
-        CatalogueArtist::class,
-        CatalogueAlbumArtist::class,
-        CatalogueTrackArtist::class,
-        CatalogueGenre::class,
-        CatalogueTrackGenre::class,
         CataloguePlaylist::class,
         CataloguePlaylistItem::class,
-        CatalogueBook::class,
-        CatalogueBookChapter::class,
-        BookProgress::class
+        CatalogueBook::class
     ],
-    version = 8,
+    version = 9,
     exportSchema = false
 )
+/**
+ * The Jellyfin adapter's database (T3): its sync records and its copy of the server's catalogue.
+ * The player has its own (LibraryDatabase) and never reads this one.
+ */
 @TypeConverters(StringListConverter::class)
 abstract class SyncDatabase : RoomDatabase() {
 
@@ -44,11 +40,10 @@ abstract class SyncDatabase : RoomDatabase() {
                     SyncDatabase::class.java,
                     "hz_sync.db"
                 )
-                    .addMigrations(MIGRATION_4_5, MIGRATION_7_8)
+                    .addMigrations(MIGRATION_4_5, MIGRATION_7_8, MIGRATION_8_9)
                     // Versions 6 and 7 have no migrations on purpose: the database is rebuilt,
                     // and the next sync recreates download records from files on disk (3a and 3b
-                    // specs). Book progress starts empty after a rebuild. This also covers
-                    // installs older than version 4.
+                    // specs). This also covers installs older than version 4.
                     .fallbackToDestructiveMigration()
                     .build()
                     .also { INSTANCE = it }

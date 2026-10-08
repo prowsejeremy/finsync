@@ -64,7 +64,7 @@ class AlbumFragment : Fragment() {
     private fun render(album: AlbumDetail?) {
         binding.content.visibility = if (album != null) View.VISIBLE else View.GONE
         binding.tvNotDownloaded.visibility = if (album == null) View.VISIBLE else View.GONE
-        trackIds = album?.tracks?.map { it.itemId } ?: emptyList()
+        trackIds = album?.tracks?.map { it.trackId } ?: emptyList()
         if (album == null) return
 
         val count = album.tracks.size

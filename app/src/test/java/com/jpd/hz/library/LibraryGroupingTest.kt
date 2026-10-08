@@ -1,7 +1,7 @@
 package com.jpd.hz.library
 
-import com.jpd.hz.db.ArtistAlbumRow
-import com.jpd.hz.db.GenreTrackRow
+import com.jpd.hz.library.db.ArtistCreditRow
+import com.jpd.hz.library.db.GenreTrackRow
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -42,29 +42,34 @@ class LibraryGroupingTest {
     )
 
     @Test
-    fun `album artists skip deselected albums`() {
+    fun `album artists count their albums`() {
         val credits = listOf(
-            ArtistAlbumRow("kurt", "Kurt Vile", "alb1"),
-            ArtistAlbumRow("kurt", "Kurt Vile", "alb2"),
-            ArtistAlbumRow("kim", "Kim Gordon", "alb3")
+            ArtistCreditRow("kurt", "Kurt Vile", null, "alb1"),
+            ArtistCreditRow("kurt", "Kurt Vile", null, "alb2"),
+            ArtistCreditRow("kim", "Kim Gordon", null, "alb3")
         )
-        val artists = albumArtistSummaries(credits, setOf("alb1", "alb2")) { null }
-        assertEquals(listOf(ArtistSummary("kurt", "Kurt Vile", 2, null)), artists)
+        assertEquals(
+            listOf(
+                ArtistSummary("kim", "Kim Gordon", 1, null),
+                ArtistSummary("kurt", "Kurt Vile", 2, null)
+            ),
+            albumArtistSummaries(credits)
+        )
     }
 
     @Test
     fun `album artists are A to Z ignoring case, with their photo`() {
         val credits = listOf(
-            ArtistAlbumRow("r", "radiohead", "a1"),
-            ArtistAlbumRow("d", "Daft Punk", "a2")
+            ArtistCreditRow("r", "radiohead", null, "a1"),
+            ArtistCreditRow("d", "Daft Punk", "/lib/Music/Daft Punk/artist.jpg", "a2")
         )
-        val artists = albumArtistSummaries(credits, emptySet()) { id -> "/photos/$id.jpg" }
+        val artists = albumArtistSummaries(credits)
         assertEquals(listOf("Daft Punk", "radiohead"), artists.map { it.name })
-        assertEquals("/photos/d.jpg", artists.first().photoPath)
+        assertEquals("/lib/Music/Daft Punk/artist.jpg", artists.first().photoPath)
     }
 
     @Test
-    fun `genres count visible albums and songs, keeping tracks without an album`() {
+    fun `genres count albums and songs, keeping tracks without an album`() {
         val tags = listOf(
             GenreTrackRow("rock", "Indie Rock", "t1", "alb1"),
             GenreTrackRow("rock", "Indie Rock", "t2", "alb1"),
@@ -73,8 +78,8 @@ class LibraryGroupingTest {
             GenreTrackRow("jazz", "Jazz", "t5", "alb2")
         )
         assertEquals(
-            listOf(GenreSummary("rock", "Indie Rock", 1, 3)),
-            genreSummaries(tags, setOf("alb1"))
+            listOf(GenreSummary("rock", "Indie Rock", 2, 4), GenreSummary("jazz", "Jazz", 1, 1)),
+            genreSummaries(tags)
         )
     }
 
@@ -130,7 +135,7 @@ class LibraryGroupingTest {
     }
 
     @Test
-    fun `a group that's gone or has no visible songs has no page`() {
+    fun `a group that's gone or has no songs has no page`() {
         assertNull(groupDetailOf("kurt", "Kurt Vile", null, emptyList(), emptyList()))
         assertNull(groupDetailOf("kurt", null, null, listOf(album("a")), listOf(song("s1", "a"))))
     }

@@ -1,6 +1,6 @@
 package com.jpd.hz.ui
 
-import com.jpd.hz.db.CatalogueTrack
+import com.jpd.hz.library.db.LibraryTrack
 
 private const val DEFAULT_DISC = 1
 private const val ARTIST_SEPARATOR = ", "
@@ -17,7 +17,7 @@ sealed class AlbumListRow {
         /** The track's artists, only when they differ from the album artist. */
         val artists: String?,
         val durationMs: Long?,
-        /** Position in the album's downloaded tracks; playback starts from here. */
+        /** Position in the album's tracks; playback starts from here. */
         val queueIndex: Int
     ) : AlbumListRow()
 }
@@ -26,7 +26,7 @@ sealed class AlbumListRow {
  * Album detail's rows. "Disc N" headings appear only when the tracks span more than one disc; a
  * track without a disc number counts as disc 1.
  */
-fun albumListRows(tracks: List<CatalogueTrack>, albumArtist: String?): List<AlbumListRow> {
+fun albumListRows(tracks: List<LibraryTrack>, albumArtist: String?): List<AlbumListRow> {
     val multiDisc = tracks.map { it.discNumber ?: DEFAULT_DISC }.distinct().size > 1
     val rows = mutableListOf<AlbumListRow>()
     var currentDisc: Int? = null
@@ -36,9 +36,9 @@ fun albumListRows(tracks: List<CatalogueTrack>, albumArtist: String?): List<Albu
         currentDisc = disc
         rows.add(
             AlbumListRow.Track(
-                itemId = track.itemId,
+                itemId = track.trackId,
                 number = track.trackNumber?.toString() ?: "",
-                title = track.name,
+                title = track.title,
                 artists = trackArtists(track.artistNames, albumArtist),
                 durationMs = track.durationMs,
                 queueIndex = index

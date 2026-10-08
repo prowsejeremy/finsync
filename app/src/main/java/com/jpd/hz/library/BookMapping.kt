@@ -1,7 +1,6 @@
 package com.jpd.hz.library
 
 import com.jpd.hz.db.CatalogueBook
-import com.jpd.hz.db.CatalogueBookChapter
 import com.jpd.hz.model.MediaItem
 
 private const val TICKS_PER_MS = 10_000L
@@ -9,13 +8,8 @@ private const val AUTHOR_KIND = "Author"
 private const val AUDIO_STREAM_TYPE = "Audio"
 private const val NAME_SEPARATOR = ", "
 
-/** The catalogue rows for the server's audiobooks. */
-data class BookRows(val books: List<CatalogueBook>, val chapters: List<CatalogueBookChapter>)
-
-fun bookRowsFrom(items: List<MediaItem>): BookRows = BookRows(
-    books = items.map(::catalogueBookFrom),
-    chapters = items.flatMap(::chaptersFrom)
-)
+/** The catalogue rows for the server's audiobooks, which Books to Sync lists. */
+fun catalogueBooksFrom(items: List<MediaItem>): List<CatalogueBook> = items.map(::catalogueBookFrom)
 
 /**
  * A book's author: People entries of kind Author, else the album artist, else the artists. Null
@@ -53,16 +47,3 @@ private fun catalogueBookFrom(item: MediaItem): CatalogueBook {
         size = source?.size
     )
 }
-
-// Sorted by start, so positions follow the book. A blank name becomes "Chapter N".
-private fun chaptersFrom(item: MediaItem): List<CatalogueBookChapter> =
-    item.chapters.orEmpty()
-        .sortedBy { it.startPositionTicks ?: 0L }
-        .mapIndexed { position, chapter ->
-            CatalogueBookChapter(
-                bookId = item.id,
-                position = position,
-                name = chapter.name?.takeIf { it.isNotBlank() } ?: "Chapter ${position + 1}",
-                startMs = (chapter.startPositionTicks ?: 0L) / TICKS_PER_MS
-            )
-        }

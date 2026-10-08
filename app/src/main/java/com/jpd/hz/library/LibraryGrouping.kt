@@ -1,7 +1,7 @@
 package com.jpd.hz.library
 
-import com.jpd.hz.db.ArtistAlbumRow
-import com.jpd.hz.db.GenreTrackRow
+import com.jpd.hz.library.db.ArtistCreditRow
+import com.jpd.hz.library.db.GenreTrackRow
 
 private const val DEFAULT_DISC = 1
 
@@ -34,38 +34,28 @@ val GROUP_SONG_ORDER: Comparator<SongRow> =
         .thenBy(String.CASE_INSENSITIVE_ORDER) { it.title }
         .thenBy { it.itemId }
 
-/** A downloaded track is visible when it has no album or its album passes the selection. */
-fun isTrackVisible(albumId: String?, selectedIds: Set<String>): Boolean =
-    albumId == null || isAlbumSelected(albumId, selectedIds)
-
-/** Album Artists: artists with at least one visible album, A–Z ignoring case. */
-fun albumArtistSummaries(
-    credits: List<ArtistAlbumRow>,
-    selectedIds: Set<String>,
-    photoPath: (String) -> String?
-): List<ArtistSummary> =
-    credits.filter { isAlbumSelected(it.albumId, selectedIds) }
-        .groupBy { it.artistId }
+/** Album Artists: artists with at least one album, A–Z ignoring case. */
+fun albumArtistSummaries(credits: List<ArtistCreditRow>): List<ArtistSummary> =
+    credits.groupBy { it.artistId }
         .map { (artistId, rows) ->
             ArtistSummary(
                 artistId = artistId,
                 name = rows.first().name,
                 albumCount = rows.map { it.albumId }.distinct().size,
-                photoPath = photoPath(artistId)
+                photoPath = rows.first().photoPath
             )
         }
         .sortedWith(ARTIST_ORDER)
 
-/** Genres with at least one visible track, A–Z ignoring case. */
-fun genreSummaries(tags: List<GenreTrackRow>, selectedIds: Set<String>): List<GenreSummary> =
-    tags.filter { isTrackVisible(it.albumId, selectedIds) }
-        .groupBy { it.genreId }
+/** Genres with at least one track, A–Z ignoring case. */
+fun genreSummaries(tags: List<GenreTrackRow>): List<GenreSummary> =
+    tags.groupBy { it.genreId }
         .map { (genreId, rows) ->
             GenreSummary(
                 genreId = genreId,
                 name = rows.first().name,
                 albumCount = rows.mapNotNull { it.albumId }.distinct().size,
-                songCount = rows.map { it.itemId }.distinct().size
+                songCount = rows.map { it.trackId }.distinct().size
             )
         }
         .sortedWith(GENRE_ORDER)
@@ -79,8 +69,8 @@ fun showsAllSongs(albums: List<AlbumSummary>, songs: List<SongRow>): Boolean {
 }
 
 /**
- * The page for an artist or genre from its visible albums and songs. Null when it has gone
- * from the catalogue or has no visible songs, so the page says "Not downloaded".
+ * The page for an artist or genre from its albums and songs. Null when it has gone from the
+ * library or has no songs, so the page says "Not downloaded".
  */
 fun groupDetailOf(
     id: String,

@@ -34,10 +34,33 @@ private const val ADD_TAG_FINGERPRINT =
 
 /**
  * Adds synced_tracks.tagFingerprint (version 8, T2). A real migration, because book_progress
- * holds data no sync can restore. Every row starts null, so the next sync tags each file once.
+ * held data no sync can restore. Every row starts null, so the next sync tags each file once.
  */
 val MIGRATION_7_8 = object : Migration(7, 8) {
     override fun migrate(db: SupportSQLiteDatabase) {
         db.execSQL(ADD_TAG_FINGERPRINT)
+    }
+}
+
+// What the adapter no longer reads once the player reads the Library folder (T3). Their indexes
+// go with them.
+private val TABLES_DROPPED_IN_9 = listOf(
+    "catalogue_albums",
+    "catalogue_artists",
+    "catalogue_album_artists",
+    "catalogue_track_artists",
+    "catalogue_genres",
+    "catalogue_track_genres",
+    "catalogue_book_chapters",
+    "book_progress"
+)
+
+/**
+ * Drops the player's old tables (version 9, T3). The sync records stay, so nothing downloads
+ * again. Book progress isn't carried over to the library (the user's note, 2026-10-08).
+ */
+val MIGRATION_8_9 = object : Migration(8, 9) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        TABLES_DROPPED_IN_9.forEach { db.execSQL("DROP TABLE IF EXISTS `$it`") }
     }
 }

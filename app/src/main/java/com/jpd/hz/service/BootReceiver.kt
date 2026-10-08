@@ -5,6 +5,7 @@ import android.content.Context
 import android.content.Intent
 import androidx.work.*
 import com.jpd.hz.auth.JellyfinRepository
+import com.jpd.hz.requestLibraryRescan
 import com.jpd.hz.sync.SyncEngine
 import java.util.concurrent.TimeUnit
 
@@ -74,6 +75,9 @@ class SyncWorker(
             Result.success()
         } catch (e: Exception) {
             if (runAttemptCount < 3) Result.retry() else Result.failure()
+        } finally {
+            // Whatever the result, the player scans whatever reached the folder.
+            requestLibraryRescan(context)
         }
     }
 }

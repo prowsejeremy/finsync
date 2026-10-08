@@ -83,15 +83,25 @@ class HomeFragment : Fragment() {
 
     private fun renderLibrary(state: HomeLibraryState) {
         val ready = state as? HomeLibraryState.Ready
+        val folder = libraryViewModel.folderLabel()
         binding.libraryCards.visibility = if (ready != null) View.VISIBLE else View.GONE
-        binding.tvAlbumsHint.visibility =
-            if (ready?.nothingVisible == true) View.VISIBLE else View.GONE
+        // Below the cards: the folder couldn't be read, or holds nothing hz plays (spec).
+        val note = when {
+            ready == null -> null
+            ready.scanFailed -> getString(R.string.home_library_unreadable, folder)
+            ready.isEmpty -> getString(R.string.home_library_empty, folder)
+            else -> null
+        }
+        binding.tvLibraryNote.text = note
+        binding.tvLibraryNote.visibility = if (note != null) View.VISIBLE else View.GONE
         binding.libraryStatus.visibility = if (ready == null) View.VISIBLE else View.GONE
         val failed = state == HomeLibraryState.Failed
         binding.btnRetry.visibility = if (failed) View.VISIBLE else View.GONE
-        binding.tvLibraryStatus.setText(
-            if (failed) R.string.home_library_failed else R.string.home_library_building
-        )
+        binding.tvLibraryStatus.text = if (failed) {
+            getString(R.string.home_library_unreadable, folder)
+        } else {
+            getString(R.string.home_library_building)
+        }
         if (ready == null) return
         categoryCards.forEach { (category, card) ->
             card.tvCount.text = category.info.count(ready).toString()

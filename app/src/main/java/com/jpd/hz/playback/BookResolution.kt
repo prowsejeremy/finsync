@@ -3,7 +3,7 @@ package com.jpd.hz.playback
 import com.jpd.hz.library.Chapter
 import com.jpd.hz.library.PlayableBook
 
-/** Everything needed to play and describe one downloaded book. */
+/** Everything needed to play and describe one book. */
 data class ResolvedBook(
     val bookId: String,
     val path: String,
@@ -22,7 +22,7 @@ data class ResolvedBook(
 
 /**
  * Null when the book's file is gone ([fileLength] returns null), so playback shows "Files
- * missing. Run a sync." (spec). The size comes from the file itself.
+ * missing. Rescan your library." The size comes from the file itself.
  */
 fun resolveBook(source: PlayableBook, fileLength: (String) -> Long?): ResolvedBook? {
     val size = fileLength(source.localPath) ?: return null
@@ -30,7 +30,7 @@ fun resolveBook(source: PlayableBook, fileLength: (String) -> Long?): ResolvedBo
     return ResolvedBook(
         bookId = book.bookId,
         path = source.localPath,
-        title = book.name,
+        title = book.title,
         author = book.author,
         coverPath = source.coverPath,
         durationMs = book.durationMs,

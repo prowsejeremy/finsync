@@ -1,40 +1,38 @@
 package com.jpd.hz.ui
 
 import android.app.Application
-import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.asLiveData
-import androidx.lifecycle.viewModelScope
 import com.jpd.hz.library.BookRepository
+import com.jpd.hz.library.LibraryFolderStore
 import com.jpd.hz.library.LibraryRepository
 import com.jpd.hz.library.PlaylistRepository
-import kotlinx.coroutines.CancellationException
+import com.jpd.hz.library.scan.LibraryScanner
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.launch
 
-private const val TAG = "LibraryViewModel"
-
-/** Home's library state. Builds the catalogue on first open when it's empty, without a sync. */
+/**
+ * Home's library state, from the library and the scanner. The app-open scan (MainViewModel)
+ * builds an empty library, so Home starts none of its own.
+ */
 class LibraryViewModel(app: Application) : AndroidViewModel(app) {
 
     private val library = LibraryRepository(app)
     private val playlists = PlaylistRepository(app)
     private val books = BookRepository(app)
-    private val refreshStatus = MutableStateFlow(RefreshStatus.IDLE)
+    private val scanner = LibraryScanner.get(app)
+    private val folders = LibraryFolderStore(app)
 
     val homeState: LiveData<HomeLibraryState> = combine(
-        library.isCatalogueEmpty(),
+        library.isLibraryEmpty(),
         categoryCounts(),
-        refreshStatus
-    ) { empty, counts, status ->
+        scanner.state
+    ) { empty, counts, scan ->
         homeLibraryStateOf(
-            catalogueEmpty = empty,
+            libraryEmpty = empty,
+            scan = scan,
             albumCount = counts.albums,
-            refresh = status,
             albumArtistCount = counts.albumArtists,
             genreCount = counts.genres,
             songCount = counts.songs,
@@ -43,11 +41,11 @@ class LibraryViewModel(app: Application) : AndroidViewModel(app) {
         )
     }.asLiveData()
 
-    init {
-        refreshIfEmpty()
-    }
+    /** The Library folder as Home names it, such as "Media/hz". */
+    fun folderLabel(): String = folders.displayPath()
 
-    fun retry() = refreshIfEmpty()
+    /** After "Can't read …": another scan, which also retries unreadable files. */
+    fun retry() = scanner.rescan()
 
     // combine takes at most five typed Flows, so playlists and books travel as a pair.
     private fun categoryCounts(): Flow<CategoryCounts> = combine(
@@ -60,24 +58,6 @@ class LibraryViewModel(app: Application) : AndroidViewModel(app) {
         }
     ) { albums, albumArtists, genres, songs, (playlistCount, bookCount) ->
         CategoryCounts(albums, albumArtists, genres, songs, playlistCount, bookCount)
-    }
-
-    private fun refreshIfEmpty() {
-        if (refreshStatus.value == RefreshStatus.RUNNING) return
-        // Set before launching, so a second tap can't start a second refresh.
-        refreshStatus.value = RefreshStatus.RUNNING
-        viewModelScope.launch {
-            // Room and bad server data throw too, not only network errors.
-            val succeeded = try {
-                !library.isCatalogueEmpty().first() || library.refreshCatalogue()
-            } catch (e: CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                Log.w(TAG, "Couldn't build catalogue", e)
-                false
-            }
-            refreshStatus.value = if (succeeded) RefreshStatus.DONE else RefreshStatus.FAILED
-        }
     }
 
     private data class CategoryCounts(

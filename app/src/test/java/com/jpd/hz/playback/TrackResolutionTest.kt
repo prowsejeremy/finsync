@@ -1,7 +1,7 @@
 package com.jpd.hz.playback
 
-import com.jpd.hz.db.CatalogueTrack
 import com.jpd.hz.library.PlayableSource
+import com.jpd.hz.library.db.LibraryTrack
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test
@@ -9,13 +9,14 @@ import org.junit.Test
 class TrackResolutionTest {
 
     private fun source(artists: List<String> = listOf("Kurt Vile", "Kim Gordon")) = PlayableSource(
-        track = CatalogueTrack(
-            itemId = "t1",
-            albumId = "a1",
-            name = "Check Baby",
+        track = LibraryTrack(
+            trackId = "t1",
+            title = "Check Baby",
             artistNames = artists,
-            artistIds = emptyList(),
-            albumArtist = "Kurt Vile",
+            album = "Bottle It In",
+            albumArtistNames = listOf("Kurt Vile"),
+            genreNames = emptyList(),
+            year = 2018,
             discNumber = 1,
             trackNumber = 4,
             durationMs = 420_000L,
@@ -23,16 +24,18 @@ class TrackResolutionTest {
             bitDepth = 16,
             sampleRate = 44_100,
             bitrate = 833_000,
-            size = 1L
+            size = 1L,
+            albumId = "a1"
         ),
         localPath = "/music/Kurt Vile/Bottle It In/04 Check Baby.flac",
         albumName = "Bottle It In",
+        albumArtist = "Kurt Vile",
         albumArtistId = "ar1",
         artworkPath = "/music/Kurt Vile/Bottle It In/folder.jpg"
     )
 
     @Test
-    fun `no catalogue or sync row resolves to nothing`() {
+    fun `a track the library doesn't have resolves to nothing`() {
         assertNull(resolveTrack(null) { 1L })
     }
 

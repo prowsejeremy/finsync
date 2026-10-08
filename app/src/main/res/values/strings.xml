@@ -33,10 +33,10 @@
 
     <!-- Home -->
     <string name="home_library_building">Building your library…</string>
-    <string name="home_library_failed">Connect to your server to build your library</string>
+    <string name="home_library_unreadable">Can\'t read %1$s</string>
     <string name="btn_retry">Retry</string>
     <string name="home_albums">Albums</string>
-    <string name="home_albums_hint">Choose albums to sync in Settings</string>
+    <string name="home_library_empty">No music found in %1$s.</string>
     <string name="home_album_artists">Album Artists</string>
     <string name="home_genres">Genres</string>
     <string name="home_songs">Songs</string>
@@ -131,7 +131,7 @@
     </plurals>
 
     <!-- Playback -->
-    <string name="files_missing">Files missing. Run a sync.</string>
+    <string name="files_missing">Files missing. Rescan your library.</string>
     <string name="playback_unavailable">Playback unavailable</string>
 
     <!-- Player, mini-player and queue -->

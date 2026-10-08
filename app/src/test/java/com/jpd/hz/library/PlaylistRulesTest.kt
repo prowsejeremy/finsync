@@ -1,10 +1,10 @@
 package com.jpd.hz.library
 
 import com.jpd.hz.db.CatalogueBook
-import com.jpd.hz.db.CatalogueBookChapter
 import com.jpd.hz.db.CataloguePlaylist
 import com.jpd.hz.db.CataloguePlaylistItem
-import com.jpd.hz.db.PlaylistEntryRow
+import com.jpd.hz.library.db.LibraryPlaylist
+import com.jpd.hz.library.db.PlaylistEntryRow
 import com.jpd.hz.model.MediaItem
 import com.jpd.hz.model.ServerCatalogue
 import com.jpd.hz.model.ServerPlaylist
@@ -20,57 +20,51 @@ class PlaylistRulesTest {
             playlistId = playlistId,
             position = position,
             durationMs = durationMs,
-            albumId = "alb$position",
-            localPath = "/music/$playlistId-$position.flac",
-            storedArtworkPath = null
+            artworkPath = "/art/$position.jpg",
+            embeddedArt = null
         )
 
     private fun item(id: String, type: String = "Audio") =
         MediaItem(id = id, name = "Item $id", type = type)
 
     @Test
-    fun `only selected playlists with a downloaded song are listed, A to Z`() {
+    fun `only playlists with a song in the library are listed, A to Z`() {
         val playlists = listOf(
-            CataloguePlaylist("p1", "zed"),
-            CataloguePlaylist("p2", "Alpha"),
-            CataloguePlaylist("p3", "Beta"),
-            CataloguePlaylist("p4", "Gamma")
+            LibraryPlaylist("p1", "zed", null),
+            LibraryPlaylist("p2", "Alpha", null),
+            LibraryPlaylist("p3", "Beta", null)
         )
-        // p3 has nothing downloaded; p4 isn't selected.
-        val entries = listOf(entry("p1", 0), entry("p2", 0), entry("p4", 0))
-        val summaries = playlistSummaries(playlists, entries, setOf("p1", "p2", "p3")) { _, _ ->
-            null
-        }
+        // p3 has no song in the library.
+        val summaries = playlistSummaries(playlists, listOf(entry("p1", 0), entry("p2", 0)))
         assertEquals(listOf("p2", "p1"), summaries.map { it.playlistId })
     }
 
     @Test
-    fun `a playlist row counts its downloaded songs and falls back to the first one's art`() {
+    fun `a playlist row counts its songs and falls back to the first one's art`() {
         val entries = listOf(entry("p1", 4, 30_000L), entry("p1", 1, 90_000L), entry("p1", 2, null))
-        val summary = playlistSummaries(
-            listOf(CataloguePlaylist("p1", "Mix")),
-            entries,
-            setOf("p1")
-        ) { _, first -> "/art/${first.position}.jpg" }.single()
+        val summary =
+            playlistSummaries(listOf(LibraryPlaylist("p1", "Mix", null)), entries).single()
         assertEquals(3, summary.songCount)
         assertEquals(listOf(90_000L, null, 30_000L), summary.durationsMs)
         assertEquals("/art/1.jpg", summary.coverPath)
     }
 
     @Test
-    fun `a specific album selection gains the albums of selected playlists`() {
-        val visible = visibleAlbumSelection(setOf("alb1"), setOf("alb2"))
-        assertEquals(setOf("alb1", "alb2"), visible)
-        assertTrue(isAlbumSelected("alb2", visible))
-        assertFalse(isAlbumSelected("alb3", visible))
+    fun `a playlist's own cover wins`() {
+        val summary = playlistSummaries(
+            listOf(LibraryPlaylist("p1", "Mix", "/lib/Playlists/Mix.jpg")),
+            listOf(entry("p1", 0))
+        ).single()
+        assertEquals("/lib/Playlists/Mix.jpg", summary.coverPath)
     }
 
     @Test
-    fun `a selection of everything stays everything`() {
-        assertEquals(emptySet<String>(), visibleAlbumSelection(emptySet(), setOf("alb2")))
-        assertEquals(setOf("all"), visibleAlbumSelection(setOf("all"), setOf("alb2")))
+    fun `an empty album selection or one with all selects every album`() {
         assertTrue(selectsEveryAlbum(emptySet()))
+        assertTrue(selectsEveryAlbum(setOf("all")))
         assertFalse(selectsEveryAlbum(setOf("alb1")))
+        assertTrue(isAlbumSelected("alb1", setOf("alb1")))
+        assertFalse(isAlbumSelected("alb3", setOf("alb1")))
     }
 
     @Test
@@ -106,8 +100,7 @@ class PlaylistRulesTest {
                 CataloguePlaylistItem("p1", 0, "t1"),
                 CataloguePlaylistItem("p2", 0, "t2")
             ),
-            books = listOf(CatalogueBook("b1", "Dune", null, null, null, null, null, null, null)),
-            chapters = listOf(CatalogueBookChapter("b1", 0, "One", 0L))
+            books = listOf(CatalogueBook("b1", "Dune", null, null, null, null, null, null, null))
         )
         val fresh = PlaylistBookRows(
             playlists = listOf(CataloguePlaylist("p1", "New one")),
@@ -124,7 +117,6 @@ class PlaylistRulesTest {
         assertEquals(listOf("New one", "Old two"), kept.playlists.map { it.name })
         assertEquals(listOf("t9", "t2"), kept.playlistItems.map { it.itemId })
         assertEquals(previous.books, kept.books)
-        assertEquals(previous.chapters, kept.chapters)
 
         // When the playlist list itself didn't load, every playlist keeps its rows.
         val listFailed =

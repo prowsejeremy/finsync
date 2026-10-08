@@ -6,7 +6,6 @@ import com.jpd.hz.model.MediaStream
 import com.jpd.hz.model.NameId
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
-import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class CatalogueMappingTest {
@@ -48,7 +47,7 @@ class CatalogueMappingTest {
             id = "s1", container = "flac", size = 63_600_000L, bitrate = 900_000,
             mediaStreams = listOf(stream)
         )
-        val track = catalogueFrom(listOf(audio("t1", sources = listOf(source)))).tracks.single()
+        val track = catalogueTracksFrom(listOf(audio("t1", sources = listOf(source)))).single()
         assertEquals("flac", track.codec)
         assertEquals(16, track.bitDepth)
         assertEquals(44_100, track.sampleRate)
@@ -61,7 +60,7 @@ class CatalogueMappingTest {
         val source = MediaSource(
             id = "s1", container = "mov,mp4,m4a", bitrate = 256_000, mediaStreams = emptyList()
         )
-        val track = catalogueFrom(listOf(audio("t1", sources = listOf(source)))).tracks.single()
+        val track = catalogueTracksFrom(listOf(audio("t1", sources = listOf(source)))).single()
         assertEquals("mov", track.codec)
         assertEquals(256_000, track.bitrate)
         assertNull(track.bitDepth)
@@ -70,7 +69,7 @@ class CatalogueMappingTest {
 
     @Test
     fun `item without media sources uses the item container and leaves the rest null`() {
-        val track = catalogueFrom(listOf(audio("t1", container = "MP3"))).tracks.single()
+        val track = catalogueTracksFrom(listOf(audio("t1", container = "MP3"))).single()
         assertEquals("mp3", track.codec)
         assertNull(track.bitrate)
         assertNull(track.size)
@@ -78,7 +77,7 @@ class CatalogueMappingTest {
 
     @Test
     fun `duration comes from run time ticks and stays null without them`() {
-        val tracks = catalogueFrom(listOf(audio("t1"), audio("t2", ticks = null))).tracks
+        val tracks = catalogueTracksFrom(listOf(audio("t1"), audio("t2", ticks = null)))
         assertEquals(239_000L, tracks[0].durationMs)
         assertNull(tracks[1].durationMs)
     }
@@ -90,32 +89,15 @@ class CatalogueMappingTest {
             artists = listOf("A", "B"),
             artistItems = listOf(NameId(name = "A", id = "a"), NameId(name = "B", id = "b"))
         )
-        val track = catalogueFrom(listOf(item)).tracks.single()
+        val track = catalogueTracksFrom(listOf(item)).single()
         assertEquals(listOf("A", "B"), track.artistNames)
         assertEquals(listOf("a", "b"), track.artistIds)
     }
 
     @Test
-    fun `tracks are grouped into one album per album id`() {
-        val items = listOf(
-            audio("t1", year = null),
-            audio("t2", year = 2018),
-            audio("t3", albumId = "alb2", album = null, albumArtist = null, artists = listOf("Solo"))
-        )
-        val albums = catalogueFrom(items).albums.associateBy { it.albumId }
-        assertEquals(2, albums.size)
-        assertEquals("Album One", albums.getValue("alb1").name)
-        assertEquals("Artist A", albums.getValue("alb1").albumArtist)
-        assertEquals(2018, albums.getValue("alb1").year)
-        assertEquals("Unknown Album", albums.getValue("alb2").name)
-        assertEquals("Solo", albums.getValue("alb2").albumArtist)
-    }
-
-    @Test
-    fun `tracks with no album are kept without creating an album`() {
-        val catalogue = catalogueFrom(listOf(audio("t1", albumId = null)))
-        assertTrue(catalogue.albums.isEmpty())
-        assertEquals(listOf("t1"), catalogue.tracks.map { it.itemId })
-        assertNull(catalogue.tracks.single().albumId)
+    fun `tracks with no album are kept`() {
+        val tracks = catalogueTracksFrom(listOf(audio("t1", albumId = null), audio("t2")))
+        assertEquals(listOf("t1", "t2"), tracks.map { it.itemId })
+        assertNull(tracks.first().albumId)
     }
 }

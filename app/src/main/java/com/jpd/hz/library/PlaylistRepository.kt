@@ -1,8 +1,8 @@
 package com.jpd.hz.library
 
 import android.content.Context
-import com.jpd.hz.db.CatalogueDao
-import com.jpd.hz.db.SyncDatabase
+import com.jpd.hz.library.db.LibraryDao
+import com.jpd.hz.library.db.LibraryDatabase
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
@@ -10,74 +10,52 @@ import kotlinx.coroutines.flow.conflate
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.withContext
-import java.io.File
 
 /**
- * Where screens read playlists from (3b; overview rule 2): Playlists, the playlist page,
- * Playlists to Sync, the playlist selection and the covers. The catalogue write stays in
- * [LibraryRepository], so every catalogue table swaps in one transaction.
+ * Where screens read playlists from (overview rule 2): Playlists and the playlist page. Every
+ * playlist file in the Library folder shows once it has a song in the library.
  */
 class PlaylistRepository internal constructor(
-    context: Context,
-    private val catalogueDao: CatalogueDao
+    private val dao: LibraryDao,
+    private val files: LibraryFiles
 ) {
 
     constructor(context: Context) : this(
-        context,
-        SyncDatabase.getInstance(context.applicationContext).catalogueDao()
+        LibraryDatabase.getInstance(context.applicationContext).libraryDao(),
+        LibraryFiles.of(context)
     )
 
-    private val appContext = context.applicationContext
-    private val selections = SyncSelections(appContext)
-
-    /** Selected playlists with at least one downloaded song, A–Z (spec "Playlists"). */
+    /** Playlists with at least one song, A–Z. */
     fun playlists(): Flow<List<PlaylistSummary>> =
-        combine(
-            catalogueDao.observePlaylists(),
-            catalogueDao.observePlaylistEntries()
-        ) { playlists, entries ->
-            val artwork = AlbumArtworkCache(::fileExists)
-            playlistSummaries(playlists, entries, selections.playlistIds()) { playlistId, first ->
-                PlaylistCovers.pathIfExists(appContext, playlistId)
-                    ?: artwork.artworkFor(first.albumId, first.storedArtworkPath, first.localPath)
-            }
+        combine(dao.observePlaylists(), dao.observePlaylistEntries()) { playlists, entries ->
+            playlistSummaries(
+                playlists.map { it.copy(coverPath = files.image(it.coverPath)) },
+                entries.map { it.copy(artworkPath = files.art(it.artworkPath, it.embeddedArt)) }
+            )
         }
             .conflate()
             .distinctUntilChanged()
             .flowOn(Dispatchers.IO)
 
-    // Home's count skips the cover file checks.
-    fun playlistCount(): Flow<Int> =
-        combine(
-            catalogueDao.observePlaylists(),
-            catalogueDao.observePlaylistEntries()
-        ) { playlists, entries ->
-            playlistSummaries(playlists, entries, selections.playlistIds()) { _, _ -> null }.size
-        }
-            .conflate()
-            .distinctUntilChanged()
-            .flowOn(Dispatchers.IO)
+    fun playlistCount(): Flow<Int> = playlists().map { it.size }.distinctUntilChanged()
 
     /**
-     * A playlist's downloaded songs in server order, a song repeated where the playlist repeats
-     * it. Null once it's gone from the server or none of it is downloaded.
+     * A playlist's songs in file order, a song repeated where the playlist repeats it. Null once
+     * the file is gone or none of its songs is in the library.
      */
     fun playlist(playlistId: String): Flow<PlaylistDetail?> =
         combine(
-            catalogueDao.observePlaylistName(playlistId),
-            catalogueDao.observePlaylistSongs(playlistId)
-        ) { name, rows ->
-            if (name == null || rows.isEmpty()) {
+            dao.observePlaylist(playlistId),
+            dao.observePlaylistSongs(playlistId)
+        ) { playlist, rows ->
+            if (playlist == null || rows.isEmpty()) {
                 null
             } else {
-                val artwork = AlbumArtworkCache(::fileExists)
-                val songs = rows.map { songRowOf(it, artwork) }
+                val songs = rows.map { songRowOf(it, files) }
                 PlaylistDetail(
                     playlistId = playlistId,
-                    name = name,
-                    coverPath = PlaylistCovers.pathIfExists(appContext, playlistId)
-                        ?: songs.first().artworkPath,
+                    name = playlist.name,
+                    coverPath = files.image(playlist.coverPath) ?: songs.first().artworkPath,
                     songs = songs
                 )
             }
@@ -85,23 +63,4 @@ class PlaylistRepository internal constructor(
             .conflate()
             .distinctUntilChanged()
             .flowOn(Dispatchers.IO)
-
-    /** Every audio playlist on the server, A–Z, for Playlists to Sync. */
-    fun playlistChoices(): Flow<List<PlaylistChoice>> =
-        catalogueDao.observePlaylistChoices()
-            .map { rows -> rows.map { PlaylistChoice(it.playlistId, it.name, it.entryCount) } }
-            .distinctUntilChanged()
-            .flowOn(Dispatchers.IO)
-
-    /** The playlists chosen in Playlists to Sync; empty means none (spec). */
-    fun selectedIds(): Set<String> = selections.playlistIds()
-
-    fun setSelectedIds(ids: Set<String>) = selections.setPlaylistIds(ids)
-
-    /** Logout: another server's playlist covers must never show (spec "Logout"). */
-    suspend fun deletePlaylistCovers() = withContext(Dispatchers.IO) {
-        PlaylistCovers.deleteAll(appContext)
-    }
-
-    private fun fileExists(path: String): Boolean = File(path).exists()
 }

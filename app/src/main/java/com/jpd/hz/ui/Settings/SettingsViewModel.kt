@@ -14,13 +14,12 @@ import com.jpd.hz.appearance.ThemeMode
 import com.jpd.hz.auth.JellyfinRepository
 import com.jpd.hz.auth.Result
 import com.jpd.hz.db.SyncDatabase
-import com.jpd.hz.library.BookChoice
-import com.jpd.hz.library.BookRepository
-import com.jpd.hz.library.LibraryRepository
-import com.jpd.hz.library.PlaylistChoice
-import com.jpd.hz.library.PlaylistRepository
+import com.jpd.hz.library.SyncSelections
 import com.jpd.hz.model.AlbumSelection
 import com.jpd.hz.service.SyncScheduler
+import com.jpd.hz.sync.BookChoice
+import com.jpd.hz.sync.JellyfinCatalogue
+import com.jpd.hz.sync.PlaylistChoice
 import com.jpd.hz.sync.SyncEngine
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
@@ -31,17 +30,16 @@ class SettingsViewModel(app: Application) : AndroidViewModel(app) {
 
     private val repo = JellyfinRepository(app)
     private val dao  = SyncDatabase.getInstance(app).syncDao()
-    private val library = LibraryRepository(app)
-    private val playlists = PlaylistRepository(app)
-    private val books = BookRepository(app)
+    private val catalogue = JellyfinCatalogue(app)
+    private val selections = SyncSelections(app)
     private val appearance = AppearanceStore(app)
     private var catalogueRefreshed = false
 
     /** Every audio playlist on the server, from the catalogue (3b). */
-    val playlistChoices: LiveData<List<PlaylistChoice>> = playlists.playlistChoices().asLiveData()
+    val playlistChoices: LiveData<List<PlaylistChoice>> = catalogue.playlistChoices().asLiveData()
 
     /** Every audiobook on the server, from the catalogue (3b). */
-    val bookChoices: LiveData<List<BookChoice>> = books.bookChoices().asLiveData()
+    val bookChoices: LiveData<List<BookChoice>> = catalogue.bookChoices().asLiveData()
 
     private val _albums  = MutableLiveData<List<AlbumSelection>>()
     val albums: LiveData<List<AlbumSelection>> = _albums
@@ -96,13 +94,15 @@ class SettingsViewModel(app: Application) : AndroidViewModel(app) {
             .apply()
     }
 
-    fun getSelectedPlaylistIds(): Set<String> = playlists.selectedIds()
+    /** The playlists chosen in Playlists to Sync; empty means none (3b). */
+    fun getSelectedPlaylistIds(): Set<String> = selections.playlistIds()
 
-    fun setSelectedPlaylistIds(ids: Set<String>) = playlists.setSelectedIds(ids)
+    fun setSelectedPlaylistIds(ids: Set<String>) = selections.setPlaylistIds(ids)
 
-    fun getSelectedBookIds(): Set<String> = books.selectedIds()
+    /** The books chosen in Books to Sync; empty means none (3b). */
+    fun getSelectedBookIds(): Set<String> = selections.bookIds()
 
-    fun setSelectedBookIds(ids: Set<String>) = books.setSelectedIds(ids)
+    fun setSelectedBookIds(ids: Set<String>) = selections.setBookIds(ids)
 
     /**
      * Refreshes the catalogue once per visit to Settings, so playlists and books added on the
@@ -113,7 +113,7 @@ class SettingsViewModel(app: Application) : AndroidViewModel(app) {
         catalogueRefreshed = true
         viewModelScope.launch {
             try {
-                if (!library.refreshCatalogue()) Log.w(TAG, "Catalogue refresh didn't complete")
+                if (!catalogue.refresh()) Log.w(TAG, "Catalogue refresh didn't complete")
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {

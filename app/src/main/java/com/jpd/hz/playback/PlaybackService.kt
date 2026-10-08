@@ -12,10 +12,10 @@ import androidx.media3.session.MediaSession
 import androidx.media3.session.MediaSessionService
 import com.google.common.util.concurrent.ListenableFuture
 import com.google.common.util.concurrent.SettableFuture
-import com.jpd.hz.db.BookProgress
 import com.jpd.hz.equaliser.EqualiserStore
 import com.jpd.hz.library.BookRepository
 import com.jpd.hz.library.LibraryRepository
+import com.jpd.hz.library.db.BookProgress
 import com.jpd.hz.ui.MainActivity
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope

@@ -13,14 +13,14 @@ import androidx.lifecycle.viewModelScope
 import com.jpd.hz.auth.JellyfinRepository
 import com.jpd.hz.db.SyncDatabase
 import com.jpd.hz.library.BookRepository
-import com.jpd.hz.library.LibraryRepository
-import com.jpd.hz.library.PlaylistRepository
 import com.jpd.hz.library.SyncSelections
+import com.jpd.hz.library.scan.LibraryScanner
 import com.jpd.hz.model.ServerConfig
 import com.jpd.hz.model.SyncState
 import com.jpd.hz.playback.ResumeStore
 import com.jpd.hz.service.SyncScheduler
 import com.jpd.hz.service.SyncService
+import com.jpd.hz.sync.JellyfinCatalogue
 import com.jpd.hz.sync.SyncCounts
 import com.jpd.hz.sync.SyncEngine
 import com.jpd.hz.sync.SyncSelection
@@ -51,6 +51,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     private val repo = JellyfinRepository(app)
     private val dao = SyncDatabase.getInstance(app).syncDao()
     private val catalogueDao = SyncDatabase.getInstance(app).catalogueDao()
+    private val catalogue = JellyfinCatalogue(app)
 
     private val _serverConnected = MutableLiveData<Boolean>(true)
     // val serverConnected: LiveData<Boolean> = _serverConnected
@@ -85,6 +86,8 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
 
     init {
         refreshConfig()
+        // The app opens: the player scans the Library folder (spec "Scanning").
+        LibraryScanner.get(app).requestScan()
         viewModelScope.launch {
             // An ended sync (completed, stopped or failed) recounts before its state is posted,
             // so the card doesn't flash "Not synced yet" (spec "MainViewModel"). This scope runs
@@ -103,6 +106,22 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         if (cfg != null) {
             _syncDir.value = SyncEngine.getSyncDirectoryPath(getApplication(), cfg)
             refreshSyncCounts()
+            refreshCatalogueIfEmpty()
+        }
+    }
+
+    // Home built the catalogue on first open until T3: the Sync card and the choice screens
+    // read it, and a fresh sign-in or a database rebuild leaves it empty. No sync is needed.
+    private fun refreshCatalogueIfEmpty() {
+        viewModelScope.launch {
+            try {
+                if (catalogue.isEmpty() && catalogue.refresh()) updateSyncCounts()
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                // Room and bad server data throw too, not only network errors.
+                Log.w(TAG, "Couldn't build the catalogue", e)
+            }
         }
     }
 
@@ -190,10 +209,8 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             withContext(NonCancellable) {
                 repo.logout(getApplication())
                 ResumeStore(getApplication()).clear()
-                val library = LibraryRepository(getApplication())
-                library.clearCatalogue()
-                library.deleteArtistPhotos()
-                PlaylistRepository(getApplication()).deletePlaylistCovers()
+                catalogue.clear()
+                // T4 keeps book progress on sign-out (D10).
                 BookRepository(getApplication()).clearBookProgress()
             }
             _config.postValue(null)

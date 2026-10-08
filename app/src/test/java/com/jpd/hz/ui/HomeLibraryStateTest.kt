@@ -1,5 +1,7 @@
 package com.jpd.hz.ui
 
+import com.jpd.hz.library.scan.ScanResult
+import com.jpd.hz.library.scan.ScanState
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -7,91 +9,71 @@ import org.junit.Test
 
 class HomeLibraryStateTest {
 
+    private val done = ScanState.Idle(ScanResult(0, 0, 0, 0, 1L))
+
     @Test
-    fun `a filled catalogue is ready whatever the refresh status`() {
+    fun `a library with music is ready whatever the scan is doing`() {
+        listOf(ScanState.Idle(null), ScanState.Scanning(1, 2), done).forEach { scan ->
+            assertEquals(
+                HomeLibraryState.Ready(3),
+                homeLibraryStateOf(libraryEmpty = false, scan = scan, albumCount = 3)
+            )
+        }
+    }
+
+    @Test
+    fun `a library with music keeps its cards when the folder can't be read`() {
         assertEquals(
-            HomeLibraryState.Ready(3),
-            homeLibraryStateOf(catalogueEmpty = false, albumCount = 3, refresh = RefreshStatus.FAILED)
+            HomeLibraryState.Ready(3, scanFailed = true),
+            homeLibraryStateOf(false, ScanState.Failed("/storage/emulated/0/Media/hz"), 3)
         )
     }
 
     @Test
-    fun `an empty catalogue is building until the refresh finishes`() {
+    fun `an empty library is building until a scan finishes`() {
+        assertEquals(HomeLibraryState.Building, homeLibraryStateOf(true, ScanState.Idle(null), 0))
         assertEquals(
             HomeLibraryState.Building,
-            homeLibraryStateOf(catalogueEmpty = true, albumCount = 0, refresh = RefreshStatus.RUNNING)
-        )
-        assertEquals(
-            HomeLibraryState.Building,
-            homeLibraryStateOf(catalogueEmpty = true, albumCount = 0, refresh = RefreshStatus.IDLE)
+            homeLibraryStateOf(true, ScanState.Scanning(0, 0), 0)
         )
     }
 
     @Test
-    fun `an empty catalogue after a failed refresh asks to connect`() {
+    fun `an empty library whose folder can't be read has failed`() {
         assertEquals(
             HomeLibraryState.Failed,
-            homeLibraryStateOf(catalogueEmpty = true, albumCount = 0, refresh = RefreshStatus.FAILED)
+            homeLibraryStateOf(true, ScanState.Failed("/storage/emulated/0/Media/hz"), 0)
         )
     }
 
     @Test
-    fun `an empty catalogue after a successful refresh shows zero albums`() {
-        assertEquals(
-            HomeLibraryState.Ready(0),
-            homeLibraryStateOf(catalogueEmpty = true, albumCount = 0, refresh = RefreshStatus.DONE)
-        )
+    fun `an empty library after a scan shows the empty state`() {
+        val state = homeLibraryStateOf(true, done, 0) as HomeLibraryState.Ready
+        assertTrue(state.isEmpty)
+        assertFalse(state.scanFailed)
     }
 
     @Test
-    fun `ready carries every category count`() {
+    fun `counts carry through`() {
         assertEquals(
-            HomeLibraryState.Ready(42, 18, 9, 512),
+            HomeLibraryState.Ready(1, 2, 3, 4, 5, 6),
             homeLibraryStateOf(
-                catalogueEmpty = false,
-                albumCount = 42,
-                refresh = RefreshStatus.DONE,
-                albumArtistCount = 18,
-                genreCount = 9,
-                songCount = 512
+                libraryEmpty = false,
+                scan = done,
+                albumCount = 1,
+                albumArtistCount = 2,
+                genreCount = 3,
+                songCount = 4,
+                playlistCount = 5,
+                bookCount = 6
             )
         )
     }
 
     @Test
-    fun `nothing is visible only with no albums and no songs`() {
-        assertTrue(HomeLibraryState.Ready(0).nothingVisible)
-        assertFalse(HomeLibraryState.Ready(0, songCount = 3).nothingVisible)
-        assertFalse(HomeLibraryState.Ready(2, songCount = 20).nothingVisible)
-    }
-
-    @Test
-    fun `ready carries the playlist count`() {
-        assertEquals(
-            HomeLibraryState.Ready(42, 18, 9, 512, playlistCount = 6),
-            homeLibraryStateOf(
-                catalogueEmpty = false,
-                albumCount = 42,
-                refresh = RefreshStatus.DONE,
-                albumArtistCount = 18,
-                genreCount = 9,
-                songCount = 512,
-                playlistCount = 6
-            )
-        )
-    }
-
-    @Test
-    fun `books alone are something to show, and ready carries the book count`() {
-        assertFalse(HomeLibraryState.Ready(0, bookCount = 2).nothingVisible)
-        assertEquals(
-            HomeLibraryState.Ready(0, bookCount = 2),
-            homeLibraryStateOf(
-                catalogueEmpty = false,
-                albumCount = 0,
-                refresh = RefreshStatus.DONE,
-                bookCount = 2
-            )
-        )
+    fun `a library is empty with no albums, songs or books, whatever the playlists`() {
+        assertTrue(HomeLibraryState.Ready(0, playlistCount = 2).isEmpty)
+        assertFalse(HomeLibraryState.Ready(0, songCount = 1).isEmpty)
+        assertFalse(HomeLibraryState.Ready(0, bookCount = 1).isEmpty)
     }
 }

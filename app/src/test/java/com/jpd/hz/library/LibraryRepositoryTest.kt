@@ -3,45 +3,54 @@ package com.jpd.hz.library
 import android.content.Context
 import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
-import com.jpd.hz.db.SyncDatabase
-import com.jpd.hz.db.SyncedTrack
-import com.jpd.hz.model.MediaItem
-import com.jpd.hz.model.NameId
+import com.jpd.hz.library.db.FileKind
+import com.jpd.hz.library.db.LibraryBook
+import com.jpd.hz.library.db.LibraryContents
+import com.jpd.hz.library.db.LibraryDatabase
+import com.jpd.hz.library.db.LibraryFile
+import com.jpd.hz.library.db.LibraryTrack
+import com.jpd.hz.library.scan.EmbeddedCovers
+import com.jpd.hz.library.scan.deriveLibrary
+import com.jpd.hz.tags.Normalising
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
+import java.io.File
 
-private const val PREFS = "settings"
-private const val SELECTED_ALBUMS = "selected_albums"
+private const val LIBRARY = "/lib"
+private const val ART_CACHE = "/cache"
+private const val ID_PREFIX = "id-"
+private const val EMBEDDED_ART = "f00d.jpg"
+private const val KURT = "Kurt Vile"
+private const val COURTNEY = "Courtney Barnett"
+private const val KIM = "Kim Gordon"
+private const val PLAYABLE_TRACK_COUNT = 1_000
 
-/** Runs the repository's SQL and Kotlin rules against an in-memory Room database. */
+/** Runs the repository's SQL and Kotlin rules against an in-memory library database. */
 @RunWith(RobolectricTestRunner::class)
 class LibraryRepositoryTest {
 
-    private val kurt = NameId(name = "Kurt Vile", id = "kurt")
-    private val kim = NameId(name = "Kim Gordon", id = "kim")
-    private val lucy = NameId(name = "Lucy Harrow", id = "lucy")
-    private val rock = NameId(name = "Indie Rock", id = "rock")
-
-    private lateinit var context: Context
-    private lateinit var database: SyncDatabase
+    private lateinit var database: LibraryDatabase
     private lateinit var repository: LibraryRepository
 
     @Before
     fun setUp() {
-        context = ApplicationProvider.getApplicationContext()
-        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().clear().commit()
-        database = Room.inMemoryDatabaseBuilder(context, SyncDatabase::class.java)
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        database = Room.inMemoryDatabaseBuilder(context, LibraryDatabase::class.java)
             .allowMainThreadQueries()
             .build()
-        repository = LibraryRepository(context, database.catalogueDao())
+        repository = LibraryRepository(
+            database.libraryDao(),
+            LibraryFiles({ File(LIBRARY) }, File(ART_CACHE))
+        )
     }
 
     @After
@@ -49,225 +58,334 @@ class LibraryRepositoryTest {
         database.close()
     }
 
-    private fun audio(
-        id: String,
-        albumId: String?,
-        title: String = "Track $id",
-        album: String? = albumId?.let { "Album $it" },
+    // A file's ID is its path with a prefix, so no test can pass by mistaking one for the other.
+    private fun idOf(path: String) = ID_PREFIX + path
+
+    private fun track(
+        path: String,
+        title: String = path.substringAfterLast('/').substringBeforeLast('.'),
+        album: String? = "Album",
+        albumArtists: List<String> = listOf(KURT),
+        artists: List<String> = albumArtists,
+        genres: List<String> = emptyList(),
+        disc: Int? = null,
+        number: Int? = null,
         year: Int? = null,
-        albumArtists: List<NameId> = emptyList(),
-        artists: List<NameId> = emptyList(),
-        genres: List<NameId> = emptyList(),
-        number: Int? = null
-    ) = MediaItem(
-        id = id,
-        name = title,
-        type = "Audio",
+        id: String = idOf(path)
+    ) = LibraryTrack(
+        trackId = id,
+        title = title,
+        artistNames = artists,
         album = album,
-        albumId = albumId,
-        trackNumber = number,
-        discNumber = 1,
+        albumArtistNames = albumArtists,
+        genreNames = genres,
         year = year,
-        artistItems = artists,
-        albumArtists = albumArtists,
-        genreItems = genres
+        discNumber = disc,
+        trackNumber = number,
+        durationMs = null,
+        codec = null,
+        bitDepth = null,
+        sampleRate = null,
+        bitrate = null,
+        size = 1,
+        albumId = Normalising.albumIdOf(albumArtists, album)
     )
 
-    /** Writes the catalogue, then marks [downloaded] as synced. */
-    private suspend fun write(items: List<MediaItem>, downloaded: List<String>) {
-        repository.writeCatalogue(items)
-        val albumIds = items.associate { it.id to it.albumId }
-        for (itemId in downloaded) {
-            database.syncDao().upsertTrack(
-                SyncedTrack(
-                    itemId = itemId,
-                    localPath = "/music/$itemId.flac",
-                    serverPath = null,
-                    albumId = albumIds[itemId],
-                    fileSize = 1L
+    private fun book(path: String) = LibraryBook(
+        bookId = idOf(path), title = "Book", author = null, durationMs = null, codec = null,
+        bitDepth = null, sampleRate = null, bitrate = null, size = 1, coverPath = null,
+        embeddedCover = null
+    )
+
+    /** Each file's path, by its ID, for files named with [idOf]. */
+    private fun pathsOf(tracks: List<LibraryTrack>, books: List<LibraryBook>) =
+        (tracks.map { it.trackId } + books.map { it.bookId })
+            .associateWith { it.removePrefix(ID_PREFIX) }
+
+    private fun fileOf(fileId: String, paths: Map<String, String>, kind: FileKind) = LibraryFile(
+        fileId = fileId,
+        path = paths.getValue(fileId),
+        size = 1,
+        modifiedSec = 0,
+        changedSec = 0,
+        inode = 0,
+        kind = kind
+    )
+
+    /**
+     * Writes what a scan of [tracks], [books] and [images] would, finding each file at its entry
+     * in [paths] and each embedded cover through [embedded].
+     */
+    private suspend fun scan(
+        tracks: List<LibraryTrack>,
+        books: List<LibraryBook> = emptyList(),
+        images: Map<String, String> = emptyMap(),
+        paths: Map<String, String> = pathsOf(tracks, books),
+        embedded: EmbeddedCovers = EmbeddedCovers { _, _ -> null }
+    ) {
+        val derived = deriveLibrary(tracks, books, paths, emptyList(), images, embedded)
+        val files = tracks.map { fileOf(it.trackId, paths, FileKind.TRACK) } +
+            books.map { fileOf(it.bookId, paths, FileKind.BOOK) }
+        database.scanDao().replaceLibrary(
+            LibraryContents(
+                files = files,
+                tracks = tracks,
+                albums = derived.albums,
+                artists = derived.artists,
+                albumArtists = derived.albumArtists,
+                trackArtists = derived.trackArtists,
+                genres = derived.genres,
+                trackGenres = derived.trackGenres,
+                playlists = derived.playlists,
+                playlistItems = derived.playlistItems,
+                books = derived.books,
+                chapters = emptyList()
+            )
+        )
+    }
+
+    private fun artistId(name: String) = Normalising.normalise(name)
+
+    private fun albumId(albumArtists: List<String>, album: String): String =
+        checkNotNull(Normalising.albumIdOf(albumArtists, album))
+
+    @Test
+    fun `album artists are listed A to Z with their album counts`() = runBlocking {
+        scan(
+            listOf(
+                track("Music/Kurt Vile/Wakin/01.mp3", album = "Wakin"),
+                track("Music/Kurt Vile/Smoke Ring/01.mp3", album = "Smoke Ring"),
+                track("Music/beck/Odelay/01.mp3", album = "Odelay", albumArtists = listOf("beck"))
+            )
+        )
+
+        val artists = repository.albumArtists().first()
+
+        assertEquals(listOf("beck", KURT), artists.map { it.name })
+        assertEquals(listOf(1, 2), artists.map { it.albumCount })
+    }
+
+    @Test
+    fun `a joint album appears under both its album artists`() = runBlocking {
+        val joint = listOf(KURT, COURTNEY)
+        val path = "Music/Joint/Lotta Sea Lice/01.mp3"
+        scan(listOf(track(path, album = "Lotta Sea Lice", albumArtists = joint)))
+        val jointId = albumId(joint, "Lotta Sea Lice")
+
+        val artists = repository.albumArtists().first()
+
+        assertEquals(listOf(COURTNEY, KURT), artists.map { it.name })
+        assertEquals(listOf(1, 1), artists.map { it.albumCount })
+        for (name in joint) {
+            val page = repository.artist(artistId(name)).first()!!
+            assertEquals(listOf(jointId), page.albums.map { it.albumId })
+        }
+    }
+
+    @Test
+    fun `an artist's songs include a featured track on another album`() = runBlocking {
+        val own = track("Music/Kurt Vile/Wakin/01.mp3", album = "Wakin", year = 2013)
+        val featured = track(
+            "Music/Kim Gordon/Collaborations/01.mp3",
+            album = "Collaborations",
+            albumArtists = listOf(KIM),
+            artists = listOf(KIM, KURT),
+            year = 2019
+        )
+        val unrelated = track(
+            "Music/Kim Gordon/Collaborations/02.mp3",
+            album = "Collaborations",
+            albumArtists = listOf(KIM),
+            year = 2019
+        )
+        scan(listOf(own, featured, unrelated))
+
+        val page = repository.artist(artistId(KURT)).first()!!
+
+        assertEquals(KURT, page.name)
+        assertEquals(listOf(albumId(listOf(KURT), "Wakin")), page.albums.map { it.albumId })
+        assertEquals(listOf(featured.trackId, own.trackId), page.songs.map { it.itemId })
+        assertTrue(page.showsAllSongs)
+    }
+
+    @Test
+    fun `a genre page lists the albums and songs in the genre`() = runBlocking {
+        val rockOnX = track("Music/A/X/01.mp3", album = "X", genres = listOf("Rock"), year = 2020)
+        val jazzOnX = track("Music/A/X/02.mp3", album = "X", genres = listOf("Jazz"), year = 2020)
+        val rockOnY = track("Music/A/Y/01.mp3", album = "Y", genres = listOf("Rock"), year = 2010)
+        val popOnZ = track("Music/A/Z/01.mp3", album = "Z", genres = listOf("Pop"), year = 2000)
+        scan(listOf(rockOnX, jazzOnX, rockOnY, popOnZ))
+
+        val page = repository.genre(artistId("Rock")).first()!!
+
+        assertEquals("Rock", page.name)
+        assertNull(page.photoPath)
+        assertEquals(listOf("X", "Y"), page.albums.map { it.name })
+        assertEquals(listOf(rockOnX.trackId, rockOnY.trackId), page.songs.map { it.itemId })
+    }
+
+    @Test
+    fun `a group page lists albums newest first and undated albums last`() = runBlocking {
+        scan(
+            listOf(
+                track("Music/Kurt Vile/Old/01.mp3", album = "Old", year = 1999),
+                track("Music/Kurt Vile/Undated/01.mp3", album = "Undated"),
+                track("Music/Kurt Vile/New/01.mp3", album = "New", year = 2020),
+                track("Music/Kurt Vile/Mid/01.mp3", album = "Mid", year = 2010)
+            )
+        )
+
+        val page = repository.artist(artistId(KURT)).first()!!
+
+        assertEquals(listOf("New", "Mid", "Old", "Undated"), page.albums.map { it.name })
+    }
+
+    @Test
+    fun `songs are A to Z ignoring case`() = runBlocking {
+        scan(
+            listOf(
+                track("Music/A/X/01.mp3", title = "cherry"),
+                track("Music/A/X/02.mp3", title = "Apple"),
+                track("Music/Loose/03.mp3", title = "banana", album = null)
+            )
+        )
+
+        val songs = repository.songs().first()
+
+        assertEquals(listOf("Apple", "banana", "cherry"), songs.map { it.title })
+        assertNull(songs[1].albumId)
+    }
+
+    @Test
+    fun `home counts albums, album artists, genres and songs`() = runBlocking {
+        scan(
+            listOf(
+                track("Music/Kurt Vile/Wakin/01.mp3", album = "Wakin", genres = listOf("Rock")),
+                track(
+                    "Music/Kurt Vile/Wakin/02.mp3",
+                    album = "Wakin",
+                    genres = listOf("Rock", "Folk")
+                ),
+                track(
+                    "Music/Kim Gordon/No Home Record/01.mp3",
+                    album = "No Home Record",
+                    albumArtists = listOf(KIM),
+                    genres = listOf("Noise")
+                ),
+                // No album, so its album artist has no album to list.
+                track("Music/Loose/01.mp3", album = null, albumArtists = listOf("Lucy Harrow"))
+            )
+        )
+
+        assertEquals(2, repository.albumCount().first())
+        assertEquals(2, repository.albumArtistCount().first())
+        assertEquals(3, repository.genreCount().first())
+        assertEquals(4, repository.songCount().first())
+    }
+
+    @Test
+    fun `the library is empty only with no tracks and no books`() = runBlocking {
+        assertTrue(repository.isLibraryEmpty().first())
+
+        scan(emptyList(), books = listOf(book("Audiobooks/Hurry/Hurry.m4b")))
+        assertFalse(repository.isLibraryEmpty().first())
+
+        scan(listOf(track("Music/A/X/01.mp3")))
+        assertFalse(repository.isLibraryEmpty().first())
+    }
+
+    @Test
+    fun `an album lists its tracks in disc and number order`() = runBlocking {
+        scan(
+            listOf(
+                track("Music/A/Album/CD2/01.mp3", disc = 2, number = 1),
+                track("Music/A/Album/CD1/03.mp3", number = 3),
+                track("Music/A/Album/CD1/02.mp3", disc = 1, number = 2),
+                track("Music/A/Album/CD1/01.mp3", disc = 1, number = 1)
+            )
+        )
+
+        val album = repository.album(albumId(listOf(KURT), "Album")).first()!!
+
+        assertEquals("Album", album.name)
+        assertEquals(KURT, album.albumArtist)
+        assertEquals(
+            listOf(
+                "Music/A/Album/CD1/01.mp3",
+                "Music/A/Album/CD1/02.mp3",
+                "Music/A/Album/CD1/03.mp3",
+                "Music/A/Album/CD2/01.mp3"
+            ).map(::idOf),
+            album.tracks.map { it.trackId }
+        )
+    }
+
+    @Test
+    fun `an unknown album is null`() = runBlocking {
+        scan(listOf(track("Music/A/X/01.mp3")))
+
+        assertNull(repository.album("nobody\u001Fnothing").first())
+    }
+
+    @Test
+    fun `playable tracks keep the order asked across a thousand IDs`() = runBlocking {
+        val tracks = (1..PLAYABLE_TRACK_COUNT).map { track("Music/A/X/%04d.mp3".format(it)) }
+        scan(tracks)
+        val missing = idOf("Music/A/X/missing.mp3")
+        val asked = tracks.map { it.trackId }.reversed().toMutableList()
+        asked.add(PLAYABLE_TRACK_COUNT / 2, missing)
+
+        val sources = repository.playableTracks(asked)
+
+        val expected = asked.map { id -> id.takeUnless { it == missing } }
+        assertEquals(expected, sources.map { it?.track?.trackId })
+        assertNull(sources[PLAYABLE_TRACK_COUNT / 2])
+    }
+
+    @Test
+    fun `a playable track has its file, album, first album artist and folder art`() =
+        runBlocking {
+            val joint = listOf(KURT, COURTNEY)
+            val path = "Music/Joint/Lotta Sea Lice/01 Over Everything.mp3"
+            scan(
+                listOf(track(path, album = "Lotta Sea Lice", albumArtists = joint)),
+                images = mapOf(
+                    "music/joint/lotta sea lice/folder.jpg" to
+                        "Music/Joint/Lotta Sea Lice/folder.jpg"
                 )
             )
-        }
-    }
 
-    private fun select(vararg albumIds: String) {
-        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
-            .putStringSet(SELECTED_ALBUMS, albumIds.toSet())
-            .commit()
-    }
+            val source = repository.playableTracks(listOf(idOf(path))).single()!!
 
-    private fun countRows(table: String): Int =
-        database.openHelper.readableDatabase.query("SELECT COUNT(*) FROM $table").use { cursor ->
-            cursor.moveToFirst()
-            cursor.getInt(0)
+            assertEquals("$LIBRARY/$path", source.localPath)
+            assertEquals("Lotta Sea Lice", source.albumName)
+            assertEquals("$KURT, $COURTNEY", source.albumArtist)
+            assertEquals(artistId(KURT), source.albumArtistId)
+            assertEquals("$LIBRARY/Music/Joint/Lotta Sea Lice/folder.jpg", source.artworkPath)
         }
 
     @Test
-    fun `an album artist is listed only with a visible album`() {
+    fun `a playable track is found by its file ID, with its album's embedded cover`() =
         runBlocking {
-            write(
-                listOf(
-                    audio("t1", "alb1", albumArtists = listOf(kurt)),
-                    audio("t2", "alb2", albumArtists = listOf(kim)),
-                    audio("t3", "alb3", albumArtists = listOf(lucy))
-                ),
-                downloaded = listOf("t1", "t3")
+            val path = "Music/Kim Gordon/No Home Record/01 Sketch Artist.mp3"
+            val fileId = "file-7"
+            val noHomeRecord = track(
+                path,
+                album = "No Home Record",
+                albumArtists = listOf(KIM),
+                id = fileId
             )
-            select("alb1", "alb2")
-            assertEquals(listOf("kurt"), repository.albumArtists().first().map { it.artistId })
-        }
-    }
+            scan(
+                listOf(noHomeRecord),
+                paths = mapOf(fileId to path),
+                embedded = EmbeddedCovers { _, _ -> EMBEDDED_ART }
+            )
 
-    @Test
-    fun `a joint album appears under both artists`() {
-        runBlocking {
-            write(listOf(audio("t1", "alb1", albumArtists = listOf(kurt, kim))), listOf("t1"))
-            val artists = repository.albumArtists().first()
-            assertEquals(listOf("kim", "kurt"), artists.map { it.artistId })
-            assertEquals(listOf(1, 1), artists.map { it.albumCount })
-            val kurtPage = checkNotNull(repository.artist("kurt").first())
-            val kimPage = checkNotNull(repository.artist("kim").first())
-            assertEquals(listOf("alb1"), kurtPage.albums.map { it.albumId })
-            assertEquals(listOf("alb1"), kimPage.albums.map { it.albumId })
-        }
-    }
+            val source = repository.playableTracks(listOf(fileId)).single()!!
 
-    @Test
-    fun `artist songs include a featured track elsewhere and skip tracks not downloaded`() {
-        runBlocking {
-            write(
-                listOf(
-                    audio("t1", "alb1", year = 2018, albumArtists = listOf(kurt), number = 1),
-                    audio("t2", "alb1", year = 2018, albumArtists = listOf(kurt), number = 2),
-                    audio(
-                        "t3", "alb2", year = 2020,
-                        albumArtists = listOf(kim), artists = listOf(kim, kurt)
-                    )
-                ),
-                downloaded = listOf("t1", "t3")
-            )
-            val page = checkNotNull(repository.artist("kurt").first())
-            assertEquals(listOf("t3", "t1"), page.songs.map { it.itemId })
-            assertEquals(listOf("alb1"), page.albums.map { it.albumId })
-            assertTrue(page.showsAllSongs)
+            assertEquals(fileId, source.track.trackId)
+            assertEquals("$LIBRARY/$path", source.localPath)
+            assertEquals("$ART_CACHE/$EMBEDDED_ART", source.artworkPath)
+            assertNull(repository.playableTracks(listOf(path)).single())
         }
-    }
-
-    @Test
-    fun `a genre lists the albums and songs tagged with it`() {
-        runBlocking {
-            write(
-                listOf(
-                    audio("t1", "alb1", year = 2018, genres = listOf(rock)),
-                    audio("t2", "alb1", year = 2018),
-                    audio("t3", "alb2", year = 2020, genres = listOf(rock)),
-                    audio("t4", null, title = "Loose", genres = listOf(rock))
-                ),
-                downloaded = listOf("t1", "t2", "t3", "t4")
-            )
-            val page = checkNotNull(repository.genre("rock").first())
-            assertEquals("Indie Rock", page.name)
-            assertEquals(listOf("alb2", "alb1"), page.albums.map { it.albumId })
-            assertEquals(listOf("t3", "t1", "t4"), page.songs.map { it.itemId })
-            val genre = repository.genres().first().single()
-            assertEquals(2, genre.albumCount)
-            assertEquals(3, genre.songCount)
-        }
-    }
-
-    @Test
-    fun `group pages put albums newest first and undated albums last`() {
-        runBlocking {
-            write(
-                listOf(
-                    audio("t1", "old", album = "Old", year = 2015, albumArtists = listOf(kurt)),
-                    audio("t2", "none", album = "Undated", albumArtists = listOf(kurt), number = 2),
-                    audio("t3", "none", album = "Undated", albumArtists = listOf(kurt), number = 1),
-                    audio("t4", "new", album = "New", year = 2020, albumArtists = listOf(kurt))
-                ),
-                downloaded = listOf("t1", "t2", "t3", "t4")
-            )
-            val page = checkNotNull(repository.artist("kurt").first())
-            assertEquals(listOf("new", "old", "none"), page.albums.map { it.albumId })
-            assertEquals(listOf("t4", "t1", "t3", "t2"), page.songs.map { it.itemId })
-        }
-    }
-
-    @Test
-    fun `songs are A to Z by title ignoring case`() {
-        runBlocking {
-            write(
-                listOf(
-                    audio("t1", "alb1", title = "beta"),
-                    audio("t2", "alb1", title = "Alpha"),
-                    audio("t3", null, title = "Gamma"),
-                    audio("t4", "alb2", title = "Delta")
-                ),
-                downloaded = listOf("t1", "t2", "t3", "t4")
-            )
-            select("alb1")
-            assertEquals(
-                listOf("Alpha", "beta", "Gamma"),
-                repository.songs().first().map { it.title }
-            )
-        }
-    }
-
-    @Test
-    fun `home counts follow the album selection`() {
-        runBlocking {
-            val jazz = NameId(name = "Jazz", id = "jazz")
-            write(
-                listOf(
-                    audio("t1", "alb1", albumArtists = listOf(kurt), genres = listOf(rock)),
-                    audio("t2", "alb2", albumArtists = listOf(kim), genres = listOf(jazz)),
-                    audio("t3", null, title = "Loose")
-                ),
-                downloaded = listOf("t1", "t2", "t3")
-            )
-            select("alb1")
-            assertEquals(1, repository.albumArtistCount().first())
-            assertEquals(1, repository.genreCount().first())
-            assertEquals(2, repository.songCount().first())
-        }
-    }
-
-    @Test
-    fun `playable tracks keep the order asked beyond 999 ids`() {
-        runBlocking {
-            val ids = (1..1_200).map { "t$it" }
-            write(ids.map { audio(it, "alb1") }, downloaded = ids)
-            val asked = ids.reversed() + "missing"
-            val sources = repository.playableTracks(asked)
-            assertEquals(asked.dropLast(1), sources.dropLast(1).map { it?.track?.itemId })
-            assertNull(sources.last())
-        }
-    }
-
-    @Test
-    fun `clearing the catalogue empties all seven tables`() {
-        runBlocking {
-            write(
-                listOf(
-                    audio(
-                        "t1", "alb1",
-                        albumArtists = listOf(kurt), artists = listOf(kim), genres = listOf(rock)
-                    )
-                ),
-                downloaded = listOf("t1")
-            )
-            val tables = listOf(
-                "catalogue_albums",
-                "catalogue_tracks",
-                "catalogue_artists",
-                "catalogue_album_artists",
-                "catalogue_track_artists",
-                "catalogue_genres",
-                "catalogue_track_genres"
-            )
-            assertTrue(tables.all { countRows(it) > 0 })
-            repository.clearCatalogue()
-            assertEquals(tables.map { 0 }, tables.map { countRows(it) })
-        }
-    }
 }

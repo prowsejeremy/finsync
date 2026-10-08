@@ -4,7 +4,7 @@ import com.jpd.hz.library.PlayableSource
 
 private const val ARTIST_SEPARATOR = ", "
 
-/** Everything needed to play and describe one downloaded track. */
+/** Everything needed to play and describe one track. */
 data class ResolvedTrack(
     val itemId: String,
     val path: String,
@@ -26,22 +26,22 @@ data class ResolvedTrack(
 )
 
 /**
- * Null when the track has no catalogue or sync row ([source] is null) or its file is gone
- * ([fileLength] returns null), so playback skips it. The size comes from the file itself.
+ * Null when the library has no such track ([source] is null) or its file is gone ([fileLength]
+ * returns null), so playback skips it. The size comes from the file itself.
  */
 fun resolveTrack(source: PlayableSource?, fileLength: (String) -> Long?): ResolvedTrack? {
     if (source == null) return null
     val size = fileLength(source.localPath) ?: return null
     val track = source.track
     return ResolvedTrack(
-        itemId = track.itemId,
+        itemId = track.trackId,
         path = source.localPath,
-        title = track.name,
+        title = track.title,
         artists = track.artistNames.takeIf { it.isNotEmpty() }?.joinToString(ARTIST_SEPARATOR)
-            ?: track.albumArtist,
+            ?: source.albumArtist,
         albumTitle = source.albumName,
         albumId = track.albumId,
-        albumArtist = track.albumArtist,
+        albumArtist = source.albumArtist,
         albumArtistId = source.albumArtistId,
         artworkPath = source.artworkPath,
         trackNumber = track.trackNumber,

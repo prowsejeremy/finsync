@@ -1,10 +1,10 @@
 package com.jpd.hz.library
 
 import com.jpd.hz.db.CatalogueBook
-import com.jpd.hz.db.CatalogueBookChapter
 import com.jpd.hz.db.CataloguePlaylist
 import com.jpd.hz.db.CataloguePlaylistItem
-import com.jpd.hz.db.PlaylistEntryRow
+import com.jpd.hz.library.db.LibraryPlaylist
+import com.jpd.hz.library.db.PlaylistEntryRow
 import com.jpd.hz.model.ServerCatalogue
 import com.jpd.hz.model.ServerPlaylist
 
@@ -14,12 +14,11 @@ private val PLAYLIST_ORDER: Comparator<PlaylistSummary> =
     compareBy<PlaylistSummary, String>(String.CASE_INSENSITIVE_ORDER) { it.name }
         .thenBy { it.playlistId }
 
-/** The playlist and book rows of one catalogue write (books arrive in M2). */
+/** The playlist and book rows of one catalogue write, which sync plans from. */
 data class PlaylistBookRows(
     val playlists: List<CataloguePlaylist>,
     val playlistItems: List<CataloguePlaylistItem>,
-    val books: List<CatalogueBook> = emptyList(),
-    val chapters: List<CatalogueBookChapter> = emptyList()
+    val books: List<CatalogueBook> = emptyList()
 )
 
 /**
@@ -63,34 +62,29 @@ fun keepFailedParts(
             previous.playlists.filter { it.playlistId in keptPlaylistIds },
         playlistItems = fresh.playlistItems.filterNot { it.playlistId in keptPlaylistIds } +
             previous.playlistItems.filter { it.playlistId in keptPlaylistIds },
-        books = if (catalogue.booksFailed) previous.books else fresh.books,
-        chapters = if (catalogue.booksFailed) previous.chapters else fresh.chapters
+        books = if (catalogue.booksFailed) previous.books else fresh.books
     )
 }
 
 /**
- * Playlists: the selected ones with at least one downloaded song, A–Z ignoring case (spec).
- * [coverPath] gets each listed playlist's first downloaded entry, for the fallback cover.
+ * Playlists: those with at least one song in the library, A–Z ignoring case. A playlist's cover is
+ * the image beside its file, else its first song's album art.
  */
 fun playlistSummaries(
-    playlists: List<CataloguePlaylist>,
-    entries: List<PlaylistEntryRow>,
-    selectedIds: Set<String>,
-    coverPath: (playlistId: String, firstEntry: PlaylistEntryRow) -> String?
+    playlists: List<LibraryPlaylist>,
+    entries: List<PlaylistEntryRow>
 ): List<PlaylistSummary> {
     val entriesByPlaylist = entries.groupBy { it.playlistId }
     return playlists
-        .filter { it.playlistId in selectedIds }
         .mapNotNull { playlist ->
-            val downloaded = entriesByPlaylist[playlist.playlistId].orEmpty()
-                .sortedBy { it.position }
-            if (downloaded.isEmpty()) return@mapNotNull null
+            val songs = entriesByPlaylist[playlist.playlistId].orEmpty().sortedBy { it.position }
+            if (songs.isEmpty()) return@mapNotNull null
             PlaylistSummary(
                 playlistId = playlist.playlistId,
                 name = playlist.name,
-                songCount = downloaded.size,
-                durationsMs = downloaded.map { it.durationMs },
-                coverPath = coverPath(playlist.playlistId, downloaded.first())
+                songCount = songs.size,
+                durationsMs = songs.map { it.durationMs },
+                coverPath = playlist.coverPath ?: songs.first().artworkPath
             )
         }
         .sortedWith(PLAYLIST_ORDER)

@@ -36,6 +36,8 @@ abstract class LibraryDatabase : RoomDatabase() {
 
     abstract fun scanDao(): LibraryScanDao
 
+    abstract fun libraryDao(): LibraryDao
+
     companion object {
         @Volatile
         private var INSTANCE: LibraryDatabase? = null

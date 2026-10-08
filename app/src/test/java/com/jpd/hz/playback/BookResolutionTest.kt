@@ -1,8 +1,8 @@
 package com.jpd.hz.playback
 
-import com.jpd.hz.db.CatalogueBook
 import com.jpd.hz.library.Chapter
 import com.jpd.hz.library.PlayableBook
+import com.jpd.hz.library.db.LibraryBook
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test
@@ -10,16 +10,18 @@ import org.junit.Test
 class BookResolutionTest {
 
     private val source = PlayableBook(
-        book = CatalogueBook(
+        book = LibraryBook(
             bookId = "b1",
-            name = "Dune",
+            title = "Dune",
             author = "Frank Herbert",
             durationMs = 3_600_000L,
             codec = "aac",
             bitDepth = null,
             sampleRate = 44_100,
             bitrate = 64_000,
-            size = 999L
+            size = 999L,
+            coverPath = "/books/folder.jpg",
+            embeddedCover = null
         ),
         localPath = "/books/dune.m4b",
         coverPath = "/books/folder.jpg",

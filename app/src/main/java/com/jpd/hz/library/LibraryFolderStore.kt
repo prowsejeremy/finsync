@@ -54,4 +54,14 @@ class LibraryFolderStore(context: Context) {
     }
 
     fun appDefault(): File = File(appContext.getExternalFilesDir(null), DEFAULT_FOLDER)
+
+    /** The folder as screens name it: "Media/hz" rather than its whole path. */
+    fun displayPath(): String =
+        displayPathOf(folder().path, Environment.getExternalStorageDirectory().path)
+}
+
+/** [path] inside [storageRoot] loses the root's part; any other path stays whole. */
+internal fun displayPathOf(path: String, storageRoot: String): String {
+    val root = storageRoot.trimEnd('/')
+    return if (path.startsWith("$root/")) path.substring(root.length + 1) else path
 }

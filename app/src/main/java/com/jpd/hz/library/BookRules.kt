@@ -1,8 +1,8 @@
 package com.jpd.hz.library
 
-import com.jpd.hz.db.BookProgress
-import com.jpd.hz.db.CatalogueBookChapter
-import com.jpd.hz.db.DownloadedBookRow
+import com.jpd.hz.library.db.BookProgress
+import com.jpd.hz.library.db.LibraryBook
+import com.jpd.hz.library.db.LibraryBookChapter
 
 private val TITLE_ORDER: Comparator<BookSummary> =
     compareBy<BookSummary, String>(String.CASE_INSENSITIVE_ORDER) { it.name }
@@ -44,26 +44,23 @@ fun orderedBooks(books: List<BookSummary>): List<BookSummary> {
     return inProgress.sortedByDescending { it.lastPlayedAt ?: 0L } + rest.sortedWith(TITLE_ORDER)
 }
 
-/** Audio Books: the selected, downloaded books with their progress (decision 6). */
+/** Audio Books: every book with its progress. */
 fun bookSummaries(
-    books: List<DownloadedBookRow>,
-    chapters: List<CatalogueBookChapter>,
-    progress: List<BookProgress>,
-    selectedIds: Set<String>,
-    coverPath: (DownloadedBookRow) -> String?
+    books: List<LibraryBook>,
+    chapters: List<LibraryBookChapter>,
+    progress: List<BookProgress>
 ): List<BookSummary> {
     val startsByBook = chapters.groupBy({ it.bookId }, { it.startMs })
     val progressByBook = progress.associateBy { it.bookId }
-    val summaries = books.filter { it.book.bookId in selectedIds }.map { row ->
-        val book = row.book
+    val summaries = books.map { book ->
         val saved = progressByBook[book.bookId]
         val durationMs = book.durationMs ?: 0L
         BookSummary(
             bookId = book.bookId,
-            name = book.name,
+            name = book.title,
             author = book.author,
             durationMs = durationMs,
-            coverPath = coverPath(row),
+            coverPath = book.coverPath,
             status = bookStatusOf(saved, durationMs, startsByBook[book.bookId].orEmpty()),
             lastPlayedAt = saved?.lastPlayedAt
         )
@@ -71,22 +68,20 @@ fun bookSummaries(
     return orderedBooks(summaries)
 }
 
-/** The book page's data, with the whole-book chapter when the server sent none. */
+/** The book page's data, with the whole-book chapter when the file has none. */
 fun bookDetailOf(
-    row: DownloadedBookRow,
-    chapters: List<CatalogueBookChapter>,
-    progress: BookProgress?,
-    coverPath: String?
+    book: LibraryBook,
+    chapters: List<LibraryBookChapter>,
+    progress: BookProgress?
 ): BookDetail {
-    val book = row.book
     val durationMs = book.durationMs ?: 0L
-    val bookChapters = chaptersOrWhole(chapters.map { Chapter(it.name, it.startMs) }, book.name)
+    val bookChapters = chaptersOrWhole(chapters.map { Chapter(it.name, it.startMs) }, book.title)
     return BookDetail(
         bookId = book.bookId,
-        name = book.name,
+        name = book.title,
         author = book.author,
         durationMs = durationMs,
-        coverPath = coverPath,
+        coverPath = book.coverPath,
         chapters = bookChapters,
         status = bookStatusOf(progress, durationMs, bookChapters.map { it.startMs })
     )

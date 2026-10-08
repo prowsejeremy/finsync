@@ -1,19 +1,11 @@
 package com.jpd.hz.library
 
 import android.content.Context
-import android.util.Log
-import com.jpd.hz.auth.JellyfinRepository
-import com.jpd.hz.auth.Result
-import com.jpd.hz.db.AlbumSummaryRow
-import com.jpd.hz.db.CatalogueDao
-import com.jpd.hz.db.SongTrackRow
-import com.jpd.hz.db.SyncDatabase
-import com.jpd.hz.model.MediaItem
-import com.jpd.hz.model.ServerCatalogue
-import com.jpd.hz.model.ServerPlaylist
+import com.jpd.hz.library.db.AlbumRow
+import com.jpd.hz.library.db.LibraryDao
+import com.jpd.hz.library.db.LibraryDatabase
+import com.jpd.hz.library.db.SongTrackRow
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.currentCoroutineContext
-import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.conflate
@@ -21,325 +13,178 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.withContext
-import java.io.File
 
-private const val TAG = "LibraryRepository"
-private const val SETTINGS_PREFS = "settings"
-private const val SELECTED_ALBUMS_KEY = "selected_albums"
 private const val ARTIST_SEPARATOR = ", "
 // SQLite before 3.32 (Android before 11) allows 999 bound parameters in one statement.
 private const val MAX_IDS_PER_QUERY = 900
 
 /**
- * The one place screens and the playback service read library data from (overview rule 2).
- * Queries are Room Flows, so screens update when a sync writes. SQL does the joins; Kotlin
- * applies the album selection, which lives in SharedPreferences.
+ * The one place screens and the playback service read music from (overview rule 2). Queries are
+ * Room Flows over the scanner's library, so screens update when a scan writes. Everything in the
+ * Library folder shows: the adapters' selections only drive their syncs (spec "Repositories").
  */
 class LibraryRepository internal constructor(
-    context: Context,
-    private val catalogueDao: CatalogueDao
+    private val dao: LibraryDao,
+    private val files: LibraryFiles
 ) {
 
     constructor(context: Context) : this(
-        context,
-        SyncDatabase.getInstance(context.applicationContext).catalogueDao()
+        LibraryDatabase.getInstance(context.applicationContext).libraryDao(),
+        LibraryFiles.of(context)
     )
 
-    private val appContext = context.applicationContext
-    // The playlist selection widens the album selection (spec "Visibility").
-    private val selections = SyncSelections(appContext)
-
-    /** Visible albums by name: at least one downloaded track, and included in the selection. */
+    /** Every album, by name. */
     fun albums(): Flow<List<AlbumSummary>> =
-        catalogueDao.observeAlbumSummaries()
-            .conflate()
-            .map { rows ->
-                // Read on each emission, so a selection change shows after the next DB change.
-                val selectedIds = selectedAlbumIds()
-                rows.filter { isAlbumSelected(it.albumId, selectedIds) }.map(::albumSummaryOf)
-            }
+        dao.observeAlbums()
+            .map { rows -> rows.map(::albumSummaryOf) }
             .distinctUntilChanged()
             .flowOn(Dispatchers.IO)
 
     fun albumCount(): Flow<Int> = albums().map { it.size }.distinctUntilChanged()
 
-    /** Artists who are album artist of at least one visible album, A–Z ignoring case. */
+    /** Artists who are album artist of at least one album, A–Z ignoring case. */
     fun albumArtists(): Flow<List<ArtistSummary>> =
-        catalogueDao.observeAlbumArtistCredits()
+        dao.observeAlbumArtistCredits()
             .conflate()
             .map { credits ->
-                albumArtistSummaries(credits, selectedAlbumIds()) { artistId ->
-                    ArtistPhotos.pathIfExists(appContext, artistId)
-                }
+                albumArtistSummaries(credits.map { it.copy(photoPath = files.image(it.photoPath)) })
             }
             .distinctUntilChanged()
             .flowOn(Dispatchers.IO)
 
-    // Home's count skips the photo file checks.
-    fun albumArtistCount(): Flow<Int> =
-        catalogueDao.observeAlbumArtistCredits()
-            .conflate()
-            .map { credits -> albumArtistSummaries(credits, selectedAlbumIds()) { null }.size }
-            .distinctUntilChanged()
-            .flowOn(Dispatchers.IO)
+    fun albumArtistCount(): Flow<Int> = albumArtists().map { it.size }.distinctUntilChanged()
 
-    /** Genres with at least one visible track, A–Z ignoring case. */
+    /** Genres with at least one track, A–Z ignoring case. */
     fun genres(): Flow<List<GenreSummary>> =
-        catalogueDao.observeGenreTags()
+        dao.observeGenreTags()
             .conflate()
-            .map { tags -> genreSummaries(tags, selectedAlbumIds()) }
+            .map(::genreSummaries)
             .distinctUntilChanged()
             .flowOn(Dispatchers.IO)
 
     fun genreCount(): Flow<Int> = genres().map { it.size }.distinctUntilChanged()
 
-    /** Every visible track, A–Z by title ignoring case. */
+    /** Every track, A–Z by title ignoring case. */
     fun songs(): Flow<List<SongRow>> =
-        catalogueDao.observeSongs()
-            .conflate()
-            .map { rows -> visibleSongs(rows, selectedAlbumIds()) }
+        dao.observeSongs()
+            .map { rows -> rows.map { songRowOf(it, files) } }
             .distinctUntilChanged()
             .flowOn(Dispatchers.IO)
 
-    // Home's count reads only album IDs, not whole tracks.
-    fun songCount(): Flow<Int> =
-        catalogueDao.observeDownloadedTrackAlbumIds()
-            .conflate()
-            .map { albumIds ->
-                val selectedIds = selectedAlbumIds()
-                albumIds.count { isTrackVisible(it, selectedIds) }
-            }
-            .distinctUntilChanged()
-            .flowOn(Dispatchers.IO)
+    fun songCount(): Flow<Int> = dao.observeTrackCount().distinctUntilChanged()
 
-    fun isCatalogueEmpty(): Flow<Boolean> =
-        catalogueDao.observeTrackCount().map { it == 0 }.distinctUntilChanged()
+    /** No tracks and no books: Home shows the scan's progress or the empty state. */
+    fun isLibraryEmpty(): Flow<Boolean> =
+        dao.observeItemCount().map { it == 0 }.distinctUntilChanged()
 
-    /** The album and its downloaded tracks, or null once none of it is downloaded. */
+    /** The album and its tracks, or null once it has none. */
     fun album(albumId: String): Flow<AlbumDetail?> =
-        combine(
-            catalogueDao.observeAlbumHeader(albumId),
-            catalogueDao.observeDownloadedTracks(albumId)
-        ) { header, rows ->
-            if (header == null || rows.isEmpty()) {
+        combine(dao.observeAlbum(albumId), dao.observeAlbumTracks(albumId)) { album, tracks ->
+            if (album == null || tracks.isEmpty()) {
                 null
             } else {
                 AlbumDetail(
-                    albumId = header.albumId,
-                    name = header.name,
-                    albumArtist = header.albumArtist,
-                    year = header.year,
-                    artworkPath = chooseArtwork(
-                        header.storedArtworkPath, rows.first().localPath, ::fileExists
-                    ),
-                    tracks = rows.map { it.track }
+                    albumId = album.albumId,
+                    name = album.name,
+                    albumArtist = album.albumArtist,
+                    year = album.year,
+                    artworkPath = files.art(album.artworkPath, album.embeddedArt),
+                    tracks = tracks
                 )
             }
         }.flowOn(Dispatchers.IO)
 
     /**
-     * The artist's page: visible albums where they're an album artist, and All songs, which adds
-     * visible tracks elsewhere that credit them. Null once none of it is visible.
+     * The artist's page: albums where they're an album artist, and All songs, which adds tracks
+     * elsewhere that credit them. Null once they have no songs.
      */
     fun artist(artistId: String): Flow<GroupDetail?> =
         combine(
-            catalogueDao.observeArtistName(artistId),
-            catalogueDao.observeArtistAlbums(artistId),
-            catalogueDao.observeArtistSongs(artistId)
-        ) { name, albumRows, songRows ->
-            val photoPath = ArtistPhotos.pathIfExists(appContext, artistId)
-            groupOf(artistId, name, photoPath, albumRows, songRows)
+            dao.observeArtist(artistId),
+            dao.observeArtistAlbums(artistId),
+            dao.observeArtistSongs(artistId)
+        ) { artist, albumRows, songRows ->
+            groupDetailOf(
+                artistId,
+                artist?.name,
+                files.image(artist?.photoPath),
+                albumRows.map(::albumSummaryOf),
+                songRows.map { songRowOf(it, files) }
+            )
         }
             .conflate()
             .distinctUntilChanged()
             .flowOn(Dispatchers.IO)
 
-    /** The genre's page: albums with a visible track in the genre, and those tracks. */
+    /** The genre's page: albums with a track in the genre, and those tracks. */
     fun genre(genreId: String): Flow<GroupDetail?> =
         combine(
-            catalogueDao.observeGenreName(genreId),
-            catalogueDao.observeGenreAlbums(genreId),
-            catalogueDao.observeGenreSongs(genreId)
-        ) { name, albumRows, songRows -> groupOf(genreId, name, null, albumRows, songRows) }
+            dao.observeGenreName(genreId),
+            dao.observeGenreAlbums(genreId),
+            dao.observeGenreSongs(genreId)
+        ) { name, albumRows, songRows ->
+            groupDetailOf(
+                genreId,
+                name,
+                null,
+                albumRows.map(::albumSummaryOf),
+                songRows.map { songRowOf(it, files) }
+            )
+        }
             .conflate()
             .distinctUntilChanged()
             .flowOn(Dispatchers.IO)
 
     /**
-     * The catalogue and sync rows the resolver needs, one per ID in the order asked, null where a
-     * track isn't downloaded. A long queue takes a few chunked queries, not one per track.
+     * What the resolver needs, one per ID in the order asked, null where the library has no such
+     * track. A long queue takes a few chunked queries, not one per track. Files are found in
+     * today's Library folder (A1), so a moved Library folder is followed at once.
      */
-    suspend fun playableTracks(itemIds: List<String>): List<PlayableSource?> =
+    suspend fun playableTracks(trackIds: List<String>): List<PlayableSource?> =
         withContext(Dispatchers.IO) {
-            val rows = itemIds.distinct()
+            val rows = trackIds.distinct()
                 .chunked(MAX_IDS_PER_QUERY)
-                .flatMap { chunk -> catalogueDao.playableTracks(chunk) }
-                .associateBy { it.track.itemId }
-            val artwork = AlbumArtworkCache(::fileExists)
-            itemIds.map { id ->
+                .flatMap { chunk -> dao.playableTracks(chunk) }
+                .associateBy { it.track.trackId }
+            trackIds.map { id ->
                 rows[id]?.let { row ->
                     PlayableSource(
                         track = row.track,
-                        localPath = row.localPath,
+                        localPath = files.file(row.path).path,
                         albumName = row.albumName,
+                        albumArtist = row.albumArtist,
                         albumArtistId = row.albumArtistId,
-                        artworkPath = artwork.artworkFor(
-                            row.track.albumId, row.storedArtworkPath, row.localPath
-                        )
+                        artworkPath = files.art(row.artworkPath, row.embeddedArt)
                     )
                 }
             }
         }
 
-    /** Sync's artist photos: album artists of albums with a downloaded track, any selection. */
-    suspend fun downloadedAlbumArtistIds(): Set<String> =
-        catalogueDao.downloadedAlbumArtistIds().toSet()
-
-    /** Fetches the server's catalogue and replaces it, without downloading. */
-    suspend fun refreshCatalogue(): Boolean {
-        val jellyfin = JellyfinRepository(appContext)
-        val config = jellyfin.getSavedConfig() ?: return false
-        val result = jellyfin.getServerCatalogue(config)
-        // getServerCatalogue turns cancellation into Result.Error (known item 10), so rethrow.
-        currentCoroutineContext().ensureActive()
-        return when (result) {
-            is Result.Success -> {
-                writeCatalogue(result.data)
-                true
-            }
-            is Result.Error -> {
-                Log.w(TAG, "Catalogue refresh failed: ${result.message}")
-                false
-            }
-        }
-    }
-
-    /**
-     * Replaces every catalogue table with one fetch, in one transaction. A part whose fetch
-     * failed keeps its previous rows (decision 3). Returns the playlist and book rows written,
-     * which sync plans from.
-     */
-    suspend fun writeCatalogue(catalogue: ServerCatalogue): PlaylistBookRows {
-        // Read just before the swap; a refresh racing a sync writes the same server data.
-        val previous = PlaylistBookRows(
-            playlists = catalogueDao.allPlaylists(),
-            playlistItems = catalogueDao.allPlaylistItems(),
-            books = catalogueDao.allBooks(),
-            chapters = catalogueDao.allBookChapters()
-        )
-        val fresh = withContext(Dispatchers.Default) {
-            freshRows(catalogue.playlists, catalogue.books)
-        }
-        val rows = keepFailedParts(fresh, previous, catalogue)
-        writeRows(catalogue.audio, rows)
-        return rows
-    }
-
-    /** Writes the given items, playlists and books, none failed: for tests, 3a's included. */
-    suspend fun writeCatalogue(
-        items: List<MediaItem>,
-        playlists: List<ServerPlaylist> = emptyList(),
-        books: List<MediaItem> = emptyList()
-    ) {
-        writeRows(items, freshRows(playlists, books))
-    }
-
-    private fun freshRows(
-        playlists: List<ServerPlaylist>,
-        books: List<MediaItem>
-    ): PlaylistBookRows {
-        val bookRows = bookRowsFrom(books)
-        return playlistRowsFrom(playlists)
-            .copy(books = bookRows.books, chapters = bookRows.chapters)
-    }
-
-    private suspend fun writeRows(items: List<MediaItem>, rows: PlaylistBookRows) {
-        val catalogue = withContext(Dispatchers.Default) { catalogueFrom(items) }
-        catalogueDao.replaceCatalogue(
-            catalogue.albums,
-            catalogue.tracks,
-            catalogue.artists,
-            catalogue.albumArtists,
-            catalogue.trackArtists,
-            catalogue.genres,
-            catalogue.trackGenres,
-            rows.playlists,
-            rows.playlistItems,
-            rows.books,
-            rows.chapters
-        )
-    }
-
-    suspend fun clearCatalogue() = catalogueDao.clearCatalogue()
-
-    /** Logout: another server's artists must never show. */
-    suspend fun deleteArtistPhotos() = withContext(Dispatchers.IO) {
-        ArtistPhotos.deleteAll(appContext)
-    }
-
-    private suspend fun groupOf(
-        id: String,
-        name: String?,
-        photoPath: String?,
-        albumRows: List<AlbumSummaryRow>,
-        songRows: List<SongTrackRow>
-    ): GroupDetail? {
-        val selectedIds = selectedAlbumIds()
-        val albums = albumRows
-            .filter { isAlbumSelected(it.albumId, selectedIds) }
-            .map(::albumSummaryOf)
-        return groupDetailOf(id, name, photoPath, albums, visibleSongs(songRows, selectedIds))
-    }
-
-    private fun visibleSongs(rows: List<SongTrackRow>, selectedIds: Set<String>): List<SongRow> {
-        val artwork = AlbumArtworkCache(::fileExists)
-        return rows.filter { isTrackVisible(it.track.albumId, selectedIds) }
-            .map { songRowOf(it, artwork) }
-    }
-
-    private fun albumSummaryOf(row: AlbumSummaryRow) = AlbumSummary(
+    private fun albumSummaryOf(row: AlbumRow) = AlbumSummary(
         albumId = row.albumId,
         name = row.name,
         albumArtist = row.albumArtist,
         year = row.year,
-        downloadedTrackCount = row.downloadedCount,
-        artworkPath = chooseArtwork(row.storedArtworkPath, row.firstTrackPath, ::fileExists)
+        downloadedTrackCount = row.trackCount,
+        artworkPath = files.art(row.artworkPath, row.embeddedArt)
     )
-
-    /**
-     * The album selection browse screens apply: the saved one, plus albums holding a downloaded
-     * entry of a selected playlist (spec "Visibility"). Read on each emission, as before.
-     */
-    private suspend fun selectedAlbumIds(): Set<String> {
-        val saved = appContext.getSharedPreferences(SETTINGS_PREFS, Context.MODE_PRIVATE)
-            .getStringSet(SELECTED_ALBUMS_KEY, emptySet()) ?: emptySet()
-        if (selectsEveryAlbum(saved)) return saved
-        val playlistIds = selections.playlistIds()
-        if (playlistIds.isEmpty()) return saved
-        val playlistAlbumIds = catalogueDao.playlistAlbums()
-            .filter { it.playlistId in playlistIds }
-            .mapTo(HashSet()) { it.albumId }
-        return visibleAlbumSelection(saved, playlistAlbumIds)
-    }
-
-    private fun fileExists(path: String): Boolean = File(path).exists()
 }
 
-/** A downloaded track as a Songs-style row: Songs, All songs and a playlist's page share it. */
-internal fun songRowOf(row: SongTrackRow, artwork: AlbumArtworkCache): SongRow {
+/** A track as a Songs-style row: Songs, All songs and a playlist's page share it. */
+internal fun songRowOf(row: SongTrackRow, files: LibraryFiles): SongRow {
     val track = row.track
     return SongRow(
-        itemId = track.itemId,
-        title = track.name,
-        artists = track.artistNames.takeIf { it.isNotEmpty() }
-            ?.joinToString(ARTIST_SEPARATOR)
-            ?: track.albumArtist,
+        itemId = track.trackId,
+        title = track.title,
+        artists = (track.artistNames.ifEmpty { track.albumArtistNames })
+            .takeIf { it.isNotEmpty() }
+            ?.joinToString(ARTIST_SEPARATOR),
         albumId = track.albumId,
         albumName = row.albumName,
         albumYear = row.albumYear,
         discNumber = track.discNumber,
         trackNumber = track.trackNumber,
         durationMs = track.durationMs,
-        artworkPath = artwork.artworkFor(track.albumId, row.storedArtworkPath, row.localPath)
+        artworkPath = files.art(row.artworkPath, row.embeddedArt)
     )
 }

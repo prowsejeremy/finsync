@@ -4,10 +4,12 @@ import android.content.ContentValues
 import android.content.Context
 import android.database.sqlite.SQLiteDatabase
 import androidx.room.Room
+import androidx.room.migration.Migration
 import androidx.test.core.app.ApplicationProvider
 import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Before
 import org.junit.Test
@@ -43,10 +45,32 @@ private val VERSION_7_SCHEMA = listOf(
     "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '83eb121a6bbfd6dbf7899d016f98d94f')"
 )
 
+private const val SYNCED_AT_COLUMN = "`syncedAt` INTEGER NOT NULL, "
+
+// Version 8 only adds synced_tracks.tagFingerprint, where Room's generated createAllTables puts
+// it: after syncedAt. Room rewrites the identity hash after migrating, so v7's hash can stay.
+private val VERSION_8_SCHEMA = VERSION_7_SCHEMA.map { sql ->
+    sql.replace(SYNCED_AT_COLUMN, "$SYNCED_AT_COLUMN`tagFingerprint` TEXT, ")
+}
+
+private val TABLES_DROPPED_IN_9 = setOf(
+    "catalogue_albums",
+    "catalogue_artists",
+    "catalogue_album_artists",
+    "catalogue_track_artists",
+    "catalogue_genres",
+    "catalogue_track_genres",
+    "catalogue_book_chapters",
+    "book_progress"
+)
+
+private const val LOCAL_PATH = "/sync/Music/Daft Punk/Discovery/01 One More Time.flac"
+
 /**
- * SyncDatabase v7 → v8 (T2). The schema isn't exported, so Room's MigrationTestHelper can't
- * build version 7. This test builds a real version 7 file by hand and opens it through Room with
- * only the migration: no destructive fallback, so a missing or wrong migration throws.
+ * SyncDatabase v7 → v8 (T2) and v8 → v9 (T3). The schema isn't exported, so Room's
+ * MigrationTestHelper can't build old versions. These tests build real version 7 and 8 files by
+ * hand and open them through Room with only the migrations: no destructive fallback, so a missing
+ * or wrong migration throws.
  */
 @RunWith(RobolectricTestRunner::class)
 class SyncDatabaseMigrationTest {
@@ -64,54 +88,102 @@ class SyncDatabaseMigrationTest {
         context.deleteDatabase(DATABASE)
     }
 
-    private fun createVersion7() {
+    /** Builds a real file at [version] from [schema], holding what [rows] inserts. */
+    private fun createDatabase(schema: List<String>, version: Int, rows: (SQLiteDatabase) -> Unit) {
         val file = context.getDatabasePath(DATABASE)
         file.parentFile?.mkdirs()
         val db = SQLiteDatabase.openOrCreateDatabase(file, null)
         try {
-            VERSION_7_SCHEMA.forEach(db::execSQL)
-            db.insertOrThrow("synced_tracks", null, ContentValues().apply {
-                put("itemId", "t1")
-                put("localPath", "/sync/Music/Daft Punk/Discovery/01 One More Time.flac")
-                put("serverPath", "/srv/music/01 One More Time.flac")
-                put("albumId", "alb1")
-                put("fileSize", 1234L)
-                put("syncedAt", 99L)
-            })
-            db.insertOrThrow("book_progress", null, ContentValues().apply {
-                put("bookId", "b1")
-                put("positionMs", 5_000L)
-                put("finished", 0)
-                put("lastPlayedAt", 42L)
-            })
-            db.version = 7
+            schema.forEach(db::execSQL)
+            rows(db)
+            db.version = version
         } finally {
             db.close()
         }
     }
 
-    @Test
-    fun `version 7 opens as version 8 and keeps its rows and book progress`() {
-        createVersion7()
-        val database = Room.databaseBuilder(context, SyncDatabase::class.java, DATABASE)
-            .addMigrations(MIGRATION_7_8)
+    private fun syncedTrackValues() = ContentValues().apply {
+        put("itemId", "t1")
+        put("localPath", LOCAL_PATH)
+        put("serverPath", "/srv/music/01 One More Time.flac")
+        put("albumId", "alb1")
+        put("fileSize", 1234L)
+        put("syncedAt", 99L)
+    }
+
+    private fun bookProgressValues() = ContentValues().apply {
+        put("bookId", "b1")
+        put("positionMs", 5_000L)
+        put("finished", 0)
+        put("lastPlayedAt", 42L)
+    }
+
+    private fun createVersion7() = createDatabase(VERSION_7_SCHEMA, 7) { db ->
+        db.insertOrThrow("synced_tracks", null, syncedTrackValues())
+        db.insertOrThrow("book_progress", null, bookProgressValues())
+    }
+
+    private fun createVersion8() = createDatabase(VERSION_8_SCHEMA, 8) { db ->
+        db.insertOrThrow("synced_tracks", null, syncedTrackValues().apply {
+            put("tagFingerprint", "ab12")
+        })
+        db.insertOrThrow("catalogue_tracks", null, ContentValues().apply {
+            put("itemId", "c1")
+            put("albumId", "alb1")
+            put("name", "One More Time")
+            put("artistNames", "[\"Daft Punk\"]")
+            put("artistIds", "[\"dp\"]")
+        })
+        db.insertOrThrow("book_progress", null, bookProgressValues())
+    }
+
+    private fun open(vararg migrations: Migration): SyncDatabase =
+        Room.databaseBuilder(context, SyncDatabase::class.java, DATABASE)
+            .addMigrations(*migrations)
             .allowMainThreadQueries()
             .build()
+
+    /** Every table named in sqlite_master, including those its indexes belong to. */
+    private fun tableNames(database: SyncDatabase): Set<String> =
+        database.openHelper.readableDatabase.query("SELECT tbl_name FROM sqlite_master")
+            .use { cursor -> buildSet { while (cursor.moveToNext()) add(cursor.getString(0)) } }
+
+    @Test
+    fun `version 7 opens as version 9 and keeps its sync records`() {
+        createVersion7()
+        val database = open(MIGRATION_7_8, MIGRATION_8_9)
         try {
             runBlocking {
                 val track = database.syncDao().getTrack("t1")!!
-                assertEquals("/sync/Music/Daft Punk/Discovery/01 One More Time.flac", track.localPath)
+                assertEquals(LOCAL_PATH, track.localPath)
                 assertEquals(1234L, track.fileSize)
                 assertEquals(99L, track.syncedAt)
                 assertNull(track.tagFingerprint)
 
-                val progress = database.catalogueDao().bookProgress("b1")!!
-                assertEquals(5_000L, progress.positionMs)
-                assertEquals(42L, progress.lastPlayedAt)
-
                 database.syncDao().upsertTrack(track.copy(tagFingerprint = "ab12"))
                 assertEquals("ab12", database.syncDao().getTrack("t1")?.tagFingerprint)
             }
+            assertFalse("book_progress" in tableNames(database))
+        } finally {
+            database.close()
+        }
+    }
+
+    @Test
+    fun `version 8 opens as version 9 without the player's old tables`() {
+        createVersion8()
+        val database = open(MIGRATION_8_9)
+        try {
+            runBlocking {
+                val track = database.syncDao().getTrack("t1")!!
+                assertEquals(LOCAL_PATH, track.localPath)
+                assertEquals("ab12", track.tagFingerprint)
+                assertEquals(
+                    listOf(TrackAlbumRow("c1", "alb1")),
+                    database.catalogueDao().trackAlbums()
+                )
+            }
+            assertEquals(emptySet<String>(), tableNames(database).intersect(TABLES_DROPPED_IN_9))
         } finally {
             database.close()
         }

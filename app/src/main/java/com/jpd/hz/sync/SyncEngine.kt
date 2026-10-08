@@ -1,7 +1,6 @@
 package com.jpd.hz.sync
 
 import android.content.Context
-import android.os.Environment
 import android.util.Log
 import com.jpd.hz.adapter.AdapterFiles
 import com.jpd.hz.adapter.AdapterFolder
@@ -17,7 +16,7 @@ import com.jpd.hz.auth.Result
 import com.jpd.hz.db.SyncDatabase
 import com.jpd.hz.db.SyncedAlbum
 import com.jpd.hz.db.SyncedTrack
-import com.jpd.hz.library.LibraryRepository
+import com.jpd.hz.library.LibraryFolderStore
 import com.jpd.hz.library.PlaylistBookRows
 import com.jpd.hz.library.SyncSelections
 import com.jpd.hz.library.playlistRowsFrom
@@ -37,8 +36,6 @@ import java.io.File
 import java.io.FileOutputStream
 
 private const val TAG = "SyncEngine"
-// Music and Audiobooks both sit under Media/hz/<server name> (folders in SyncPaths).
-private const val SYNC_ROOT = "Media/hz"
 // This adapter's key in adapter_folders, and the name D4's suffix rule adds.
 private const val ADAPTER = "jellyfin"
 private const val PLATFORM = "Jellyfin"
@@ -217,13 +214,13 @@ object SyncEngine {
         // Without the written rows, the keep set could miss a failed part's files.
         if (written != null) removeOrphanedFiles(syncDir, expectedPaths, dao)
         // After orphan cleanup, so photos follow the albums that stayed (spec "Artist photos").
-        ArtistPhotoSync.run(context, config, repo)
-        // Covers come last; a failed one is logged and retried, never counted (3b spec). They
-        // wait for a written catalogue too, as their cleanup could drop a failed playlist's cover.
-        if (written != null) CoverSync.run(context, config, repo, syncDir, plan)
-        // From the photos and covers just fetched. Playlists wait for a written catalogue, as
-        // covers do: without one, the plan holds only this fetch's playlists.
-        FolderCopies.run(context, syncDir, plan, withPlaylists = written != null)
+        ArtistPhotoSync.run(config, repo, syncDir, plan)
+        // Covers and playlist files wait for a written catalogue: without one, the plan holds
+        // only this fetch's playlists. A failed cover is logged and retried, never counted.
+        if (written != null) {
+            CoverSync.run(config, repo, syncDir, plan)
+            PlaylistFileSync.run(syncDir, plan)
+        }
 
         emit(
             SyncState(
@@ -245,7 +242,7 @@ object SyncEngine {
         catalogue: ServerCatalogue
     ): PlaylistBookRows? {
         return try {
-            LibraryRepository(context).writeCatalogue(catalogue)
+            JellyfinCatalogue(context).write(catalogue)
         } catch (e: kotlinx.coroutines.CancellationException) {
             throw e
         } catch (e: Exception) {
@@ -273,8 +270,11 @@ object SyncEngine {
         val store = AdapterFolderStore(context)
         store.pathFor(ADAPTER, config.serverId)?.let { return File(it) }
 
-        val publicLibrary = publicLibraryFolder()
-        val library = publicLibrary ?: appLibraryFolder(context)
+        // A new server's folder goes in the Library folder (spec "Its folder").
+        val folders = LibraryFolderStore(context)
+        val savedLibrary = folders.saved()
+        val publicLibrary = folders.publicDefault()
+        val library = savedLibrary?.let(::File) ?: publicLibrary ?: folders.appDefault()
         val custom = customFolder(context)
         val path = AdapterFolders.chooseFolder(
             saved = store.all(),
@@ -288,7 +288,7 @@ object SyncEngine {
         )
         // A folder in app storage, used only without all-files access, isn't saved. Once access
         // is granted, the next call settles on public Media/hz, as it did before T2.
-        if (publicLibrary != null || path == custom) {
+        if (savedLibrary != null || publicLibrary != null || path == custom) {
             store.save(AdapterFolder(ADAPTER, config.serverId, path))
         }
         return File(path)
@@ -301,18 +301,6 @@ object SyncEngine {
     fun setSyncDirectory(context: Context, config: ServerConfig, path: String) {
         AdapterFolderStore(context).save(AdapterFolder(ADAPTER, config.serverId, path))
     }
-
-    // T2 has no Library folder setting, so the library is today's default parent (spec): public
-    // Media/hz, or null when it can't be written. Media isn't one of Android's standard folders,
-    // so writing it needs all-files access.
-    private fun publicLibraryFolder(): File? {
-        val publicMedia = File(Environment.getExternalStorageDirectory(), SYNC_ROOT)
-        publicMedia.mkdirs()
-        return publicMedia.takeIf { it.exists() && it.canWrite() }
-    }
-
-    private fun appLibraryFolder(context: Context): File =
-        File(context.getExternalFilesDir(null), SYNC_ROOT)
 
     // The Sync Directory choice saved before T2, if any.
     private fun customFolder(context: Context): String? =

@@ -70,7 +70,7 @@
         </FrameLayout>
     </LinearLayout>
 
-    <!-- Category cards, hidden while the catalogue builds. HomeFragment adds one
+    <!-- Category cards, hidden while the library builds. HomeFragment adds one
          item_home_category per shown category, in the saved order (3b refinements). -->
     <LinearLayout
         android:id="@+id/libraryCards"
@@ -84,12 +84,11 @@
         app:layout_constraintEnd_toEndOf="parent" />
 
     <TextView
-        android:id="@+id/tvAlbumsHint"
+        android:id="@+id/tvLibraryNote"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
         android:layout_marginHorizontal="24dp"
         android:layout_marginTop="8dp"
-        android:text="@string/home_albums_hint"
         android:textColor="@color/muted"
         android:textSize="13sp"
         android:fontFamily="@font/hk_regular"
@@ -98,7 +97,7 @@
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent" />
 
-    <!-- Shown while the catalogue is empty: building, or failed with Retry -->
+    <!-- Shown while the library is empty: building, or failed with Retry -->
     <LinearLayout
         android:id="@+id/libraryStatus"
         android:layout_width="0dp"

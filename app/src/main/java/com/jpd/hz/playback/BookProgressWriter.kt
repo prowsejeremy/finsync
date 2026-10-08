@@ -1,8 +1,8 @@
 package com.jpd.hz.playback
 
 import android.util.Log
-import com.jpd.hz.db.BookProgress
 import com.jpd.hz.library.BookRepository
+import com.jpd.hz.library.db.BookProgress
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -13,8 +13,9 @@ import kotlinx.coroutines.launch
 private const val TAG = "BookProgressWriter"
 
 /**
- * Writes book positions to book_progress off the main thread, in the order they were saved, so
- * an older position never lands after a newer one. Its scope isn't the service's: the save made
+ * Writes book positions to the library's book_progress off the main thread, in the order they were
+ * saved, so an older position never lands after a newer one. Its scope isn't the service's: the
+ * save made
  * in onDestroy still lands after the service's scope is cancelled (decision 16).
  */
 class BookProgressWriter(private val books: BookRepository) {

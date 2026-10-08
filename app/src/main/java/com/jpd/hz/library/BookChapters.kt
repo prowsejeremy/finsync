@@ -4,8 +4,8 @@ package com.jpd.hz.library
 data class Chapter(val name: String, val startMs: Long)
 
 /**
- * The chapters to show and play: the server's, or, when it sends none, one chapter named after
- * the book that starts at 0 (spec "No chapters from the server").
+ * The chapters to show and play: the file's, or, when it has none, one chapter named after the
+ * book that starts at 0 (3b spec "No chapters from the server").
  */
 fun chaptersOrWhole(chapters: List<Chapter>, bookName: String): List<Chapter> =
     chapters.ifEmpty { listOf(Chapter(bookName, 0L)) }
