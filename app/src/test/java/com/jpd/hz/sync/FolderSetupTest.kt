@@ -344,6 +344,41 @@ class FolderSetupTest {
     }
 
     @Test
+    fun signedOutJellyfinsFolderMovedByHandIsFoundByItsRecords() {
+        val library = temp.newFolder("Media", "hz")
+        settledIn(library)
+        // Sign-out clears the catalogue and keeps the records (T4).
+        runBlocking { database.catalogueDao().clearCatalogue() }
+        val other = temp.newFolder("Music")
+        File(other, "Mine/Sync").mkdirs()
+        assertTrue(File(library, "kurage").renameTo(File(other, "Mine/Sync/kurage2")))
+
+        val plan = runBlocking { setup.plan(other.path, null) } as LibraryChangePlan.Ready
+        val result = runBlocking { setup.changeLibrary(other.path, null) }
+
+        assertEquals(File(other, "Mine/Sync/kurage2").path, plan.found?.target)
+        assertEquals(LibraryChange.Changed(null), result)
+        assertEquals("Mine/Sync/kurage2", adapterFolder())
+    }
+
+    @Test
+    fun signedOutWithTwoSavedFoldersAMovedOneIsKeptAsSaved() {
+        val library = temp.newFolder("Media", "hz")
+        settledIn(library)
+        AdapterFolderStore(context).save(AdapterFolder("jellyfin", "server-2", "elsewhere"))
+        runBlocking { database.catalogueDao().clearCatalogue() }
+        val other = temp.newFolder("Music")
+        assertTrue(File(library, "kurage").renameTo(File(other, "kurage")))
+
+        val plan = runBlocking { setup.plan(other.path, null) } as LibraryChangePlan.Ready
+
+        // Looked for, it would be found at its saved name in the new folder.
+        val kurage = plan.folders.single { it.folder.serverId == SERVER_ID }
+        assertEquals(File(library, "kurage").path, kurage.target)
+        assertFalse(plan.movesFiles)
+    }
+
+    @Test
     fun aFolderOfTheUsersOwnMusicIsNeverTakenForJellyfins() {
         val library = temp.newFolder("Media", "hz")
         settledIn(library)

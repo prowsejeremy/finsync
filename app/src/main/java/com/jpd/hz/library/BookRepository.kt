@@ -93,9 +93,6 @@ class BookRepository internal constructor(
     /** Only the playback service's writer calls this (decision 16). */
     suspend fun saveBookProgress(progress: BookProgress) = dao.upsertBookProgress(progress)
 
-    /** Logout, until T4 keeps progress on sign-out. */
-    suspend fun clearBookProgress() = dao.deleteAllBookProgress()
-
     // The rules and screens take a book whose cover is a file they can load.
     private fun withCoverFile(book: LibraryBook): LibraryBook =
         book.copy(coverPath = files.art(book.coverPath, book.embeddedCover), embeddedCover = null)

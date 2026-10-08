@@ -66,15 +66,20 @@ object SyncEngine {
     /**
      * One sync. It holds FolderSetup's lock throughout, so Jellyfin's folder never moves under
      * it, and settles the Library folder first, so it never syncs into a folder that's about
-     * to move (T3).
+     * to move (T3). Nothing runs when [config] is no longer the sign-in (T4).
      */
     suspend fun syncLibrary(
         context: Context,
         config: ServerConfig,
         // The edge where TagLib comes in. Unit tests never reach it (see FileTagger).
         tagger: FileTagger = TagLibTagger,
+        // The sign-in as it is now. Unit tests can't open the encrypted store behind it.
+        savedConfig: () -> ServerConfig? = { JellyfinRepository(context).getSavedConfig() },
         onProgress: ((SyncState) -> Unit)? = null
     ) = FolderSetup.lock.withLock {
+        // Signed out (or in again) since this sync was asked for: sign-out cleared the catalogue
+        // under this lock, and this sync's write mustn't bring it back.
+        if (savedConfig() != config) return@withLock
         val settled = try {
             FolderSetup(context).settle(config)
         } catch (e: kotlinx.coroutines.CancellationException) {
@@ -110,8 +115,10 @@ object SyncEngine {
         val catalogue = (catalogueResult as Result.Success).data
         val written = writeCatalogue(context, catalogue)
         val prefs = context.getSharedPreferences("settings", Context.MODE_PRIVATE)
-        val selectedAlbumIds = prefs.getStringSet("selected_albums", emptySet()) ?: emptySet()
         val selections = SyncSelections(context)
+        // This server's choices, never another's (T4); sign-in switches them too.
+        selections.useFor(config.serverId)
+        val selectedAlbumIds = prefs.getStringSet("selected_albums", emptySet()) ?: emptySet()
         val selection =
             SyncSelection(selectedAlbumIds, selections.playlistIds(), selections.bookIds())
         // A failed write plans from this fetch alone, so cleanup waits for the next sync (below).
@@ -427,13 +434,7 @@ object SyncEngine {
     ) {
         // Shared adapter code (D12): only ever inside this adapter's folder.
         withContext(Dispatchers.IO) { cleanUpAdapterFolder(syncDir, expectedPaths) }
-
-        val allDbPaths = dao.getAllLocalPaths()
-        for (path in allDbPaths) {
-            if (!File(syncDir, path).exists()) {
-                dao.deleteByLocalPath(path)
-            }
-        }
+        dropRecordsOfMissingFiles(dao, syncDir)
     }
 
     /** How one download attempt went. */
@@ -583,5 +584,17 @@ object SyncEngine {
     private fun emit(state: SyncState, callback: ((SyncState) -> Unit)?) {
         _syncState.value = state
         callback?.invoke(state)
+    }
+}
+
+/**
+ * Drops the signed-in server's records whose files aren't in its folder [syncDir]. Another
+ * server's records name files in that server's own folder, so they're kept: deleted, signing in
+ * there again would re-tag every file, and a failed book fetch there would lose its books (T4).
+ * A path both servers record is held once (`localPath` is unique): the later sync's replaces it.
+ */
+internal suspend fun dropRecordsOfMissingFiles(dao: com.jpd.hz.db.SyncDao, syncDir: File) {
+    for (path in dao.serverLocalPaths()) {
+        if (!File(syncDir, path).exists()) dao.deleteByLocalPath(path)
     }
 }

@@ -14,9 +14,6 @@ interface SyncDao {
     @Query("SELECT * FROM synced_tracks WHERE itemId = :itemId LIMIT 1")
     suspend fun getTrack(itemId: String): SyncedTrack?
 
-    @Query("SELECT localPath FROM synced_tracks")
-    suspend fun getAllLocalPaths(): List<String>
-
     /** Every downloaded item, books included, for the Sync card's counts (3b refinements). */
     @Query("SELECT itemId FROM synced_tracks")
     suspend fun allItemIds(): List<String>
@@ -54,6 +51,14 @@ interface SyncDao {
             "OR itemId IN (SELECT bookId FROM catalogue_books)"
     )
     suspend fun serverRecordSizes(): List<RecordSize>
+
+    /** The signed-in server's records' paths, for the sync's record pass (T4). */
+    @Query(
+        "SELECT localPath FROM synced_tracks " +
+            "WHERE itemId IN (SELECT itemId FROM catalogue_tracks) " +
+            "OR itemId IN (SELECT bookId FROM catalogue_books)"
+    )
+    suspend fun serverLocalPaths(): List<String>
 
     @Query("DELETE FROM synced_tracks WHERE localPath = :localPath")
     suspend fun deleteByLocalPath(localPath: String)

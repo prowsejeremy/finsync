@@ -21,6 +21,8 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 
 private const val TAG = "JellyfinCatalogue"
@@ -64,9 +66,8 @@ class JellyfinCatalogue internal constructor(
         // getServerCatalogue turns cancellation into Result.Error (known item 10), so rethrow.
         currentCoroutineContext().ensureActive()
         return when (result) {
-            is Result.Success -> {
-                write(result.data)
-                true
+            is Result.Success -> writeWhileSignedIn(result.data) {
+                jellyfin.getSavedConfig() == config
             }
             is Result.Error -> {
                 Log.w(TAG, "Catalogue refresh failed: ${result.message}")
@@ -104,8 +105,28 @@ class JellyfinCatalogue internal constructor(
         writeRows(items, freshRows(playlists, books))
     }
 
-    /** Logout: another server's catalogue must never show. */
-    suspend fun clear() = dao.clearCatalogue()
+    /**
+     * A refresh's write, unless the sign-in it fetched with has gone (T4): a sign-out during the
+     * fetch has cleared the catalogue, and this write mustn't bring it back. False when it didn't
+     * write.
+     */
+    internal suspend fun writeWhileSignedIn(
+        catalogue: ServerCatalogue,
+        stillSignedIn: () -> Boolean
+    ): Boolean = writeLock.withLock {
+        if (!stillSignedIn()) return@withLock false
+        write(catalogue)
+        true
+    }
+
+    /**
+     * Sign-out: another server's catalogue must never show. Nothing is cleared once [signedIn]
+     * says a new sign-in has come (T4): sign-out may have waited for a sync, and the new sign-in's
+     * refresh may already have written its own catalogue.
+     */
+    suspend fun clear(signedIn: () -> Boolean = { false }) = writeLock.withLock {
+        if (!signedIn()) dao.clearCatalogue()
+    }
 
     suspend fun isEmpty(): Boolean = dao.trackCount() == 0
 
@@ -129,5 +150,11 @@ class JellyfinCatalogue internal constructor(
     private suspend fun writeRows(items: List<MediaItem>, rows: PlaylistBookRows) {
         val tracks = withContext(Dispatchers.Default) { catalogueTracksFrom(items) }
         dao.replaceCatalogue(tracks, rows.playlists, rows.playlistItems, rows.books)
+    }
+
+    companion object {
+        // A refresh's check and write, and sign-out's clear, one at a time. A sync's write needs
+        // no part of it: sign-out waits for the sync's FolderSetup.lock before clearing.
+        private val writeLock = Mutex()
     }
 }

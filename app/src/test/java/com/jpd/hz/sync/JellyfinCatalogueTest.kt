@@ -183,4 +183,24 @@ class JellyfinCatalogueTest {
         assertEquals(listOf("b1"), rows.books.map { it.bookId })
         assertEquals(listOf("b1"), dao.allBooks().map { it.bookId })
     }
+
+    @Test
+    fun `a refresh's write is dropped once its sign-in has gone`() = runBlocking {
+        val fetched = ServerCatalogue(audio = tracks, playlists = emptyList(), books = emptyList())
+
+        val written = catalogue.writeWhileSignedIn(fetched) { false }
+
+        assertFalse(written)
+        assertTrue(catalogue.isEmpty())
+    }
+
+    @Test
+    fun `a refresh's write lands while its sign-in holds`() = runBlocking {
+        val fetched = ServerCatalogue(audio = tracks, playlists = emptyList(), books = emptyList())
+
+        val written = catalogue.writeWhileSignedIn(fetched) { true }
+
+        assertTrue(written)
+        assertEquals(3, dao.trackAlbums().size)
+    }
 }

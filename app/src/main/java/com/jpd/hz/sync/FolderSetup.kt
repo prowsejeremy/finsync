@@ -178,6 +178,7 @@ class FolderSetup internal constructor(
      * What changing the Library folder to [path] would do (A4), for the Library screen to
      * confirm: for each saved adapter folder, refuse, keep it, move it, or find where it was
      * moved by hand. Only [serverId]'s folder is looked for; another server's is kept as saved.
+     * Signed out ([serverId] null), a lone saved folder is looked for, by every record (T4).
      */
     suspend fun plan(path: String, serverId: String?): LibraryChangePlan =
         withContext(Dispatchers.IO) {
@@ -190,13 +191,16 @@ class FolderSetup internal constructor(
             return@withContext LibraryChangePlan.Same
         }
         val saved = adapterFolders.all()
+        // Signed out, sign-out has cleared the catalogue that tells one server's records from
+        // another's, so only a lone saved folder is looked for (the user, 2026-10-09).
+        val searched = serverId ?: saved.singleOrNull()?.serverId
         val planned = ArrayList<PlannedFolder>()
         for (folder in saved) {
             val old = File(FolderMoves.resolve(folder.path, oldLibrary.path))
             val next = when {
                 old.isDirectory -> plannedFor(folder, old, newLibrary, saved, planned)
                     ?: return@withContext LibraryChangePlan.Refused
-                folder.serverId == serverId -> findMoved(folder, newLibrary)
+                folder.serverId == searched -> findMoved(folder, newLibrary)
                     ?: return@withContext LibraryChangePlan.NotFound
                 else -> PlannedFolder(folder, old.path, rename = false)
             }
@@ -359,7 +363,10 @@ class FolderSetup internal constructor(
         prefs.getString(LEGACY_SYNC_DIRECTORY, null)?.takeIf { it.isNotBlank() }
 
     companion object {
-        /** Held by every sync for its whole run, and by every move of Jellyfin's folder. */
+        /**
+         * Held by every sync for its whole run, by every move of Jellyfin's folder, and by
+         * sign-out while it clears the catalogue (T4).
+         */
         val lock = Mutex()
     }
 }

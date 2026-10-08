@@ -277,13 +277,6 @@ class PlaybackViewModel(app: Application) : AndroidViewModel(app) {
         mediaController.play()
     }
 
-    /** Logout: stop and empty the queue; the service then clears its saved copy. */
-    fun clearQueue() {
-        val mediaController = controller ?: return
-        mediaController.stop()
-        mediaController.clearMediaItems()
-    }
-
     // The chapter seam (3b): screens never seek to chapters themselves.
 
     /** Next chapter's start; on the last chapter it does nothing (spec "Next chapter"). */

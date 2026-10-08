@@ -243,7 +243,4 @@ interface LibraryDao {
 
     @Query("SELECT * FROM book_progress WHERE bookId = :bookId")
     suspend fun bookProgress(bookId: String): BookProgress?
-
-    @Query("DELETE FROM book_progress")
-    suspend fun deleteAllBookProgress()
 }

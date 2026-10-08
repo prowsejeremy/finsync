@@ -12,16 +12,15 @@ import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.viewModelScope
 import com.jpd.hz.auth.JellyfinRepository
 import com.jpd.hz.db.SyncDatabase
-import com.jpd.hz.library.BookRepository
 import com.jpd.hz.library.SyncSelections
 import com.jpd.hz.library.scan.LibraryScanner
 import com.jpd.hz.model.ServerConfig
 import com.jpd.hz.model.SyncState
-import com.jpd.hz.playback.ResumeStore
 import com.jpd.hz.service.SyncScheduler
 import com.jpd.hz.service.SyncService
 import com.jpd.hz.sync.FolderSetup
 import com.jpd.hz.sync.JellyfinCatalogue
+import com.jpd.hz.sync.JellyfinSignOut
 import com.jpd.hz.sync.SyncCounts
 import com.jpd.hz.sync.SyncEngine
 import com.jpd.hz.sync.SyncSelection
@@ -208,19 +207,28 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
 
     fun cancelAutoSync() = SyncScheduler.cancelPeriodicSync(getApplication())
 
-    fun logout() {
+    /**
+     * Signs out of Jellyfin (spec "Signing out", amended 2026-10-09). The player isn't touched:
+     * playback, the queue and book progress stay (D10).
+     */
+    fun signOut() {
         viewModelScope.launch {
-            // So a different server's library and queue aren't shown after the next login.
-            // The activity finishes straight after this call, so logging out and clearing the
-            // queue and catalogue must all finish even if this scope is cancelled.
-            withContext(NonCancellable) {
-                repo.logout(getApplication())
-                ResumeStore(getApplication()).clear()
-                catalogue.clear()
-                // T4 keeps book progress on sign-out (D10).
-                BookRepository(getApplication()).clearBookProgress()
-            }
+            // The activity finishes straight after this call, so signing out must finish even if
+            // this scope is cancelled.
+            withContext(NonCancellable) { signOutQuietly() }
             _config.postValue(null)
+        }
+    }
+
+    // A failure here leaves the catalogue, which the next sign-in's refresh replaces; it mustn't
+    // crash the app.
+    private suspend fun signOutQuietly() {
+        try {
+            JellyfinSignOut(getApplication()).run(SyncEngine.syncState, ::stopSync)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            Log.w(TAG, "Couldn't finish signing out of Jellyfin", e)
         }
     }
 }

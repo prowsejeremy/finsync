@@ -7,6 +7,7 @@ import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.viewModelScope
 import com.jpd.hz.auth.JellyfinRepository
 import com.jpd.hz.auth.Result
+import com.jpd.hz.library.SyncSelections
 import com.jpd.hz.model.ServerConfig
 import kotlinx.coroutines.launch
 
@@ -36,7 +37,11 @@ class LoginViewModel(app: Application) : AndroidViewModel(app) {
 
         viewModelScope.launch {
             when (val result = repo.login(normalizedUrl, username, password)) {
-                is Result.Success -> _loginState.postValue(LoginState.Success(result.data))
+                is Result.Success -> {
+                    // Before any screen shows them: this server's choices, not the last one's.
+                    SyncSelections(getApplication()).useFor(result.data.serverId)
+                    _loginState.postValue(LoginState.Success(result.data))
+                }
                 is Result.Error   -> _loginState.postValue(LoginState.Error(result.message))
             }
         }

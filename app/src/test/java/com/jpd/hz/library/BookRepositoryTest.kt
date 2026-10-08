@@ -246,22 +246,6 @@ class BookRepositoryTest {
     }
 
     @Test
-    fun `clearing book progress empties it`() = runBlocking {
-        scan(listOf(book(HURRY, "Hurry"), book(SAPIENS, "Sapiens")))
-        progress(HURRY_ID, positionMs = 5_000L, lastPlayedAt = 1L)
-        progress(SAPIENS_ID, positionMs = 2_000L, lastPlayedAt = 2L)
-
-        repository.clearBookProgress()
-
-        assertNull(repository.bookProgress(HURRY_ID))
-        assertNull(repository.bookProgress(SAPIENS_ID))
-        assertEquals(
-            listOf(null, null),
-            repository.books().first().map { it.lastPlayedAt }
-        )
-    }
-
-    @Test
     fun `the book count counts every book`() = runBlocking {
         assertEquals(0, repository.bookCount().first())
 
