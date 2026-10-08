@@ -38,9 +38,9 @@ class SyncService : Service() {
     private lateinit var repo: JellyfinRepository
     private lateinit var notificationManager: NotificationManager
 
-    // Opens Settings → Sync, whose Sync card shows the sync, with Settings and Home behind it.
-    // The component is set explicitly because the launcher activity is PermissionsActivity, not
-    // MainActivity.
+    // Opens Adapters → Jellyfin, whose Sync card shows the sync, with Adapters, Settings and Home
+    // behind it. The component is set explicitly because the launcher activity is
+    // PermissionsActivity, not MainActivity.
     private val openSettingsIntent: PendingIntent by lazy {
         NavDeepLinkBuilder(this)
             .setComponentName(MainActivity::class.java)

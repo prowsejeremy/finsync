@@ -1,7 +1,6 @@
 package com.jpd.hz.ui
 
 import android.content.ComponentName
-import android.content.Intent
 import android.net.ConnectivityManager
 import android.net.Network
 import android.os.Bundle
@@ -29,7 +28,10 @@ import java.util.concurrent.ExecutionException
 
 private const val TAG = "MainActivity"
 
-/** Hosts every screen after login. Navigation swaps the screens; see res/navigation/nav_graph.xml. */
+/**
+ * Hosts every screen, with or without a Jellyfin sign-in (D10). Navigation swaps the screens; see
+ * res/navigation/nav_graph.xml.
+ */
 class MainActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityMainBinding
@@ -50,13 +52,6 @@ class MainActivity : AppCompatActivity() {
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
-        if (!viewModel.isLoggedIn()) {
-            startActivity(Intent(this, LoginActivity::class.java))
-            finish()
-            return
-        }
-
-        observeViewModel()
         setUpMiniPlayer()
         observePlaybackMessages()
         viewModel.checkServerConnection() // Initial check; will also be triggered by network callback and ServerBottomSheet.
@@ -93,15 +88,6 @@ class MainActivity : AppCompatActivity() {
         super.onPause()
         val cm = getSystemService(ConnectivityManager::class.java)
         cm.unregisterNetworkCallback(networkCallback)
-    }
-
-    private fun observeViewModel() {
-        viewModel.config.observe(this) { config ->
-            if (config == null) {
-                startActivity(Intent(this, LoginActivity::class.java))
-                finish()
-            }
-        }
     }
 
     private fun setUpMiniPlayer() {

@@ -7,6 +7,7 @@ import android.view.ViewGroup
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.activityViewModels
 import androidx.fragment.app.viewModels
+import androidx.navigation.fragment.findNavController
 import com.jpd.hz.R
 import com.jpd.hz.databinding.FragmentHomeBinding
 import com.jpd.hz.databinding.ItemHomeCategoryBinding
@@ -43,6 +44,12 @@ class HomeFragment : Fragment() {
         // Read with every new view: coming back from Settings makes a new one, so changes show.
         buildCategoryCards()
         binding.btnRetry.setOnClickListener { libraryViewModel.retry() }
+        binding.btnChooseFolder.setOnClickListener {
+            openThroughSettings(R.id.action_settings_to_library)
+        }
+        binding.btnSetUpJellyfin.setOnClickListener {
+            openThroughSettings(R.id.action_settings_to_adapters, R.id.action_adapters_to_jellyfin)
+        }
         viewModel.uiState.observe(viewLifecycleOwner) { renderSyncRing(SyncDisplay.from(it)) }
         libraryViewModel.homeState.observe(viewLifecycleOwner) { renderLibrary(it) }
     }
@@ -73,6 +80,15 @@ class HomeFragment : Fragment() {
         }
     }
 
+    // Through Settings, so Back walks the screens the sync notification's deep link stacks: a
+    // screen in a nested graph can't be reached from Home in one step.
+    private fun openThroughSettings(vararg actionIds: Int) {
+        val navController = findNavController()
+        if (navController.currentDestination?.id != R.id.homeFragment) return
+        navController.navigate(R.id.action_home_to_settings)
+        actionIds.forEach { navController.navigate(it) }
+    }
+
     private fun renderSyncRing(display: SyncDisplay) {
         if (display.status == SyncDisplay.Status.SYNCING) {
             binding.syncRing.showSyncProgress(display.progress)
@@ -94,6 +110,8 @@ class HomeFragment : Fragment() {
         }
         binding.tvLibraryNote.text = note
         binding.tvLibraryNote.visibility = if (note != null) View.VISIBLE else View.GONE
+        val emptyState = ready != null && !ready.scanFailed && ready.isEmpty
+        binding.emptyActions.visibility = if (emptyState) View.VISIBLE else View.GONE
         binding.libraryStatus.visibility = if (ready == null) View.VISIBLE else View.GONE
         val failed = state == HomeLibraryState.Failed
         binding.btnRetry.visibility = if (failed) View.VISIBLE else View.GONE

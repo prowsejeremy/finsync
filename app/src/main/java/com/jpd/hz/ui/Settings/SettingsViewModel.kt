@@ -14,14 +14,13 @@ import com.jpd.hz.appearance.ThemeMode
 import com.jpd.hz.auth.JellyfinRepository
 import com.jpd.hz.auth.Result
 import com.jpd.hz.db.SyncDatabase
-import com.jpd.hz.library.LibraryFolderStore
 import com.jpd.hz.library.SyncSelections
 import com.jpd.hz.model.AlbumSelection
+import com.jpd.hz.model.ServerConfig
 import com.jpd.hz.service.SyncScheduler
 import com.jpd.hz.sync.BookChoice
 import com.jpd.hz.sync.JellyfinCatalogue
 import com.jpd.hz.sync.PlaylistChoice
-import com.jpd.hz.sync.SyncEngine
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 
@@ -44,6 +43,8 @@ class SettingsViewModel(app: Application) : AndroidViewModel(app) {
 
     private val _albums  = MutableLiveData<List<AlbumSelection>>()
     val albums: LiveData<List<AlbumSelection>> = _albums
+    // The sign-in the albums were loaded for: one made on the Jellyfin page loads them again (T4).
+    private var albumsLoadedFor: ServerConfig? = null
 
     init {
         loadAlbums()
@@ -51,6 +52,7 @@ class SettingsViewModel(app: Application) : AndroidViewModel(app) {
 
     fun loadAlbums() {
         val cfg = repo.getSavedConfig() ?: return
+        albumsLoadedFor = cfg
         viewModelScope.launch {
             val result = repo.getAlbums(cfg)
             if (result is Result.Success) {
@@ -73,11 +75,9 @@ class SettingsViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
-    /** Where Jellyfin syncs, named from the Library folder: "kurage" (T3). */
-    fun syncTarget(): String? {
-        val cfg = repo.getSavedConfig() ?: return null
-        val folder = SyncEngine.getSyncDirectory(getApplication(), cfg).path
-        return LibraryFolderStore(getApplication()).nameInLibrary(folder)
+    /** Loads the albums unless they're already [config]'s, such as after signing in (T4). */
+    fun loadAlbumsFor(config: ServerConfig) {
+        if (config != albumsLoadedFor) loadAlbums()
     }
 
     fun getSelectedAlbumIds(): Set<String> =

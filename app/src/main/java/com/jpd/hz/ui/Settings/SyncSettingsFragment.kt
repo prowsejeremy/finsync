@@ -1,5 +1,6 @@
 package com.jpd.hz.ui
 
+import android.content.Intent
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
@@ -15,8 +16,9 @@ import com.jpd.hz.R
 import com.jpd.hz.databinding.FragmentSyncSettingsBinding
 
 /**
- * Settings → Sync (spec "Sync (new screen)"): the Sync card and the sync settings, moved from
- * Settings with no change in behaviour. The choice screens' Back and Cancel / Apply return here.
+ * Adapters → Jellyfin (spec "Settings → Adapters"): the server pill, the Sync card and the sync
+ * settings; signed out, a Sign in card instead. The choice screens' Back and Cancel / Apply
+ * return here.
  */
 class SyncSettingsFragment : Fragment() {
 
@@ -36,9 +38,10 @@ class SyncSettingsFragment : Fragment() {
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
-        binding.header.tvTitle.setText(R.string.settings_sync_title)
+        binding.header.tvTitle.text = mainViewModel.jellyfin.name
         binding.header.btnBack.setOnClickListener { findNavController().navigateUp() }
 
+        bindSignIn()
         bindSyncCard()
         bindSyncPreferences()
     }
@@ -49,9 +52,6 @@ class SyncSettingsFragment : Fragment() {
         // depend on the selections, so recount them (from the stored catalogue).
         mainViewModel.refreshSyncCounts()
         binding.tvAutoSync.text = autoSyncLabel(viewModel.getAutoSyncInterval())
-        // Settings → Library can move it, so it's read again each time.
-        binding.tvSyncTarget.text =
-            viewModel.syncTarget()?.let { getString(R.string.sync_target, it) }.orEmpty()
     }
 
     override fun onDestroyView() {
@@ -59,10 +59,45 @@ class SyncSettingsFragment : Fragment() {
         _binding = null
     }
 
+    // ── Sign-in and server ────────────────────────────────────────────────────
+
+    // MainActivity reads the sign-in again on every resume, so this runs on coming back from
+    // LoginActivity, and at once on signing out (T4).
+    private fun bindSignIn() {
+        mainViewModel.config.observe(viewLifecycleOwner) { config ->
+            binding.cardSignIn.isVisible = config == null
+            binding.signedInContent.isVisible = config != null
+            config ?: return@observe
+            binding.tvServerName.text = config.serverName
+            // Settings → Library can move it, so it's read again each time.
+            val folder = mainViewModel.jellyfin.folder()
+            binding.tvSyncTarget.text =
+                folder?.let { getString(R.string.sync_target, it) }.orEmpty()
+            viewModel.loadAlbumsFor(config)
+        }
+        binding.btnSignIn.setOnClickListener {
+            startActivity(Intent(requireContext(), LoginActivity::class.java))
+        }
+        binding.cardServer.setOnClickListener {
+            ServerBottomSheet().show(childFragmentManager, ServerBottomSheet.TAG)
+        }
+    }
+
+    private fun renderServerStatus(connected: Boolean) {
+        binding.serverStatusDot.setBackgroundResource(
+            if (connected) R.drawable.circle_status_good else R.drawable.circle_accent_muted
+        )
+        binding.tvServerStatus.setText(
+            if (connected) R.string.server_connected else R.string.server_offline
+        )
+    }
+
     // ── Sync card ─────────────────────────────────────────────────────────────
 
     private fun bindSyncCard() {
+        // One observer for the Connected dot and the card.
         mainViewModel.uiState.observe(viewLifecycleOwner) { state ->
+            renderServerStatus(state.serverConnected)
             renderSyncCard(SyncDisplay.from(state))
         }
         // The card itself has no listener since Sync Status went, so it has no ripple either.

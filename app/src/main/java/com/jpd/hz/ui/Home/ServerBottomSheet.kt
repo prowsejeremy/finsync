@@ -1,6 +1,5 @@
 package com.jpd.hz.ui
 
-import android.content.Intent
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
@@ -53,15 +52,10 @@ class ServerBottomSheet : BottomSheetDialogFragment() {
             )
         }
 
+        // The Jellyfin page stays open and shows its Sign in card. Playback, the queue and book
+        // progress stay (D10).
         binding.btnLogout.setOnClickListener {
-            // Playback, the queue and book progress stay (D10).
-            viewModel.signOut()
-            startActivity(
-                Intent(requireContext(), LoginActivity::class.java).apply {
-                    flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_NEW_TASK
-                }
-            )
-            requireActivity().finish()
+            viewModel.jellyfin.signOut()
             dismiss()
         }
     }

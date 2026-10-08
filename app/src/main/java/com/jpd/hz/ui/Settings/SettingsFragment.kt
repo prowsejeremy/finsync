@@ -1,16 +1,12 @@
 package com.jpd.hz.ui
 
 import android.os.Bundle
-import android.text.SpannableString
-import android.text.Spanned
-import android.text.style.ForegroundColorSpan
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
-import androidx.annotation.ColorRes
-import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.activityViewModels
+import androidx.lifecycle.asLiveData
 import androidx.navigation.fragment.findNavController
 import androidx.navigation.navGraphViewModels
 import com.jpd.hz.R
@@ -20,8 +16,8 @@ import com.jpd.hz.equaliser.EqualiserStore
 import com.jpd.hz.home.HomeLayoutStore
 
 /**
- * Settings' top level (spec "Settings (top level)"): the server pill, then a row for each
- * sub-menu. The sync cards live on the Sync screen ([SyncSettingsFragment]).
+ * Settings' top level (spec "Settings → Adapters"): Library, Adapters, Appearance, Home screen and
+ * Equaliser. The server pill and the sync cards live on Jellyfin's page ([SyncSettingsFragment]).
  */
 class SettingsFragment : Fragment() {
 
@@ -46,9 +42,8 @@ class SettingsFragment : Fragment() {
         binding.header.tvTitle.setText(R.string.header_settings)
         binding.header.btnBack.setOnClickListener { findNavController().navigateUp() }
 
-        bindServer()
         bindLibraryRow()
-        bindSyncRow()
+        bindAdaptersRow()
         bindAppearanceRow()
         bindHomeScreenRow()
         bindEqualiserRow()
@@ -65,26 +60,6 @@ class SettingsFragment : Fragment() {
     override fun onDestroyView() {
         super.onDestroyView()
         _binding = null
-    }
-
-    // ── Server ────────────────────────────────────────────────────────────────
-
-    private fun bindServer() {
-        mainViewModel.config.observe(viewLifecycleOwner) { config ->
-            binding.tvServerName.text = config?.serverName.orEmpty()
-        }
-        binding.cardServer.setOnClickListener {
-            ServerBottomSheet().show(childFragmentManager, ServerBottomSheet.TAG)
-        }
-    }
-
-    private fun renderServerStatus(connected: Boolean) {
-        binding.serverStatusDot.setBackgroundResource(
-            if (connected) R.drawable.circle_status_good else R.drawable.circle_accent_muted
-        )
-        binding.tvServerStatus.setText(
-            if (connected) R.string.server_connected else R.string.server_offline
-        )
     }
 
     // ── Library row ───────────────────────────────────────────────────────────
@@ -106,35 +81,21 @@ class SettingsFragment : Fragment() {
         binding.rowLibrary.tvRowSummary.text = resources.librarySummary(folder, songs)
     }
 
-    // ── Sync row ──────────────────────────────────────────────────────────────
+    // ── Adapters row ──────────────────────────────────────────────────────────
 
-    private fun bindSyncRow() {
-        binding.rowSync.ivRowIcon.setImageResource(R.drawable.ic_sync)
-        binding.rowSync.tvRowTitle.setText(R.string.settings_sync_title)
-        // One observer for the Connected dot and the row, which updates live while Settings is
-        // open (spec "Sync row summary").
-        mainViewModel.uiState.observe(viewLifecycleOwner) { state ->
-            renderServerStatus(state.serverConnected)
-            renderSyncRow(SyncDisplay.from(state))
+    private fun bindAdaptersRow() {
+        binding.rowAdapters.ivRowIcon.setImageResource(R.drawable.ic_sync)
+        binding.rowAdapters.tvRowTitle.setText(R.string.settings_adapters_title)
+        // "Jellyfin · Synced · 1,400 of 1,400 songs", live while Settings is open, as the Sync
+        // row was (spec "Sync row summary").
+        val jellyfin = mainViewModel.jellyfin
+        jellyfin.status.asLiveData().observe(viewLifecycleOwner) { status ->
+            binding.rowAdapters.tvRowSummary.text =
+                requireContext().adapterSummary(status, listOf(jellyfin.name))
         }
-        binding.rowSync.root.setOnClickListener {
-            navigateSafely(R.id.settingsFragment, R.id.action_settings_to_sync)
+        binding.rowAdapters.root.setOnClickListener {
+            navigateSafely(R.id.settingsFragment, R.id.action_settings_to_adapters)
         }
-    }
-
-    // "Synced · 1,400 of 1,400 songs": the label in its status colour, the rest in the layout's
-    // muted.
-    private fun renderSyncRow(display: SyncDisplay) {
-        val summary = SyncRowSummary.from(display)
-        val label = getString(summary.status.labelRes)
-        val text = SpannableString(joinWithDots(listOf(label, resources.syncRowDetail(summary))))
-        text.setSpan(
-            ForegroundColorSpan(color(summary.status.labelColorRes)),
-            0,
-            label.length,
-            Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
-        )
-        binding.rowSync.tvRowSummary.text = text
     }
 
     // ── Appearance row ────────────────────────────────────────────────────────
@@ -189,6 +150,4 @@ class SettingsFragment : Fragment() {
         val settings = EqualiserStore(requireContext()).load()
         binding.rowEqualiser.tvRowSummary.text = resources.equaliserSummary(settings)
     }
-
-    private fun color(@ColorRes colorRes: Int) = ContextCompat.getColor(requireContext(), colorRes)
 }

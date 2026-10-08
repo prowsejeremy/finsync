@@ -1,9 +1,9 @@
 # hz: architecture and feature reference
 
-Updated 2026-10-09, on `feature/fragment`, with T3 of the player and adapter split (the player
-reads the Library folder) done and checked on the phone. 448 unit tests in 64 suites pass: 407
-in 58 for `:app` and 41 in 6 for `:tags`. `:tags` also has 95 instrumented tests, which run on a
-phone.
+Updated 2026-10-09, on `feature/fragment`, with T4 of the player and adapter split (Settings,
+launch and sign-out) built but not yet checked on the phone. 464 unit tests in 69 suites pass:
+423 in 63 for `:app` and 41 in 6 for `:tags`. `:tags` also has 95 instrumented tests, which run
+on a phone.
 
 Start here before extending the app. This document summarises what is built and the rules every
 change follows. The specs hold the full reasoning behind each decision.
@@ -41,7 +41,8 @@ It was called Finsync until 2026-10-06. The rename changed the application ID to
 hz installs beside Finsync instead of upgrading it. The local specs, plans and handovers predate
 the rename and still say Finsync and `com/jpd/finsync`.
 
-- **Sign-in** to Jellyfin 12+. Credentials are kept in `EncryptedSharedPreferences`.
+- **Sign-in** to Jellyfin 12+, from Settings → Adapters → Jellyfin. hz opens and plays without
+  one. Credentials are kept in `EncryptedSharedPreferences`.
 - **Sync** of chosen albums, playlists and audiobooks. Sync is incremental, runs in a foreground
   service with a notification, and can repeat on a schedule (WorkManager).
 - **The Library folder** (`Media/hz` by default) is scanned when the app opens, after each sync
@@ -61,7 +62,8 @@ the rename and still say Finsync and `com/jpd/finsync`.
   pitch-preserving speed setting (0.8× to 2.0×) and a saved position per book.
 - **A 10-band equaliser** with nine built-in presets, one Custom slot and presets the user saves
   under their own names. It applies to music and books alike.
-- **Settings:** the server pill, then Library, Sync, Appearance, Home screen and Equaliser rows.
+- **Settings:** Library, Adapters, Appearance, Home screen and Equaliser rows. Adapters →
+  Jellyfin holds the server pill, the Sync card and the sync choices.
 - **Appearance:** Dark, Light or System mode, and five accent colours.
 
 ## Status by sub-project
@@ -83,6 +85,7 @@ its own spec, plan and alpha build, and each left the app working.
 | T1 | Player and adapter split, T1: the tag engine (`:tags`) | Done | `4a62e00`, `23bcac1` | `2026-10-07-player-adapter-split-design.md` |
 | T2 | Player and adapter split, T2: the adapter writes the format | Done | `3fa93a8`, `2ca5ece` | `2026-10-07-player-adapter-split-design.md` |
 | T3 | Player and adapter split, T3: the player reads the Library folder | Done | `5be7d56`, `6849e60`, `af84426` | `2026-10-07-player-adapter-split-design.md` |
+| T4 | Player and adapter split, T4: Settings, launch and sign-out | Built, awaiting device check and commit | — | `2026-10-07-player-adapter-split-design.md` |
 | 4 | Search | Not designed | — | Overview row 4 only |
 
 Sub-project 5 was built before 4 at the user's request. The plans are in `docs/superpowers/plans/`
@@ -172,7 +175,8 @@ adapter/                  Code any adapter shares (T2, D12): folder naming and a
                           cleanup scoped to the adapter's folder, folder moves (T3)
 sync/                     SyncEngine and its pure parts: SyncPlan, SyncPaths, SyncCounts,
                           JellyfinTagMapping; JellyfinCatalogue; artist photos, covers and
-                          playlist files; FolderSetup (the Library folder and its moves)
+                          playlist files; FolderSetup (the Library folder and its moves);
+                          JellyfinSignOut (T4)
 service/                  SyncService (foreground sync), BootReceiver and SyncWorker (WorkManager)
 playback/                 PlaybackService, BassPlayer, BassEngine, TrackResolver, QueueOrder,
                           resume, audio focus, book controls, speed and progress
@@ -263,7 +267,7 @@ Each adapter syncs into its own folder inside the Library folder, named after th
 
 | File | Keys | Owner |
 |---|---|---|
-| `settings` | `selected_albums`, `selected_playlists`, `selected_books` (string sets); `auto_sync_interval`, `auto_sync_on_boot` | Settings view models, `library/SyncSelections.kt`, `SyncEngine`, `BootReceiver` |
+| `settings` | `selected_albums`, `selected_playlists`, `selected_books` (string sets); `auto_sync_interval`, `auto_sync_on_boot`. Sign-out keeps the selections and sets `auto_sync_interval` to `disabled` (T4). `selections_server`: whose selections they are; another server's wait under `selected_albums:<serverId>` and so on (T4). | Settings view models, `library/SyncSelections.kt`, `SyncEngine`, `BootReceiver`, `sync/JellyfinSignOut.kt` |
 | `settings` | `adapter_folders` (T2): one `<adapter>:<serverId>\|<path>` per line, kept on sign-out. From T3 the path is relative to the Library folder (`kurage`); a full path is a pre-T3 one, until the first launch settles it. `sync_directory` (before T2) is read only to fill the first entry, and removed once settled. | `adapter/AdapterFolderStore.kt`, `SyncEngine.getSyncDirectory` |
 | `settings` | `library_folder` (T3): the Library folder's full path, the only one hz saves. `library_move`: a change of folder begun and not yet finished. | `library/LibraryFolderStore.kt`, `sync/FolderSetup.kt` |
 | `settings` | `theme_mode` (`dark`, `light`, `system`), `accent` (`green`, `blue`, `purple`, `pink`, `red`) | `appearance/AppearanceStore.kt` |
@@ -296,6 +300,26 @@ sync or server state reads.
 
 A sync holds `FolderSetup.lock` from start to end, so Jellyfin's folder never moves under it, and
 first settles the Library folder if that hasn't happened (see "The folder" below).
+
+**Signing out** (`sync/JellyfinSignOut.kt`, T4) clears the sign-in, the catalogue and the
+auto-sync schedule. It keeps the files, `adapter_folders`, the sync records and the selections:
+an empty album selection means every album and an empty book selection none, so clearing them
+would make the next sync download the whole server and delete every book (the user's change to
+the spec, 2026-10-09). Signing in again to the same server downloads and re-tags nothing.
+- The sign-in goes first, so nothing new starts; then the schedule. It then waits for
+  `FolderSetup.lock`, stopping any sync that runs meanwhile, and clears the catalogue, unless the
+  user has signed in again meanwhile. A new sign-in always refreshes the catalogue, so a
+  sign-out cut short leaves nothing wrong.
+- A sync re-reads the sign-in once it holds the lock and runs nothing if it has changed, and a
+  catalogue refresh doesn't write once its sign-in has gone. So a sign-out is never undone.
+- **Each server has its own selections** (`SyncSelections.useFor`, at sign-in and at each sync's
+  start): another server's are put aside under `<key>:<serverId>`, and come back when it signs
+  in again. A server never signed in to starts as a fresh install does. Selections are server
+  IDs, so one server's in force for another would plan none of its albums, and cleanup would
+  delete its files.
+- **A sync's record pass** drops only the signed-in server's records of missing files, so another
+  server's stay, and signing in there again re-tags nothing. `synced_tracks.localPath` is unique,
+  so a relative path both servers record is held once; that file is re-tagged once.
 
 One run:
 
@@ -366,7 +390,8 @@ the first time it's needed.
   the new one, and otherwise renamed into it, after asking (to a free name: a target that exists,
   even empty, is taken). One moved by hand is found in the new folder by its files: 90% of the
   records at their paths and sizes, and 90% of its audio recorded, so the user's own music is never
-  taken for it. One found by searching is confirmed first, since sync's cleanup works there. Not
+  taken for it. Signed out, only a lone saved folder is looked for, by every record (T4). One
+  found by searching is confirmed first, since sync's cleanup works there. Not
   found, the change says "Can't find Jellyfin's files" and changes nothing. Paths are relative, so
   no record is rewritten, and a failed rename changes nothing. While a sync runs, the change waits
   for it.
@@ -378,7 +403,7 @@ the first time it's needed.
 into a status: OFFLINE, SYNCING, STOPPED, FAILED, INCOMPLETE, SYNCED or NOT_SYNCED. The counts
 come from `sync/SyncCounts.kt`, which applies the same selection rules as `syncPlanOf`, so
 choosing a new playlist shows that a sync is needed. `SyncRowSummary.kt` builds the one-line
-summary on the Settings row.
+summary on the Adapters rows (`AdapterViews.kt`).
 
 ## Playback
 
@@ -415,7 +440,7 @@ Fragments ──▶ PlaybackViewModel (activity-scoped, wraps one MediaControlle
   10 s while playing. A service starting with an empty queue restores it paused.
   `onPlaybackResumption` gives Bluetooth or lock-screen Play the same queue.
 - **Lifecycle.** Swiped away while playing, the app keeps playing; while paused, the service
-  stops. Logout stops playback and clears the queue and book progress (T4 changes that, D10).
+  stops. Signing out of Jellyfin leaves playback, the queue and book progress alone (D10).
 - **Books.** A book replaces the queue and plays alone, with repeat and shuffle hidden.
   - Screens use only `PlaybackViewModel`'s chapter methods: `nextChapter`, `previousChapter`,
     `jumpToChapter`, `skipBack`, `skipForward` and `setSpeed`. Playing chapters as clipped queue
@@ -445,10 +470,10 @@ takes precedence.
 
 ## Screens and navigation
 
-**Activities.** `PermissionsActivity` is the launcher and goes on to `LoginActivity` or
-`MainActivity`. `MainActivity` hosts every other screen through one `NavHostFragment`, above
-`miniPlayerContainer`. There's no tab bar: Home's header has a round Settings button, which also
-shows a sync progress ring.
+**Activities.** `PermissionsActivity` is the launcher and goes on to `MainActivity`, signed in
+or not (D10). `LoginActivity` opens from Adapters → Jellyfin and returns there. `MainActivity`
+hosts every other screen through one `NavHostFragment`, above `miniPlayerContainer`. There's no
+tab bar: Home's header has a round Settings button, which also shows a sync progress ring.
 
 **Navigation graph** (`app/src/main/res/navigation/nav_graph.xml`):
 
@@ -467,17 +492,22 @@ nav_graph (start: homeFragment)
     ├── librarySettingsFragment   (T3: the Library folder and its scan)
     ├── appearanceFragment
     ├── homeScreenFragment
-    └── sync_graph (start: syncSettingsFragment)
-        ├── syncSettingsFragment
-        ├── albumSelectionFragment, playlistSelectionFragment, bookSelectionFragment
-        └── autoSyncFragment
+    └── adapters_graph (start: adaptersFragment)      (T4)
+        ├── adaptersFragment
+        └── sync_graph (start: syncSettingsFragment)  Jellyfin's page
+            ├── syncSettingsFragment
+            ├── albumSelectionFragment, playlistSelectionFragment, bookSelectionFragment
+            └── autoSyncFragment
 ```
 
-The sync notification deep-links to `syncSettingsFragment`, with Home → Settings → Sync behind it.
+The sync notification deep-links to `syncSettingsFragment`, with Home → Settings → Adapters behind
+it. Home's empty-state buttons navigate through the same screens, one step at a time.
 
 **View models.**
-- `MainViewModel` is activity-scoped. It holds server and sync state, sync counts and logout,
-  and at app open settles the Library folder, then starts a scan.
+- `MainViewModel` is activity-scoped. It holds the sign-in, server and sync state, sync counts
+  and sign-out, and at app open settles the Library folder, then starts a scan. Its `jellyfin` is
+  the `Adapter` (name, status `Flow`, folder, sign-out; `ui/Settings/Adapter.kt`, D12) that
+  Settings → Adapters lists.
 - `PlaybackViewModel` is activity-scoped and mirrors the media controller.
 - `SettingsViewModel` is scoped to `settings_graph` with `navGraphViewModels`.
 - `LibrarySettingsViewModel` is scoped to `settings_graph` too: the Library row and screen.
@@ -491,7 +521,8 @@ The sync notification deep-links to `syncSettingsFragment`, with Home → Settin
 - `ui/Home/HomeCategoryViews.kt` is one `when` table that gives each category its title, icon,
   navigation action and count.
 - `HomeLibraryState` covers Building (an empty library before its first scan finishes), Failed
-  ("Can't read Media/hz", with Retry) and Ready (with counts, or "No music found in Media/hz.").
+  ("Can't read Media/hz", with Retry) and Ready (with counts, or "No music found in Media/hz."
+  with Choose library folder and Set up Jellyfin, T4).
   `MainViewModel` refreshes an empty catalogue for the Sync card and choice screens, without a
   sync.
 
@@ -665,6 +696,12 @@ None is scheduled.
   through the interceptor would add a backstop.
 - **Artwork.** `SyncEngine` swallows album-art download failures.
 - **Strings.** `fragment_album_selection.xml` hard-codes its English text.
+- **Stop waits for the current file** (found in T4). `cancelAudioDownload` cancels the download
+  of the `JellyfinRepository` it's called on, but a sync downloads through its own, and even
+  that one is registered only until the response's headers arrive. So Stop and sign-out wait for
+  the current file to finish downloading, which is then thrown away and fetched again next sync.
+  With `readTimeout(0)`, a server that stalls mid-file holds `FolderSetup.lock` until it resumes.
+- **`auto_sync_on_boot`** is read by `BootReceiver` but nothing writes it.
 - **Not seen yet.** Home may open twice on the first Android 12+ launch after an upgrade. If it
   happens, the fix is `CLEAR_TOP|SINGLE_TOP` in `PermissionsActivity.proceed()`.
 - **README is stale** in places:
@@ -675,8 +712,8 @@ None is scheduled.
 ## What's next
 
 - **The player and adapter split** (spec `2026-10-07-player-adapter-split-design.md`). T1, T2
-  and T3 are done. Then T4, Settings, launch and sign-out; and the optional T5, Gradle modules.
-  Search builds after it.
+  and T3 are done, and T4 is built, awaiting the user's device check and commit. Then the
+  optional T5, Gradle modules. Search builds after it.
 - **The user's own upgrade of the release app,** a step of its own: its first launch moves
   `Media/hz`'s `Music/` and `Audiobooks/` into `Media/hz/kurage` (decision 9), and its first sync
   re-tags every file once (T2), about 2–3 minutes. Playlists and artist photos show after that

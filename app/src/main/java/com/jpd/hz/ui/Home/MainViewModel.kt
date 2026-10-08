@@ -81,6 +81,9 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     }
     val uiState: LiveData<UiState> = _uiState
 
+    /** Jellyfin as Settings → Adapters shows it (D12). */
+    val jellyfin: Adapter = JellyfinAdapter(app, this)
+
     init {
         refreshConfig()
         // The app opens: the Library folder is settled once (T3), then the player scans it.
@@ -109,19 +112,24 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
 
     fun refreshConfig() {
         val cfg = repo.getSavedConfig()
+        // Signed in since the last read, on the Jellyfin page (T4); not the first read at launch.
+        val newSignIn = cfg != null && _config.isInitialized && cfg != _config.value
         _config.value = cfg
         if (cfg != null) {
             refreshSyncCounts()
-            refreshCatalogueIfEmpty()
+            refreshCatalogue(onlyIfEmpty = !newSignIn)
+            // The last check, if any, was made signed out or for another sign-in.
+            if (newSignIn) checkServerConnection()
         }
     }
 
     // Home built the catalogue on first open until T3: the Sync card and the choice screens
-    // read it, and a fresh sign-in or a database rebuild leaves it empty. No sync is needed.
-    private fun refreshCatalogueIfEmpty() {
+    // read it, and a fresh sign-in or a database rebuild leaves it empty. No sync is needed. A
+    // new sign-in always refreshes: a sign-out cut short may have left the last server's.
+    private fun refreshCatalogue(onlyIfEmpty: Boolean) {
         viewModelScope.launch {
             try {
-                if (catalogue.isEmpty() && catalogue.refresh()) updateSyncCounts()
+                if ((!onlyIfEmpty || catalogue.isEmpty()) && catalogue.refresh()) updateSyncCounts()
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
@@ -179,8 +187,6 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             .apply()
     }
 
-    fun isLoggedIn() = repo.isLoggedIn()
-
     fun startSync() {
         _config.value ?: return
         val intent = Intent(getApplication(), SyncService::class.java).apply {
@@ -208,15 +214,15 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     fun cancelAutoSync() = SyncScheduler.cancelPeriodicSync(getApplication())
 
     /**
-     * Signs out of Jellyfin (spec "Signing out", amended 2026-10-09). The player isn't touched:
-     * playback, the queue and book progress stay (D10).
+     * Signs out of Jellyfin (spec "Signing out", amended 2026-10-09). The screens show it at once;
+     * the clearing goes on in the background. The player isn't touched: playback, the queue and
+     * book progress stay (D10).
      */
     fun signOut() {
+        _config.value = null
         viewModelScope.launch {
-            // The activity finishes straight after this call, so signing out must finish even if
-            // this scope is cancelled.
+            // It waits for a running sync to stop, so it must finish even if Settings closes.
             withContext(NonCancellable) { signOutQuietly() }
-            _config.postValue(null)
         }
     }
 

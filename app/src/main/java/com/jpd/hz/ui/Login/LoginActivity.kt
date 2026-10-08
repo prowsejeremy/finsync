@@ -1,6 +1,5 @@
 package com.jpd.hz.ui
 
-import android.content.Intent
 import android.os.Bundle
 import android.view.View
 import android.view.inputmethod.EditorInfo
@@ -10,6 +9,7 @@ import com.jpd.hz.appearance.applyAccentOverlay
 import com.jpd.hz.databinding.ActivityLoginBinding
 import com.google.android.material.snackbar.Snackbar
 
+/** Signing in to Jellyfin, opened from Adapters → Jellyfin, which it returns to (T4). */
 class LoginActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityLoginBinding
@@ -53,9 +53,7 @@ class LoginActivity : AppCompatActivity() {
                 }
                 is LoginViewModel.LoginState.Success -> {
                     binding.progressBar.visibility = View.GONE
-                    startActivity(Intent(this, MainActivity::class.java).apply {
-                        flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_NEW_TASK
-                    })
+                    // Back to the Jellyfin page, whose activity reads the new sign-in on resume.
                     finish()
                 }
                 is LoginViewModel.LoginState.Error -> {

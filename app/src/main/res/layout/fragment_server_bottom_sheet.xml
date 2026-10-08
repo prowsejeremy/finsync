@@ -83,12 +83,12 @@
 
     </LinearLayout>
 
-    <!-- Log out button -->
+    <!-- Sign out: Jellyfin's sign-in and server data go; the files and the player stay (T4) -->
     <com.google.android.material.button.MaterialButton
         android:id="@+id/btnLogout"
         android:layout_width="match_parent"
         android:layout_height="52dp"
-        android:text="Log out"
+        android:text="@string/btn_sign_out"
         android:textColor="@color/text_primary"
         android:textSize="16sp"
         android:fontFamily="@font/hk_regular"

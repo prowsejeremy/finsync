@@ -304,6 +304,15 @@
     <string name="library_use_folder">Use this folder</string>
     <string name="library_busy">A sync is running. Try again when it finishes.</string>
     <string name="library_unreadable_picked">Can\'t read that folder.</string>
-    <!-- Settings → Sync: where Jellyfin syncs, "Syncs to kurage/" -->
+    <!-- Adapters → Jellyfin: where Jellyfin syncs, "Syncs to kurage/" -->
     <string name="sync_target">Syncs to %1$s/</string>
+
+    <!-- Settings → Adapters, the Jellyfin page's Sign in card, Home's empty state (T4) -->
+    <string name="settings_adapters_title">Adapters</string>
+    <string name="adapter_not_signed_in">Not signed in</string>
+    <string name="jellyfin_sign_in_detail">Sign in to sync from your Jellyfin server.</string>
+    <string name="btn_sign_in">Sign in</string>
+    <string name="btn_sign_out">Sign out</string>
+    <string name="home_choose_folder">Choose library folder</string>
+    <string name="home_set_up_jellyfin">Set up Jellyfin</string>
 </resources>
