@@ -6,8 +6,9 @@ private const val LINE_SEPARATOR = "\n"
 private const val FIRST_NUMBERED_SUFFIX = 2
 
 /**
- * One adapter's folder for one server, saved in `adapter_folders` as
- * `<adapter>:<serverId>|<absolute path>` (spec "Saved settings").
+ * One adapter's folder for one server, saved in `adapter_folders` as `<adapter>:<serverId>|<path>`
+ * (spec "Saved settings"). From T3 the path is relative to the Library folder (A1); a full path is
+ * one saved before T3.
  */
 data class AdapterFolder(val adapter: String, val serverId: String, val path: String)
 
@@ -85,8 +86,11 @@ object AdapterFolders {
         }
     }
 
-    // Shared storage ignores case, so "Kurage" would land in another server's "kurage".
-    private fun isSameOrInside(path: String, folder: String): Boolean {
+    /**
+     * True when [path] is [folder] or inside it. Shared storage ignores case, so "Kurage"
+     * would land in another server's "kurage".
+     */
+    internal fun isSameOrInside(path: String, folder: String): Boolean {
         val inner = path.trimEnd('/').lowercase()
         val outer = folder.trimEnd('/').lowercase()
         return inner == outer || inner.startsWith("$outer/")

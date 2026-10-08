@@ -83,6 +83,14 @@
                 </LinearLayout>
             </com.google.android.material.card.MaterialCardView>
 
+            <!-- Library: the folder the player reads, "Media/hz · 5,300 songs" (T3) -->
+            <include
+                android:id="@+id/rowLibrary"
+                layout="@layout/view_settings_row"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="12dp" />
+
             <!-- Sync: opens the Sync screen; the summary updates live -->
             <include
                 android:id="@+id/rowSync"

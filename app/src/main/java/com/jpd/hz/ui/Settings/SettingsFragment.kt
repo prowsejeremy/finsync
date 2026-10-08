@@ -29,6 +29,8 @@ class SettingsFragment : Fragment() {
     private val binding get() = _binding!!
     private val viewModel: SettingsViewModel by navGraphViewModels(R.id.settings_graph)
     private val mainViewModel: MainViewModel by activityViewModels()
+    private val libraryViewModel: LibrarySettingsViewModel by
+        navGraphViewModels(R.id.settings_graph)
 
     override fun onCreateView(
         inflater: LayoutInflater,
@@ -45,6 +47,7 @@ class SettingsFragment : Fragment() {
         binding.header.btnBack.setOnClickListener { findNavController().navigateUp() }
 
         bindServer()
+        bindLibraryRow()
         bindSyncRow()
         bindAppearanceRow()
         bindHomeScreenRow()
@@ -82,6 +85,25 @@ class SettingsFragment : Fragment() {
         binding.tvServerStatus.setText(
             if (connected) R.string.server_connected else R.string.server_offline
         )
+    }
+
+    // ── Library row ───────────────────────────────────────────────────────────
+
+    private fun bindLibraryRow() {
+        binding.rowLibrary.ivRowIcon.setImageResource(R.drawable.ic_folder)
+        binding.rowLibrary.tvRowTitle.setText(R.string.settings_library_title)
+        libraryViewModel.folder.observe(viewLifecycleOwner) { renderLibrarySummary() }
+        libraryViewModel.songCount.observe(viewLifecycleOwner) { renderLibrarySummary() }
+        binding.rowLibrary.root.setOnClickListener {
+            navigateSafely(R.id.settingsFragment, R.id.action_settings_to_library)
+        }
+    }
+
+    // "Media/hz · 5,300 songs" (spec "Settings → Library").
+    private fun renderLibrarySummary() {
+        val folder = libraryViewModel.folder.value ?: return
+        val songs = libraryViewModel.songCount.value ?: 0
+        binding.rowLibrary.tvRowSummary.text = resources.librarySummary(folder, songs)
     }
 
     // ── Sync row ──────────────────────────────────────────────────────────────

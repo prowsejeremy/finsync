@@ -14,6 +14,7 @@ import com.jpd.hz.appearance.ThemeMode
 import com.jpd.hz.auth.JellyfinRepository
 import com.jpd.hz.auth.Result
 import com.jpd.hz.db.SyncDatabase
+import com.jpd.hz.library.LibraryFolderStore
 import com.jpd.hz.library.SyncSelections
 import com.jpd.hz.model.AlbumSelection
 import com.jpd.hz.service.SyncScheduler
@@ -44,11 +45,7 @@ class SettingsViewModel(app: Application) : AndroidViewModel(app) {
     private val _albums  = MutableLiveData<List<AlbumSelection>>()
     val albums: LiveData<List<AlbumSelection>> = _albums
 
-    private val _syncDir = MutableLiveData<String>()
-    val syncDir: LiveData<String> = _syncDir
-
     init {
-        refreshSyncDir()
         loadAlbums()
     }
 
@@ -76,9 +73,11 @@ class SettingsViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
-    fun refreshSyncDir() {
-        val cfg = repo.getSavedConfig() ?: return
-        _syncDir.value = SyncEngine.getSyncDirectoryPath(getApplication(), cfg)
+    /** Where Jellyfin syncs, named from the Library folder: "kurage" (T3). */
+    fun syncTarget(): String? {
+        val cfg = repo.getSavedConfig() ?: return null
+        val folder = SyncEngine.getSyncDirectory(getApplication(), cfg).path
+        return LibraryFolderStore(getApplication()).nameInLibrary(folder)
     }
 
     fun getSelectedAlbumIds(): Set<String> =
@@ -137,18 +136,6 @@ class SettingsViewModel(app: Application) : AndroidViewModel(app) {
             "disabled" -> SyncScheduler.cancelPeriodicSync(getApplication())
             else       -> SyncScheduler.schedulePeriodicSync(getApplication(), interval.toLong())
         }
-    }
-
-    fun getSyncDirectoryPath(): String? {
-        val cfg = repo.getSavedConfig() ?: return null
-        return SyncEngine.getSyncDirectoryPath(getApplication(), cfg)
-    }
-
-    // The signed-in server's adapter_folders entry; sync_directory only seeded it (T2).
-    fun setSyncDirectory(path: String) {
-        val cfg = repo.getSavedConfig() ?: return
-        SyncEngine.setSyncDirectory(getApplication(), cfg, path)
-        refreshSyncDir()
     }
 
     // Appearance's choices (spec "Settings screens"); AppearanceFragment applies them.

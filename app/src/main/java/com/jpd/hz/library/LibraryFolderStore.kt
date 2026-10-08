@@ -56,8 +56,21 @@ class LibraryFolderStore(context: Context) {
     fun appDefault(): File = File(appContext.getExternalFilesDir(null), DEFAULT_FOLDER)
 
     /** The folder as screens name it: "Media/hz" rather than its whole path. */
-    fun displayPath(): String =
-        displayPathOf(folder().path, Environment.getExternalStorageDirectory().path)
+    fun displayPath(): String = displayPathOf(folder().path)
+
+    /** [path] as screens name it, from shared storage's top. */
+    fun displayPathOf(path: String): String =
+        displayPathOf(path, Environment.getExternalStorageDirectory().path)
+
+    /** [path] named from the Library folder when it's inside it, such as "kurage". */
+    fun nameInLibrary(path: String): String =
+        nameInLibraryOf(path, folder().path) ?: displayPathOf(path)
+}
+
+/** [path] inside [library] from there, or null when it's elsewhere. */
+internal fun nameInLibraryOf(path: String, library: String): String? {
+    val root = library.trimEnd('/')
+    return if (path.startsWith("$root/")) path.substring(root.length + 1) else null
 }
 
 /** [path] inside [storageRoot] loses the root's part; any other path stays whole. */

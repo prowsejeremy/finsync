@@ -1,5 +1,6 @@
 package com.jpd.hz.sync
 
+import com.jpd.hz.adapter.AdapterFolders
 import com.jpd.hz.adapter.PlaylistEntry
 import com.jpd.hz.adapter.PlaylistFiles
 import com.jpd.hz.adapter.sanitizeFilename
@@ -161,4 +162,25 @@ internal fun filesToKeep(syncDir: File, plan: SyncPlan): Set<String> {
         paths.add(File(syncDir, playlistCoverPath(fileName)).absolutePath)
     }
     return paths
+}
+
+/**
+ * Why sync must not use [folder], or null when it may (T3, A5). A folder that is, or holds, the
+ * Library folder would have its cleanup delete the user's own files. A saved folder that's gone
+ * while the signed-in server's records ([hasRecords]) name files in it was moved or unmounted:
+ * recreating it would download everything again.
+ */
+internal fun syncFolderProblemOf(
+    folder: String,
+    exists: Boolean,
+    hasRecords: Boolean,
+    library: String
+): String? {
+    if (AdapterFolders.isSameOrInside(library, folder)) {
+        return "Jellyfin's folder $folder holds the Library folder. Nothing was synced."
+    }
+    if (!exists && hasRecords) {
+        return "Can't find Jellyfin's folder $folder. Nothing was synced."
+    }
+    return null
 }

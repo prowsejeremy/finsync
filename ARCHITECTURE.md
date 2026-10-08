@@ -1,8 +1,8 @@
 # hz: architecture and feature reference
 
-Updated 2026-10-08, on `feature/fragment` after `2ca5ece`, with T2 of the player and adapter
-split (the adapter writes the format) done and checked on the phone. 342 unit tests in 55 suites
-pass: 301 in 49 for `:app` and 41 in 6 for `:tags`. `:tags` also has 95 instrumented tests, which
+Updated 2026-10-08, on `feature/fragment`, with T3 of the player and adapter split (the player
+reads the Library folder) built but not yet checked on the phone. 421 unit tests in 64 suites
+pass: 380 in 58 for `:app` and 41 in 6 for `:tags`. `:tags` also has 95 instrumented tests, which
 run on a phone.
 
 Start here before extending the app. This document summarises what is built and the rules every
@@ -32,8 +32,10 @@ change follows. The specs hold the full reasoning behind each decision.
 
 ## What hz is
 
-A native Android music and audiobook player for a Jellyfin server. It syncs chosen music and
-books to the device, then plays only those local files. Playback always works offline.
+A native Android music and audiobook player. It plays the audio files in one Library folder and
+builds its whole library from their tags, artwork files and playlist files. A Jellyfin adapter
+syncs chosen music and books from a server into that folder and tags them. Playback always works
+offline.
 
 It was called Finsync until 2026-10-06. The rename changed the application ID to `com.jpd.hz`, so
 hz installs beside Finsync instead of upgrading it. The local specs, plans and handovers predate
@@ -42,6 +44,8 @@ the rename and still say Finsync and `com/jpd/finsync`.
 - **Sign-in** to Jellyfin 12+. Credentials are kept in `EncryptedSharedPreferences`.
 - **Sync** of chosen albums, playlists and audiobooks. Sync is incremental, runs in a foreground
   service with a notification, and can repeat on a schedule (WorkManager).
+- **The Library folder** (`Media/hz` by default) is scanned when the app opens, after each sync
+  and on Rescan. Files added by hand show up like synced ones.
 - **Library browsing** from Home, with six categories the user can reorder and hide: Albums,
   Album Artists, Genres, Songs, Playlists and Audio Books. Each has a list screen and a detail
   page.
@@ -57,7 +61,7 @@ the rename and still say Finsync and `com/jpd/finsync`.
   pitch-preserving speed setting (0.8× to 2.0×) and a saved position per book.
 - **A 10-band equaliser** with nine built-in presets, one Custom slot and presets the user saves
   under their own names. It applies to music and books alike.
-- **Settings:** the server pill, then Sync, Appearance, Home screen and Equaliser rows.
+- **Settings:** the server pill, then Library, Sync, Appearance, Home screen and Equaliser rows.
 - **Appearance:** Dark, Light or System mode, and five accent colours.
 
 ## Status by sub-project
@@ -78,6 +82,7 @@ its own spec, plan and alpha build, and each left the app working.
 | 5+ | Equaliser saved presets | Done | `a2dd48d` | `2026-10-05-equaliser-saved-presets-design.md` |
 | T1 | Player and adapter split, T1: the tag engine (`:tags`) | Done | `4a62e00`, `23bcac1` | `2026-10-07-player-adapter-split-design.md` |
 | T2 | Player and adapter split, T2: the adapter writes the format | Done | `3fa93a8`, `2ca5ece` | `2026-10-07-player-adapter-split-design.md` |
+| T3 | Player and adapter split, T3: the player reads the Library folder | Built, awaiting device check and commit | — | `2026-10-07-player-adapter-split-design.md` |
 | 4 | Search | Not designed | — | Overview row 4 only |
 
 Sub-project 5 was built before 4 at the user's request. The plans are in `docs/superpowers/plans/`
@@ -87,20 +92,26 @@ under the same date and name, without `-design`.
 
 These rules hold across the whole app. A change that breaks one needs a deliberate decision.
 
-### The four streaming seams
+### The player and its adapters
 
-Streaming from the server is a likely later addition. These four rules keep it cheap:
+The player and adapter split (spec `2026-10-07-player-adapter-split-design.md`) replaced the
+overview's streaming seams 1 and 3 when T3 landed. These four rules hold:
 
-1. **Store the whole library's metadata.** Sync already fetches it, so the catalogue tables keep
-   every track, keyed by Jellyfin ID. A track is downloaded when it has a `synced_tracks` row.
-   Screens filter to downloaded items; streaming would lift that filter while online.
+1. **The player reads only the Library folder** (D1). Everything it shows comes from files:
+   tags, `folder.jpg` and `artist.jpg`, and `.m3u8` playlists. An adapter's only link to it is
+   the shell's rescan hook (`requestLibraryRescan` in `Hz.kt`), which carries no data.
 2. **Screens read library data only through the repositories** (`LibraryRepository`,
    `PlaylistRepository`, `BookRepository`), never from Room DAOs directly.
-3. **The play queue holds Jellyfin item IDs, not file paths.** `TrackResolver` turns an ID into
-   something playable just before it plays. Today that is always a local file.
+3. **Stable IDs, relative paths** (spec "T3 amendment" A1–A2): an audio file's ID is a `fileId`
+   given when a scan first sees it, and survives moves, renames and re-tags; its path is a field,
+   relative to the Library folder. Artists and genres are keyed by normalised name, albums by album
+   artists and name, playlists by path. The Library folder is the only full path hz saves. The
+   play queue and book progress hold `fileId`s, and `TrackResolver` turns each into the file in
+   today's Library folder just before it plays.
 4. **Media3 supplies the session; BASS decodes and equalises.** The same engine runs on every
-   platform, so formats and the EQ behave the same everywhere. BASS can stream HTTP with custom
-   headers.
+   platform, so formats and the EQ behave the same everywhere.
+
+Streaming, if it comes, becomes an adapter feature.
 
 ### Server and auth
 
@@ -149,14 +160,19 @@ Hz.kt                     Application: applies the saved night mode before any a
 api/                      Retrofit interface, OkHttp client, auth header, ReadOnlyInterceptor
 auth/                     CredentialStore (encrypted prefs), JellyfinRepository (every server call)
 model/Models.kt           Server DTOs (MediaItem, MediaStream…), ServerConfig, SyncState
-db/                       Room: SyncDatabase v8, sync tables, catalogue tables, book_progress, DAOs
-library/                  Repositories for screens and playback, plus pure rules: visibility,
-                          grouping, ordering, mapping server items to rows, book chapters, artwork
+db/                       Room: the Jellyfin adapter's SyncDatabase v9 (sync records, catalogue)
+library/                  Repositories for screens and playback, plus pure rules: grouping,
+                          ordering, book chapters; the Library folder setting
+library/db/               Room: the player's LibraryDatabase (what the scan found, and book
+                          progress)
+library/scan/             LibraryScanner and its parts: walk, file rules, TagLib reads, playlist
+                          reading, deriving albums and artists, embedded covers
 adapter/                  Code any adapter shares (T2, D12): folder naming and adapter_folders,
                           FileTagger in front of TagLibBridge, tag-then-rename, playlist files,
-                          cleanup scoped to the adapter's folder
+                          cleanup scoped to the adapter's folder, folder moves (T3)
 sync/                     SyncEngine and its pure parts: SyncPlan, SyncPaths, SyncCounts,
-                          JellyfinTagMapping, cover and artist-photo sync
+                          JellyfinTagMapping; JellyfinCatalogue; artist photos, covers and
+                          playlist files; FolderSetup (the Library folder and its moves)
 service/                  SyncService (foreground sync), BootReceiver and SyncWorker (WorkManager)
 playback/                 PlaybackService, BassPlayer, BassEngine, TrackResolver, QueueOrder,
                           resume, audio focus, book controls, speed and progress
@@ -174,8 +190,8 @@ only, and hz is never sold.
 
 The tag engine is its own Gradle module, `tags/` (package `com.jpd.hz.tags`), which the app
 depends on. Sync writes tags through it (T2), always behind `adapter/FileTagger.kt`: the JVM has
-no `libhztags.so`, so code that unit tests reach takes the interface and tests pass fakes. T3's
-scanner will read through it.
+no `libhztags.so`, so code that unit tests reach takes the interface and tests pass fakes. The
+scanner reads through `library/scan/TagSource.kt` the same way.
 - `src/main/cpp/`:
   - TagLib 2.3.2, vendored unmodified in `taglib/` with its licences;
   - hz's bridge: `hz_tags.cpp` holds the logic, and `hz_tags_jni.cpp` is the JNI glue;
@@ -190,36 +206,66 @@ scanner will read through it.
 
 ## Data
 
-### Room database (`db/SyncDatabase.kt`, version 8)
+### The Library folder (`library_folder`)
 
-| Group | Tables | Notes |
+`Media/hz` by default, or `Media/hz` in the app's external files folder without all-files
+access. The scanner reads every file in it (spec "The Library folder format"):
+
+| What | Rule |
+|---|---|
+| Audio | `mp3 flac m4a m4b ogg opus ape wv wav aif aiff`, any case. Hidden files and folders, and folders holding `.nomedia`, are skipped. |
+| Books | Audio with a folder named `Audiobooks` (any case) anywhere in its path (D7). |
+| Playlists | Every `.m3u8` and `.m3u`. Entries resolve from the playlist's own folder; entries outside the Library folder, or matching no song, are skipped. |
+| Album and book art | `folder.jpg`, `folder.png`, `cover.jpg`, `cover.png` beside the first track (lowest disc, then track, then path), else the embedded cover, cached in `filesDir/embedded_art/`. |
+| Artist photos | `artist.jpg` or `artist.png` in the folder above an album's, for its first album artist. |
+| Playlist covers | `<playlist name>.jpg` or `.png` beside the playlist. |
+
+Tags are read as the spec's "Our tags" says (`com.jpd.hz.tags.TagReading`): several values per
+field split on `;` (D5), album artists fall back to the first artist, and an album is its album
+artists plus its name, normalised.
+
+Each adapter syncs into its own folder inside the Library folder, named after the server
+(`kurage/`), and its cleanup never leaves it (D4).
+
+### Room databases
+
+| Database | Tables | Notes |
 |---|---|---|
-| Sync records | `synced_tracks`, `synced_albums` | One row per file sync wrote. A `synced_tracks` row is the "downloaded" flag. Books have rows too. From version 8, `tagFingerprint` is the `TagFingerprint` of the fields sync last wrote into the file (null until it's tagged), and `fileSize` is the size after tagging. |
-| Catalogue | `catalogue_albums`, `catalogue_tracks`, `catalogue_artists`, `catalogue_album_artists`, `catalogue_track_artists`, `catalogue_genres`, `catalogue_track_genres`, `catalogue_playlists`, `catalogue_playlist_items`, `catalogue_books`, `catalogue_book_chapters` | The whole server library. A single transaction replaces every table on each refresh, and logout clears them. |
-| Progress | `book_progress` | `bookId`, `positionMs`, `finished`, `lastPlayedAt`. Refreshes don't touch it; logout clears it. |
+| `LibraryDatabase` (`hz_library.db`, v1, player) | `library_files` (`fileId`, relative `path`, stamps), `library_tracks`, `library_albums`, `library_artists`, `library_album_artists`, `library_track_artists`, `library_genres`, `library_track_genres`, `library_playlists`, `library_playlist_items`, `library_books`, `library_book_chapters`, `book_progress` | What the last scan found, and book progress by `fileId`. A scan updates it in place: one transaction replaces the scan's tables and keeps progress, except for books that have gone. **Every schema change needs a real migration** (A3). |
+| `SyncDatabase` (`hz_sync.db`, v9, Jellyfin adapter) | `synced_tracks`, `synced_albums`, `catalogue_tracks`, `catalogue_playlists`, `catalogue_playlist_items`, `catalogue_books` | Sync records (a `synced_tracks` row per file sync wrote, with `tagFingerprint`), and the server's catalogue, which sync plans from and the Sync card and choice screens read. |
 
-- Link tables have no foreign keys. Playlist items are keyed by position, so one song can appear
-  twice in a playlist.
-- **Visibility.** A downloaded track is visible when its album passes the album selection, or
-  it's in a selected playlist. A downloaded track with no album is always visible. An album is
-  visible when it has a visible track. A track downloaded only for a playlist therefore makes its
-  album a partial album.
-- **Migrations.** `MIGRATION_4_5` and `MIGRATION_7_8` (T2, adds `tagFingerprint`) are real
-  migrations. Versions 6 and 7 rebuilt the database through `fallbackToDestructiveMigration()`,
-  because the user is the only user. The next sync re-links files already on disk without
-  downloading them again.
+- **Scanning** (`library/scan/LibraryScanner.kt`, one app-wide instance): walk the folder, stat
+  each audio file (size, mtime, ctime, inode), and read only new or changed ones through TagLib,
+  eight at a time (1,477 files in about 2.5 s on the user's Pixel 8; a pass with nothing to read
+  takes about 1.3 s). A file keeps its `fileId` at the same path; at a new path, when its stamps
+  match a file that vanished (a move or rename), or else when its tag key matches exactly one
+  (a copy, a re-download; a book's authors and title, a song's album, disc, number and title).
+  Rows of files that are gone are dropped. A file TagLib can't open is added if BASS can decode
+  it, titled from its name.
+  Playlists are parsed every pass. Only files really gone are dropped: a known file that can't be
+  stamped or read keeps its rows, and so does every known file under a folder that can't be
+  listed. A Library folder that can't be listed, or holds no audio while the library has files,
+  leaves the library as it was ("Can't read"). A pass that ran across a move of files
+  (`LibraryFolderStore.noteFolderChange`) writes nothing and runs again. A new file whose read
+  throws is left out of that pass only; Rescan also re-reads unreadable files.
+  Triggers: the app opens, a sync ends, the Library folder changes, and Rescan. One scan runs at
+  a time; a request during one runs one more pass.
+- **Migrations.** `SyncDatabase`: `MIGRATION_4_5`, `MIGRATION_7_8` (T2, `tagFingerprint`) and
+  `MIGRATION_8_9` (T3, drops the eight tables the adapter no longer reads, `book_progress`
+  among them). Versions 6 and 7 rebuilt it through `fallbackToDestructiveMigration()`. The next
+  sync re-links files already on disk without downloading them again.
   - **No effort goes into preserving data from earlier versions** (the user, 2026-10-08): hz has
-    one user, so a schema change may rebuild the database, even though `book_progress` holds
-    data no sync can restore. `MIGRATION_7_8` was approved before that note. The schema isn't
-    exported, so `SyncDatabaseMigrationTest` builds a version 7 file by hand and opens it
-    through the migration alone.
+    one user, so T3 carried no queue or book progress over. The schema isn't exported, so
+    `SyncDatabaseMigrationTest` builds old database files by hand. `LibraryDatabase` is the
+    exception from T3 on: it holds book progress, so every change to it gets a real migration.
 
 ### SharedPreferences
 
 | File | Keys | Owner |
 |---|---|---|
 | `settings` | `selected_albums`, `selected_playlists`, `selected_books` (string sets); `auto_sync_interval`, `auto_sync_on_boot` | Settings view models, `library/SyncSelections.kt`, `SyncEngine`, `BootReceiver` |
-| `settings` | `adapter_folders` (T2): one `<adapter>:<serverId>\|<absolute path>` per line, kept on sign-out. `sync_directory` (before T2) is read only to fill the first entry. | `adapter/AdapterFolderStore.kt`, `SyncEngine.getSyncDirectory` |
+| `settings` | `adapter_folders` (T2): one `<adapter>:<serverId>\|<path>` per line, kept on sign-out. From T3 the path is relative to the Library folder (`kurage`); a full path is a pre-T3 one, until the first launch settles it. `sync_directory` (before T2) is read only to fill the first entry, and removed once settled. | `adapter/AdapterFolderStore.kt`, `SyncEngine.getSyncDirectory` |
+| `settings` | `library_folder` (T3): the Library folder's full path, the only one hz saves. `library_move`: a change of folder begun and not yet finished. | `library/LibraryFolderStore.kt`, `sync/FolderSetup.kt` |
 | `settings` | `theme_mode` (`dark`, `light`, `system`), `accent` (`green`, `blue`, `purple`, `pink`, `red`) | `appearance/AppearanceStore.kt` |
 | `settings` | `home_order` (comma-separated keys), `home_hidden` (string set) | `home/HomeLayoutStore.kt` |
 | `playback` | `resume_state` (queue IDs, index, position, repeat, shuffle), `book_speed` | `playback/ResumeStore.kt`, `playback/BookSpeedStore.kt` |
@@ -232,28 +278,32 @@ changes need no migration. Unknown values read as the default.
 The EQ has its own file so that the 10-second resume saves in `playback` don't wake the playback
 service's EQ listener.
 
-### Files outside the sync folder
+### Files outside the Library folder
 
-- `filesDir/artist_images/<artistId>.jpg` and `filesDir/playlist_images/<playlistId>.jpg`. They
-  live in private storage because sync's orphan cleanup deletes unknown files in the music
-  folder. A photo exists when its file does. Logout deletes both folders.
-  - From T2, sync also copies them into the sync folder (see "On disk"), which the keep set
-    protects. The player still reads the private ones until T3.
+- `filesDir/embedded_art/`: covers found only inside audio files, one per album or book, written
+  as found (Glide and Media3 decode by content). An empty file records "no cover". A scan
+  deletes the ones it no longer needs.
+- T3 deleted the private `filesDir/artist_images/` and `filesDir/playlist_images/`. Photos and
+  covers now live in the Library folder.
 
 ## Sync
 
 Entry points: `SyncService` for a manual sync (a foreground service of type `dataSync`), and
 `SyncWorker` for scheduled syncs (in `service/BootReceiver.kt`, unique work
-`hz_periodic_sync`). Both run `SyncEngine.syncLibrary`. Its state flows into
-`MainViewModel.uiState`, which every screen that shows sync or server state reads.
+`hz_periodic_sync`). Both run `SyncEngine.syncLibrary`, then call the shell's rescan hook,
+whatever the result. Its state flows into `MainViewModel.uiState`, which every screen that shows
+sync or server state reads.
+
+A sync holds `FolderSetup.lock` from start to end, so Jellyfin's folder never moves under it, and
+first settles the Library folder if that hasn't happened (see "The folder" below).
 
 One run:
 
 1. **Fetch** the whole music library (`Users/{userId}/Items`, `Audio`, paged 500 at a time),
    then the playlists and their entries, then `AudioBook` items with chapters, people and
    genres.
-2. **Write the catalogue** before any download, so a cancelled sync still leaves it current. A
-   failed playlist or book fetch keeps that part of the old catalogue.
+2. **Write the catalogue** (`JellyfinCatalogue`) before any download, so a cancelled sync still
+   leaves it current. A failed playlist or book fetch keeps that part of the old catalogue.
 3. **Plan** with `syncPlanOf`: selected albums' tracks, then tracks only selected playlists need,
    then selected books. Books go last so new music isn't stuck behind a large book.
 4. **Download and tag** whatever is missing or changed (T2). Each file downloads to
@@ -272,10 +322,10 @@ One run:
    deleted, by `adapter/AdapterCleanup.kt`, which never touches anything outside the folder.
    Deselecting an album, playlist or book therefore removes its files on the next sync. The keep
    set also holds each album artist's `artist.jpg` and each selected playlist's file and cover.
-6. **Artist photos, covers, then the folder copies.** `ArtistPhotoSync` runs, then `CoverSync`
-   fetches playlist and book covers. Then `FolderCopies` copies the photos and playlist covers
-   into the sync folder and writes the playlist files. A failed photo, cover or copy is logged
-   and retried next sync; it never fails the sync.
+6. **Artist photos, covers and playlist files,** straight into the sync folder:
+   `ArtistPhotoSync` fetches each missing `artist.jpg`, `CoverSync` each missing playlist cover and
+   book `folder.jpg`, and `PlaylistFileSync` writes the `.m3u8` files. A failed photo, cover or
+   file is logged and retried next sync; it never fails the sync.
 
 **Failures.** A failed item is skipped, not fatal. The sync ends **incomplete** ("Sync
 incomplete: 2 items couldn't sync. They'll retry next sync."), and cleanup never deletes a file
@@ -295,15 +345,34 @@ tagged.", and that never makes the sync incomplete.
 
 **The folder** (`SyncEngine.getSyncDirectory`) is the server's `adapter_folders` entry, fixed
 the first time it's needed.
-- An install upgraded from before T2 keeps its old folder: the `sync_directory` choice, else the
-  default `Media/hz/<server name>` when that holds files.
-- A new server gets `<server name>` in `Media/hz`, or beside the folder of a server whose folder
-  is `Media/hz` itself or holds it, so no adapter's folder is ever inside another's. When that
+- A new server gets `<server name>` in the Library folder, or beside the folder of a server whose
+  folder is the library or holds it, so no adapter's folder is ever inside another's. When that
   folder holds anything, or holds another server's, it gets `<server name> (Jellyfin)`, then
   `(Jellyfin 2)` (D4).
 - Without all-files access, the folder is `Media/hz/<server name>` in the app's own external files
-  folder, and it isn't saved until access is granted.
-- The Sync Directory picker in Settings → Sync replaces the server's entry.
+  folder, and it isn't saved until access is granted. Public `Media/hz` is created only while no
+  Library folder is saved.
+- **The first launch after T3** (`FolderSetup.settle`, at app open or a sync's start) settles the
+  Library folder from where Jellyfin synced before. A folder in `Media/hz` keeps `Media/hz` as
+  the library. A folder picked by hand, as the user's `Media/hz` was, becomes the library, and
+  its `Music/`, `Audiobooks/` and `Playlists/` are renamed into `<it>/<server name>`. The same
+  step makes the sync records relative to Jellyfin's folder (A1). The change is saved
+  (`library_move`) before the first rename, so one cut short is finished by the next settle; a
+  failed rename puts the others back and saves nothing. Until the folder is settled, syncs stop
+  with an error, and so does a change of folder. Each sync also makes any record still saved with
+  a full path relative to its folder, as a backstop.
+- **Settings → Library** changes the Library folder (`FolderSetup.plan`, `changeLibrary`; A4). A
+  folder inside Jellyfin's is refused. Jellyfin's folder still where it was is kept if it's inside
+  the new one, and otherwise renamed into it, after asking (to a free name: a target that exists,
+  even empty, is taken). One moved by hand is found in the new folder by its files: 90% of the
+  records at their paths and sizes, and 90% of its audio recorded, so the user's own music is never
+  taken for it. One found by searching is confirmed first, since sync's cleanup works there. Not
+  found, the change says "Can't find Jellyfin's files" and changes nothing. Paths are relative, so
+  no record is rewritten, and a failed rename changes nothing. While a sync runs, the change waits
+  for it.
+- **A sync also refuses** a folder that is, or holds, the Library folder, and a saved folder that's
+  gone while the records name files in it (`syncFolderProblemOf`): recreating it would download
+  everything again.
 
 **Sync card.** `ui/Settings/SyncDisplay.kt` is a pure, ordered rule table that turns the state
 into a status: OFFLINE, SYNCING, STOPPED, FAILED, INCOMPLETE, SYNCED or NOT_SYNCED. The counts
@@ -321,7 +390,7 @@ Fragments ──▶ PlaybackViewModel (activity-scoped, wraps one MediaControlle
                                    ├─ TrackResolver   IDs → MediaItems, via the repositories
                                    ├─ ResumeStore      saves the queue, restores it paused
                                    ├─ PlaybackFocus    audio focus, ducking, becoming-noisy
-                                   ├─ BookProgressWriter → book_progress
+                                   ├─ BookProgressWriter → book_progress (LibraryDatabase)
                                    ├─ EqualiserStore listener → engine.setEqualiser
                                    └─ BassPlayer (Media3 SimpleBasePlayer: queue, repeat, shuffle)
                                           └─ BassEngine
@@ -331,12 +400,13 @@ Fragments ──▶ PlaybackViewModel (activity-scoped, wraps one MediaControlle
                                                        └─ BASS_FX PEAKEQ on the mixer (10 bands)
 ```
 
-- **Resolving.** Queue items carry only a Jellyfin ID as `mediaId`. `TrackResolver` resolves a
-  batch at a time, kept under SQLite's 999-parameter limit, through
-  `LibraryRepository.playableTracks` and `BookRepository.playableBooks`. It adds the file URI,
-  metadata and extras: codec, bit depth, sample rate, bitrate, size, and a book's chapters
-  (`playback/TrackExtras.kt`). An ID with no catalogue row, no sync record or no file is skipped.
-  If nothing resolves, the queue stays as it was and the UI shows "Files missing. Run a sync."
+- **Resolving.** Queue items carry only a `fileId` as `mediaId`. `TrackResolver` resolves a batch
+  at a time, kept under SQLite's 999-parameter limit, through `LibraryRepository.playableTracks`
+  and `BookRepository.playableBooks`, as the file at its relative path in today's Library folder
+  (`LibraryFiles`). It adds the file URI, metadata and extras: codec, bit depth, sample
+  rate, bitrate, size, and a book's chapters (`playback/TrackExtras.kt`). An ID with no library
+  row or no file is skipped. If nothing resolves, the queue stays as it was and the UI shows
+  "Files missing. Rescan your library."
 - **Gapless.** The next track is queued in the mixer (`BASS_MIXER_QUEUE`), so it starts with no
   gap. Seeking moves the position in place without reopening the file, so book skips are quick.
 - **Order.** `QueueOrder` (pure) holds the repeat and shuffle rules. Shuffle starts with the
@@ -345,7 +415,7 @@ Fragments ──▶ PlaybackViewModel (activity-scoped, wraps one MediaControlle
   10 s while playing. A service starting with an empty queue restores it paused.
   `onPlaybackResumption` gives Bluetooth or lock-screen Play the same queue.
 - **Lifecycle.** Swiped away while playing, the app keeps playing; while paused, the service
-  stops. Logout stops playback and clears the queue.
+  stops. Logout stops playback and clears the queue and book progress (T4 changes that, D10).
 - **Books.** A book replaces the queue and plays alone, with repeat and shuffle hidden.
   - Screens use only `PlaybackViewModel`'s chapter methods: `nextChapter`, `previousChapter`,
     `jumpToChapter`, `skipBack`, `skipForward` and `setSpeed`. Playing chapters as clipped queue
@@ -394,6 +464,7 @@ nav_graph (start: homeFragment)
 ├── equaliserFragment         (from the Player and from Settings)
 └── settings_graph (start: settingsFragment)
     ├── settingsFragment
+    ├── librarySettingsFragment   (T3: the Library folder and its scan)
     ├── appearanceFragment
     ├── homeScreenFragment
     └── sync_graph (start: syncSettingsFragment)
@@ -405,11 +476,13 @@ nav_graph (start: homeFragment)
 The sync notification deep-links to `syncSettingsFragment`, with Home → Settings → Sync behind it.
 
 **View models.**
-- `MainViewModel` is activity-scoped. It holds server and sync state, sync counts and logout.
+- `MainViewModel` is activity-scoped. It holds server and sync state, sync counts and logout,
+  and at app open settles the Library folder, then starts a scan.
 - `PlaybackViewModel` is activity-scoped and mirrors the media controller.
 - `SettingsViewModel` is scoped to `settings_graph` with `navGraphViewModels`.
+- `LibrarySettingsViewModel` is scoped to `settings_graph` too: the Library row and screen.
 - Each browse screen has its own view model reading the repositories' Room `Flow`s, so screens
-  update when a sync finishes.
+  update when a scan finishes.
 
 **Home.**
 - `home/HomeCategory.kt` is the enum of categories, in default order.
@@ -417,8 +490,10 @@ The sync notification deep-links to `syncSettingsFragment`, with Home → Settin
   missing categories and never hides the last one.
 - `ui/Home/HomeCategoryViews.kt` is one `when` table that gives each category its title, icon,
   navigation action and count.
-- `HomeLibraryState` covers Building, Failed and Ready (with counts). With an empty catalogue,
-  Home refreshes it without a sync.
+- `HomeLibraryState` covers Building (an empty library before its first scan finishes), Failed
+  ("Can't read Media/hz", with Retry) and Ready (with counts, or "No music found in Media/hz.").
+  `MainViewModel` refreshes an empty catalogue for the Sync card and choice screens, without a
+  sync.
 
 **Shared pieces.**
 - Layouts: `view_screen_header.xml` (back and title), `view_settings_row.xml` (Settings rows),
@@ -500,7 +575,7 @@ Commands, run from the repo root:
 
   The init script is local and gitignored. Copy the APK from `app/build/outputs/apk/debug/` to
   the repo root under a unique suffix, because every alpha of one version has the same name.
-  **Before the alpha's first sync, set a different sync directory.** Both apps default to the
+  **Before the alpha's first sync, set a different Library folder.** Both apps default to the
   same folder, and each one's orphan cleanup deletes the other's files.
 
 ## How work is planned and run
@@ -542,13 +617,13 @@ Commands, run from the repo root:
 
 ### Add a library query or screen
 
-- Add the SQL to `db/CatalogueDao.kt`. Expose it from the right repository as a `Flow`, applying
-  the visibility rule (`library/AlbumSelectionRule.kt`, `library/LibraryGrouping.kt`). Never call
-  the DAO from a screen.
+- Add the SQL to `library/db/LibraryDao.kt`. Expose it from the right repository as a `Flow`.
+  Never call the DAO from a screen. Everything in the Library folder shows; selections only
+  drive the adapter's sync.
 - Pure ordering and grouping go in `library/` with JUnit tests. Join queries get a Robolectric
   test, like `LibraryRepositoryTest`.
 - Start playback through `PlaybackViewModel.playTracks(itemIds, startIndex, shuffle)` with
-  Jellyfin IDs.
+  `fileId`s.
 
 ### Add a server request
 
@@ -556,9 +631,9 @@ Commands, run from the repo root:
   call it from `JellyfinRepository`. Prefer `GET Items` with `userId`.
 - `ReadOnlyInterceptor` refuses anything else. A non-GET needs the user's decision and an
   explicit exception.
-- If the data belongs in the catalogue, fetch it during sync and the catalogue refresh, and add it
-  to the `replaceCatalogue`/`clearCatalogue` transaction. Bump the database version and decide
-  about a migration (see [Data](#data)).
+- The player never sees server data. If the player needs it, sync writes it into the files
+  (a tag, an image or a playlist). If only the adapter needs it, add it to `JellyfinCatalogue`'s
+  write and `CatalogueDao.replaceCatalogue`, bump `SyncDatabase` and decide about a migration.
 
 ### Add a setting
 
@@ -600,13 +675,11 @@ None is scheduled.
 ## What's next
 
 - **The player and adapter split** (spec `2026-10-07-player-adapter-split-design.md`). T1 and
-  T2 are done. Next is T3, the player reading the Library folder; then T4, Settings, launch and
-  sign-out; and the optional T5, Gradle modules. Search builds after it.
-  - T2's phone check found that a re-tag keeps a file's size and last-modified time, so T3's
-    scan needs another way to see re-tagged files.
+  T2 are done, and T3 is built, awaiting the user's device check and commit. Then T4, Settings,
+  launch and sign-out; and the optional T5, Gradle modules. Search builds after it.
 - **Sub-project 4, Search.** Not designed yet. It will search albums, artists, songs, playlists
   and audiobooks. Points to settle:
-  - Search reads the catalogue through the repositories and applies the visibility rule.
+  - Search reads the library through the repositories.
   - Home's header has room reserved for a Search button.
   - Browse sub-screens don't repeat the button for now.
 - **Streaming,** if it's added. The overview sizes each piece:

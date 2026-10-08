@@ -18,8 +18,9 @@ class AdapterFolderStore(context: Context) {
     fun pathFor(adapter: String, serverId: String): String? =
         AdapterFolders.find(all(), adapter, serverId)?.path
 
+    /** Written at once, not in the background: a folder move relies on it (T3). */
     fun save(folder: AdapterFolder) {
         val folders = AdapterFolders.withFolder(all(), folder)
-        prefs.edit().putString(KEY, AdapterFolders.format(folders)).apply()
+        prefs.edit().putString(KEY, AdapterFolders.format(folders)).commit()
     }
 }

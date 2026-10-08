@@ -2,11 +2,13 @@ package com.jpd.hz.sync
 
 import android.content.Context
 import android.util.Log
+import androidx.room.withTransaction
 import com.jpd.hz.adapter.AdapterFiles
 import com.jpd.hz.adapter.AdapterFolder
 import com.jpd.hz.adapter.AdapterFolderStore
 import com.jpd.hz.adapter.AdapterFolders
 import com.jpd.hz.adapter.FileTagger
+import com.jpd.hz.adapter.FolderMoves
 import com.jpd.hz.adapter.TagLibTagger
 import com.jpd.hz.adapter.TagResult
 import com.jpd.hz.adapter.cleanUpAdapterFolder
@@ -31,14 +33,19 @@ import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.isActive
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import java.io.File
 import java.io.FileOutputStream
 
 private const val TAG = "SyncEngine"
 // This adapter's key in adapter_folders, and the name D4's suffix rule adds.
-private const val ADAPTER = "jellyfin"
-private const val PLATFORM = "Jellyfin"
+internal const val ADAPTER = "jellyfin"
+internal const val PLATFORM = "Jellyfin"
+// A move of Jellyfin's folder failed or is unfinished (FolderSetup), so nothing may sync.
+private const val NOT_SETTLED =
+    "Couldn't move Jellyfin's files into the Library folder. Nothing was synced; hz tries again " +
+        "next time."
 // Where the folder was saved before T2. Read until the first adapter folder is saved.
 private const val LEGACY_SYNC_DIRECTORY = "sync_directory"
 
@@ -56,12 +63,38 @@ object SyncEngine {
         )
     }
 
+    /**
+     * One sync. It holds FolderSetup's lock throughout, so Jellyfin's folder never moves under
+     * it, and settles the Library folder first, so it never syncs into a folder that's about
+     * to move (T3).
+     */
     suspend fun syncLibrary(
         context: Context,
         config: ServerConfig,
         // The edge where TagLib comes in. Unit tests never reach it (see FileTagger).
         tagger: FileTagger = TagLibTagger,
         onProgress: ((SyncState) -> Unit)? = null
+    ) = FolderSetup.lock.withLock {
+        val settled = try {
+            FolderSetup(context).settle(config)
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            Log.w(TAG, "Couldn't settle the Library folder", e)
+            false
+        }
+        if (settled) {
+            runSync(context, config, tagger, onProgress)
+        } else {
+            emit(SyncState(isRunning = false, errorMessage = NOT_SETTLED), onProgress)
+        }
+    }
+
+    private suspend fun runSync(
+        context: Context,
+        config: ServerConfig,
+        tagger: FileTagger,
+        onProgress: ((SyncState) -> Unit)?
     ) {
         val repo = JellyfinRepository(context)
         val dao  = SyncDatabase.getInstance(context).syncDao()
@@ -92,14 +125,31 @@ object SyncEngine {
 
         val syncDir = getSyncDirectory(context, config)
         Log.i(TAG, "Sync directory: ${syncDir.absolutePath}")
+        // The catalogue names the signed-in server's records; without one, every record counts.
+        val catalogueEmpty = SyncDatabase.getInstance(context).catalogueDao().trackCount() == 0
+        val hasRecords = if (catalogueEmpty) dao.trackCount() > 0 else dao.countServerRecords() > 0
+        val problem = syncFolderProblemOf(
+            folder = syncDir.absolutePath,
+            exists = syncDir.isDirectory,
+            hasRecords = hasRecords,
+            library = LibraryFolderStore(context).folder().absolutePath
+        )
+        if (problem != null) {
+            emit(SyncState(isRunning = false, errorMessage = problem), onProgress)
+            return
+        }
         syncDir.mkdirs()
+        // A1: records are relative to this folder. Any still saved with a full path (the settle
+        // converts them; this catches one that didn't) become relative, or go if they're elsewhere.
+        makeRecordsRelative(SyncDatabase.getInstance(context), syncDir)
 
         if (!syncDir.canWrite()) {
             emit(SyncState(isRunning = false, errorMessage = "Cannot write to ${syncDir.absolutePath}"), onProgress)
             return
         }
 
-        val expectedPaths = filesToKeep(syncDir, plan) + keptBookFiles(dao, catalogue, selection)
+        val expectedPaths =
+            filesToKeep(syncDir, plan) + keptBookFiles(dao, syncDir, catalogue, selection)
 
         // Upsert album metadata upfront so partial syncs still appear in the library
         val albumGroups = itemsToSync.groupBy { it.albumId }.filterKeys { it != null }
@@ -130,7 +180,9 @@ object SyncEngine {
             }
 
             // Music goes under Music/<artist>/<album>/, books under Audiobooks/<author>/<title>/.
-            val localFile = File(syncDir, syncRelativePath(item))
+            // Records save it relative to the sync folder (A1), so moving the folder moves nothing.
+            val relativePath = syncRelativePath(item)
+            val localFile = File(syncDir, relativePath)
             val fields = JellyfinTagMapping.fieldsOf(item)
             var isSuccessfullyProcessed = false
             var attempts = 0
@@ -139,7 +191,7 @@ object SyncEngine {
             var tag = true
 
             while (!isSuccessfullyProcessed && attempts < 2) {
-                val needsDownload = needsDownload(dao, localFile, item)
+                val needsDownload = needsDownload(dao, localFile, relativePath, item)
 
                 if (needsDownload) {
                     emit(
@@ -153,7 +205,9 @@ object SyncEngine {
                     localFile.parentFile?.mkdirs()
 
                     val attempt =
-                        downloadAndTag(repo, config, dao, item, localFile, fields, tagger, tag)
+                        downloadAndTag(
+                            repo, config, dao, item, localFile, relativePath, fields, tagger, tag
+                        )
                     when (attempt) {
                         Attempt.Failed -> attempts++
                         Attempt.TagFailed -> {
@@ -172,7 +226,10 @@ object SyncEngine {
                     val record = dao.getTrack(item.id)
                     val fingerprint = TagFingerprint.of(fields)
                     if (record != null && record.tagFingerprint != fingerprint) {
-                        if (!retag(dao, record, localFile, fields, fingerprint, tagger)) {
+                        val retagged = retag(
+                            dao, record, localFile, relativePath, fields, fingerprint, tagger
+                        )
+                        if (!retagged) {
                             untaggedFiles++
                         }
                     }
@@ -185,7 +242,7 @@ object SyncEngine {
             if (albumId != null && dao.getAlbum(albumId)?.artworkPath == null) {
                 val artFile = File(syncDir, buildArtworkPath(item))
                 if (artFile.exists()) {
-                    dao.setAlbumArtwork(albumId, artFile.absolutePath)
+                    dao.setAlbumArtwork(albumId, buildArtworkPath(item))
                 } else {
                     artFile.parentFile?.mkdirs()
                     try {
@@ -193,7 +250,9 @@ object SyncEngine {
                         if (artResp.isSuccessful) {
                             artResp.body()?.let { b ->
                                 val written = writeStreamToFile(b.byteStream(), artFile)
-                                if (written > 0) dao.setAlbumArtwork(albumId, artFile.absolutePath)
+                                if (written > 0) {
+                                    dao.setAlbumArtwork(albumId, buildArtworkPath(item))
+                                }
                             }
                         }
                     } catch (e: Exception) {}
@@ -255,11 +314,16 @@ object SyncEngine {
     // keep their files and covers (spec "Order, cleanup and failures").
     private suspend fun keptBookFiles(
         dao: com.jpd.hz.db.SyncDao,
+        syncDir: File,
         catalogue: ServerCatalogue,
         selection: SyncSelection
     ): Set<String> {
         if (!catalogue.booksFailed) return emptySet()
-        return bookFilesAt(selection.bookIds.mapNotNull { dao.getTrack(it)?.localPath })
+        // Records save paths relative to the sync folder (A1).
+        val paths = selection.bookIds.mapNotNull { id ->
+            dao.getTrack(id)?.let { File(syncDir, it.localPath).path }
+        }
+        return bookFilesAt(paths)
     }
 
     /**
@@ -268,16 +332,21 @@ object SyncEngine {
      */
     fun getSyncDirectory(context: Context, config: ServerConfig): File {
         val store = AdapterFolderStore(context)
-        store.pathFor(ADAPTER, config.serverId)?.let { return File(it) }
-
-        // A new server's folder goes in the Library folder (spec "Its folder").
         val folders = LibraryFolderStore(context)
         val savedLibrary = folders.saved()
-        val publicLibrary = folders.publicDefault()
+        // Only while no Library folder is saved: publicDefault() creates Media/hz, which would
+        // otherwise come back empty after the user moved it away.
+        val publicLibrary = if (savedLibrary == null) folders.publicDefault() else null
         val library = savedLibrary?.let(::File) ?: publicLibrary ?: folders.appDefault()
+        // Saved relative to the Library folder (A1), or as a full path before T3 settled it.
+        store.pathFor(ADAPTER, config.serverId)?.let {
+            return File(FolderMoves.resolve(it, library.absolutePath))
+        }
+
+        // A new server's folder goes in the Library folder (spec "Its folder").
         val custom = customFolder(context)
         val path = AdapterFolders.chooseFolder(
-            saved = store.all(),
+            saved = store.all().map { it.copy(path = FolderMoves.resolve(it.path, library.path)) },
             adapter = ADAPTER,
             serverId = config.serverId,
             legacy = custom ?: defaultFolder(library, config).takeIf(::hasFiles),
@@ -289,17 +358,10 @@ object SyncEngine {
         // A folder in app storage, used only without all-files access, isn't saved. Once access
         // is granted, the next call settles on public Media/hz, as it did before T2.
         if (savedLibrary != null || publicLibrary != null || path == custom) {
-            store.save(AdapterFolder(ADAPTER, config.serverId, path))
+            val saved = FolderMoves.relativeOf(path, library.absolutePath) ?: path
+            store.save(AdapterFolder(ADAPTER, config.serverId, saved))
         }
         return File(path)
-    }
-
-    fun getSyncDirectoryPath(context: Context, config: ServerConfig): String =
-        getSyncDirectory(context, config).absolutePath
-
-    /** The Sync Directory picker: the signed-in server's adapter_folders entry (T2). */
-    fun setSyncDirectory(context: Context, config: ServerConfig, path: String) {
-        AdapterFolderStore(context).save(AdapterFolder(ADAPTER, config.serverId, path))
     }
 
     // The Sync Directory choice saved before T2, if any.
@@ -321,9 +383,20 @@ object SyncEngine {
         return names.isNotEmpty()
     }
 
+    private suspend fun makeRecordsRelative(database: SyncDatabase, folder: File) {
+        val prefix = "${folder.absolutePath.trimEnd('/')}/"
+        val dao = database.syncDao()
+        database.withTransaction {
+            dao.makeTrackPathsRelative(prefix)
+            dao.deleteFullPathTracks()
+            dao.makeArtworkPathsRelative(prefix)
+        }
+    }
+
     private suspend fun needsDownload(
         dao: com.jpd.hz.db.SyncDao,
         localFile: File,
+        relativePath: String,
         item: MediaItem
     ): Boolean {
         if (!localFile.exists() || localFile.length() == 0L) return true
@@ -332,7 +405,7 @@ object SyncEngine {
             dao.upsertTrack(
                 SyncedTrack(
                     itemId       = item.id,
-                    localPath    = localFile.absolutePath,
+                    localPath    = relativePath,
                     serverPath   = item.path,
                     albumId      = item.albumId,
                     fileSize     = localFile.length(),
@@ -357,7 +430,7 @@ object SyncEngine {
 
         val allDbPaths = dao.getAllLocalPaths()
         for (path in allDbPaths) {
-            if (!File(path).exists()) {
+            if (!File(syncDir, path).exists()) {
                 dao.deleteByLocalPath(path)
             }
         }
@@ -383,6 +456,7 @@ object SyncEngine {
         dao: com.jpd.hz.db.SyncDao,
         item: MediaItem,
         localFile: File,
+        relativePath: String,
         fields: Map<String, String>,
         tagger: FileTagger,
         tag: Boolean
@@ -419,7 +493,7 @@ object SyncEngine {
                 dao.upsertTrack(
                     SyncedTrack(
                         itemId         = item.id,
-                        localPath      = localFile.absolutePath,
+                        localPath      = relativePath,
                         serverPath     = item.path,
                         albumId        = item.albumId,
                         fileSize       = localFile.length(),
@@ -447,6 +521,7 @@ object SyncEngine {
         dao: com.jpd.hz.db.SyncDao,
         record: SyncedTrack,
         localFile: File,
+        relativePath: String,
         fields: Map<String, String>,
         fingerprint: String,
         tagger: FileTagger
@@ -465,10 +540,10 @@ object SyncEngine {
             return@withContext false
         }
         Log.d(TAG, "Re-tagged: ${localFile.absolutePath}")
-        // The record names the file just tagged, which may have moved with the Sync Directory.
+        // The record names the file just tagged, by its path in the sync folder.
         dao.upsertTrack(
             record.copy(
-                localPath = localFile.absolutePath,
+                localPath = relativePath,
                 fileSize = localFile.length(),
                 tagFingerprint = fingerprint
             )

@@ -20,6 +20,7 @@ import com.jpd.hz.model.SyncState
 import com.jpd.hz.playback.ResumeStore
 import com.jpd.hz.service.SyncScheduler
 import com.jpd.hz.service.SyncService
+import com.jpd.hz.sync.FolderSetup
 import com.jpd.hz.sync.JellyfinCatalogue
 import com.jpd.hz.sync.SyncCounts
 import com.jpd.hz.sync.SyncEngine
@@ -67,9 +68,6 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     private val _config    = MutableLiveData<ServerConfig?>()
     val config: LiveData<ServerConfig?> = _config
 
-    private val _syncDir   = MutableLiveData<String>()
-    val syncDir: LiveData<String> = _syncDir
-
     data class UiState(
         val syncState: SyncState? = null,
         val syncCounts: SyncCounts = SyncCounts.NONE,
@@ -86,8 +84,18 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
 
     init {
         refreshConfig()
-        // The app opens: the player scans the Library folder (spec "Scanning").
-        LibraryScanner.get(app).requestScan()
+        // The app opens: the Library folder is settled once (T3), then the player scans it.
+        viewModelScope.launch {
+            try {
+                FolderSetup(app).settleAtLaunch(repo.getSavedConfig())
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                // Files and Room; the next launch tries again, and the scan still runs.
+                Log.w(TAG, "Couldn't settle the Library folder", e)
+            }
+            LibraryScanner.get(app).requestScan()
+        }
         viewModelScope.launch {
             // An ended sync (completed, stopped or failed) recounts before its state is posted,
             // so the card doesn't flash "Not synced yet" (spec "MainViewModel"). This scope runs
@@ -104,7 +112,6 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         val cfg = repo.getSavedConfig()
         _config.value = cfg
         if (cfg != null) {
-            _syncDir.value = SyncEngine.getSyncDirectoryPath(getApplication(), cfg)
             refreshSyncCounts()
             refreshCatalogueIfEmpty()
         }
@@ -215,17 +222,5 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             }
             _config.postValue(null)
         }
-    }
-
-    fun getSyncDirectoryPath(): String? {
-        val cfg = _config.value ?: return null
-        return SyncEngine.getSyncDirectoryPath(getApplication(), cfg)
-    }
-
-    // The signed-in server's adapter_folders entry; sync_directory only seeded it (T2).
-    fun setSyncDirectory(path: String) {
-        val cfg = _config.value ?: return
-        SyncEngine.setSyncDirectory(getApplication(), cfg, path)
-        _syncDir.value = SyncEngine.getSyncDirectoryPath(getApplication(), cfg)
     }
 }

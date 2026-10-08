@@ -185,6 +185,9 @@
             android:id="@+id/settingsFragment"
             android:name="com.jpd.hz.ui.SettingsFragment">
             <action
+                android:id="@+id/action_settings_to_library"
+                app:destination="@id/librarySettingsFragment" />
+            <action
                 android:id="@+id/action_settings_to_sync"
                 app:destination="@id/sync_graph" />
             <action
@@ -198,6 +201,11 @@
                 android:id="@+id/action_settings_to_equaliser"
                 app:destination="@id/equaliserFragment" />
         </fragment>
+
+        <!-- Settings → Library: the Library folder and its scan (T3) -->
+        <fragment
+            android:id="@+id/librarySettingsFragment"
+            android:name="com.jpd.hz.ui.LibrarySettingsFragment" />
 
         <!-- Settings → Appearance: Dark, Light or System, and the accent -->
         <fragment

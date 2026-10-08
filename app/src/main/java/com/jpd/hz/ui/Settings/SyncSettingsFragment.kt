@@ -1,26 +1,18 @@
 package com.jpd.hz.ui
 
-import android.content.Intent
-import android.net.Uri
 import android.os.Bundle
-import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.ColorRes
 import androidx.core.content.ContextCompat
 import androidx.core.view.isVisible
-import androidx.documentfile.provider.DocumentFile
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.activityViewModels
 import androidx.navigation.fragment.findNavController
 import androidx.navigation.navGraphViewModels
 import com.jpd.hz.R
 import com.jpd.hz.databinding.FragmentSyncSettingsBinding
-import java.io.File
-
-private const val TAG = "SyncSettingsFragment"
 
 /**
  * Settings → Sync (spec "Sync (new screen)"): the Sync card and the sync settings, moved from
@@ -32,18 +24,6 @@ class SyncSettingsFragment : Fragment() {
     private val binding get() = _binding!!
     private val viewModel: SettingsViewModel by navGraphViewModels(R.id.settings_graph)
     private val mainViewModel: MainViewModel by activityViewModels()
-
-    private val folderPickerLauncher = registerForActivityResult(
-        ActivityResultContracts.OpenDocumentTree()
-    ) { uri: Uri? ->
-        if (uri == null) return@registerForActivityResult
-        requireContext().contentResolver.takePersistableUriPermission(
-            uri,
-            Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION
-        )
-        val path = uriToPath(uri) ?: uri.toString()
-        viewModel.setSyncDirectory(path)
-    }
 
     override fun onCreateView(
         inflater: LayoutInflater,
@@ -69,6 +49,9 @@ class SyncSettingsFragment : Fragment() {
         // depend on the selections, so recount them (from the stored catalogue).
         mainViewModel.refreshSyncCounts()
         binding.tvAutoSync.text = autoSyncLabel(viewModel.getAutoSyncInterval())
+        // Settings → Library can move it, so it's read again each time.
+        binding.tvSyncTarget.text =
+            viewModel.syncTarget()?.let { getString(R.string.sync_target, it) }.orEmpty()
     }
 
     override fun onDestroyView() {
@@ -137,9 +120,6 @@ class SyncSettingsFragment : Fragment() {
             binding.tvPlaylistsSummary.text =
                 getString(R.string.settings_playlists_summary, selected, playlists.size)
         }
-        viewModel.syncDir.observe(viewLifecycleOwner) { path ->
-            binding.tvSyncDir.text = path ?: "—"
-        }
         // The from-ID is this screen now (decision 2).
         binding.cardAlbums.setOnClickListener {
             navigateSafely(R.id.syncSettingsFragment, R.id.action_settings_to_album_selection)
@@ -159,27 +139,6 @@ class SyncSettingsFragment : Fragment() {
         binding.cardAutoSync.setOnClickListener {
             navigateSafely(R.id.syncSettingsFragment, R.id.action_settings_to_auto_sync)
         }
-        binding.cardSyncDir.setOnClickListener { openFolderPicker() }
-    }
-
-    private fun openFolderPicker() {
-        val startUri = viewModel.getSyncDirectoryPath()?.let { Uri.fromFile(File(it)) }
-        folderPickerLauncher.launch(startUri)
-    }
-
-    // Turns a document-tree URI into a filesystem path when its storage volume is recognisable.
-    private fun uriToPath(uri: Uri): String? = try {
-        val docId = DocumentFile.fromTreeUri(requireContext(), uri)?.uri?.lastPathSegment
-        docId?.let {
-            val parts = it.split(":")
-            if (parts.size == 2) {
-                val (volume, rel) = parts
-                if (volume == "primary") "/storage/emulated/0/$rel" else "/storage/$volume/$rel"
-            } else null
-        }
-    } catch (e: Exception) {
-        Log.w(TAG, "Couldn't turn $uri into a path; saving the URI instead", e)
-        null
     }
 
     // The same four intervals as before, now from strings: "Every 6 hours", or "Disabled".

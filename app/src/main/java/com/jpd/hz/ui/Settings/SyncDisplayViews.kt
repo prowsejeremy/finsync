@@ -93,7 +93,7 @@ private fun Resources.countPart(@PluralsRes pluralsRes: Int, done: Int, total: I
 
 // The one formatter for these counts: the locale's digit grouping ("1,280"). The plurals take
 // it as a string (%1$s), because %d wouldn't group.
-private fun formatCount(count: Int): String =
+internal fun formatCount(count: Int): String =
     NumberFormat.getIntegerInstance().format(count.toLong())
 
 /** Shows [progress] from 0 to 1, or an indeterminate animation when it's null. */

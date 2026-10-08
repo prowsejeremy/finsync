@@ -110,7 +110,6 @@
         <item quantity="one">Every %d hour</item>
         <item quantity="other">Every %d hours</item>
     </plurals>
-    <string name="settings_sync_dir_title">Sync Directory</string>
 
     <!-- Sync status -->
     <string name="status_offline">Lost connection to server</string>
@@ -268,4 +267,43 @@
     <string name="cd_equaliser_list_collapsed">Collapsed</string>
     <!-- TalkBack: a saved preset's ⋮ button, "Options for Night drive" -->
     <string name="cd_equaliser_preset_options">Options for %1$s</string>
+    <!-- Settings → Library (T3): the folder the player reads, and its scan -->
+    <string name="settings_library_title">Library</string>
+    <string name="library_folder_title">Library folder</string>
+    <string name="library_change">Change</string>
+    <string name="library_scan_title">Scan</string>
+    <string name="library_rescan">Rescan</string>
+    <string name="library_scan_looking">Looking for files…</string>
+    <string name="library_scan_not_yet">Not scanned yet</string>
+    <plurals name="library_scan_progress">
+        <item quantity="one">Scanning %1$s of %2$s</item>
+        <item quantity="other">Scanning %1$s of %2$s</item>
+    </plurals>
+    <plurals name="library_songs">
+        <item quantity="one">%1$s song</item>
+        <item quantity="other">%1$s songs</item>
+    </plurals>
+    <plurals name="library_books">
+        <item quantity="one">%1$s book</item>
+        <item quantity="other">%1$s books</item>
+    </plurals>
+    <plurals name="library_unreadable_files">
+        <item quantity="one">%1$s file couldn\'t be read</item>
+        <item quantity="other">%1$s files couldn\'t be read</item>
+    </plurals>
+    <!-- Changing the Library folder -->
+    <string name="library_move_confirm">Jellyfin\'s files will move to %1$s.</string>
+    <string name="library_move">Move</string>
+    <string name="library_refused">Choose a folder outside Jellyfin\'s folder.</string>
+    <string name="library_move_failed">Jellyfin\'s files couldn\'t move. Nothing changed.</string>
+    <string name="library_move_unfinished">Part of the move failed; hz finishes it later.</string>
+    <string name="library_not_found">Can\'t find Jellyfin\'s files in %1$s.</string>
+    <string name="library_not_found_any">Can\'t find Jellyfin\'s files there.</string>
+    <string name="library_found_title">Jellyfin\'s files are in %1$s</string>
+    <string name="library_found_confirm">Files there Jellyfin didn\'t sync will be removed.</string>
+    <string name="library_use_folder">Use this folder</string>
+    <string name="library_busy">A sync is running. Try again when it finishes.</string>
+    <string name="library_unreadable_picked">Can\'t read that folder.</string>
+    <!-- Settings → Sync: where Jellyfin syncs, "Syncs to kurage/" -->
+    <string name="sync_target">Syncs to %1$s/</string>
 </resources>
