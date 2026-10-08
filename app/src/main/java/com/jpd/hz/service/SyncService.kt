@@ -15,6 +15,7 @@ import com.jpd.hz.model.SyncState
 import com.jpd.hz.sync.SyncEngine
 import com.jpd.hz.ui.MainActivity
 import com.jpd.hz.ui.syncIncompleteMessage
+import com.jpd.hz.ui.withUntaggedDetail
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -135,7 +136,10 @@ class SyncService : Service() {
     private fun leaveIncompleteNotice(state: SyncState) {
         if (state.isRunning || state.failedItems == 0) return
         stopForeground(STOP_FOREGROUND_DETACH)
-        val text = resources.syncIncompleteMessage(state.failedItems)
+        val text = resources.withUntaggedDetail(
+            resources.syncIncompleteMessage(state.failedItems),
+            state.untaggedFiles
+        )
         val notice = NotificationCompat.Builder(this, CHANNEL_ID)
             .setContentTitle("hz")
             .setContentText(text)

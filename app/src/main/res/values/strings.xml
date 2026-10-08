@@ -124,6 +124,11 @@
         <item quantity="other">%d items couldn\'t sync. They\'ll retry next sync.</item>
     </plurals>
     <string name="sync_incomplete_message">Sync incomplete: %1$s</string>
+    <!-- T2: files that play with their own tags; the sync isn't incomplete because of them -->
+    <plurals name="sync_untagged_detail">
+        <item quantity="one">%d file couldn\'t be tagged.</item>
+        <item quantity="other">%d files couldn\'t be tagged.</item>
+    </plurals>
 
     <!-- Playback -->
     <string name="files_missing">Files missing. Run a sync.</string>

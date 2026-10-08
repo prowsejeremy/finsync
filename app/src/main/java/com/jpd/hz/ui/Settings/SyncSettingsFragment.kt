@@ -102,8 +102,10 @@ class SyncSettingsFragment : Fragment() {
             // Stopped, synced or not synced: the counts, or nothing when nothing is selected.
             else -> resources.syncCountsLine(display.counts)
         }
-        binding.tvSyncCardDetail.text = detail
-        binding.tvSyncCardDetail.isVisible = detail != null
+        // "2 files couldn't be tagged." follows it, without making the sync incomplete (T2).
+        val line = resources.withUntaggedDetail(detail, display.untaggedFiles)
+        binding.tvSyncCardDetail.text = line
+        binding.tvSyncCardDetail.isVisible = line != null
 
         if (display.status == SyncDisplay.Status.SYNCING) {
             binding.syncCardProgress.showSyncProgress(display.progress)

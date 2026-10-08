@@ -205,13 +205,10 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         return SyncEngine.getSyncDirectoryPath(getApplication(), cfg)
     }
 
+    // The signed-in server's adapter_folders entry; sync_directory only seeded it (T2).
     fun setSyncDirectory(path: String) {
-        getApplication<Application>()
-            .getSharedPreferences("settings", Context.MODE_PRIVATE)
-            .edit()
-            .putString("sync_directory", path)
-            .apply()
         val cfg = _config.value ?: return
+        SyncEngine.setSyncDirectory(getApplication(), cfg, path)
         _syncDir.value = SyncEngine.getSyncDirectoryPath(getApplication(), cfg)
     }
 }

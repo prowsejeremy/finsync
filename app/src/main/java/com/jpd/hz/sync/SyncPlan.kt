@@ -17,14 +17,22 @@ data class SyncSelection(
  * One sync's downloads, in order: selected albums' tracks, then tracks only selected playlists
  * need, then books, last so new music isn't stuck behind a large book (spec "Order").
  * [playlistIds] are the selected playlists in the catalogue, whose covers sync fetches.
+ * [playlists] are the same playlists with their tracks, for the playlist files (T2).
  */
 data class SyncPlan(
     val tracks: List<MediaItem>,
     val books: List<MediaItem>,
-    val playlistIds: Set<String>
+    val playlistIds: Set<String>,
+    val playlists: List<PlannedPlaylist> = emptyList()
 ) {
     val items: List<MediaItem> get() = tracks + books
 }
+
+/**
+ * A selected playlist's tracks in playlist order, repeats included. A track whose download fails
+ * stays in, so the player skips it and the next sync fills it in (spec "Playlist files").
+ */
+data class PlannedPlaylist(val playlistId: String, val name: String, val items: List<MediaItem>)
 
 /**
  * Plans from the playlist rows the catalogue write returned ([written]), not the fetch, so a
@@ -44,12 +52,21 @@ fun syncPlanOf(
     val books = catalogue.books
         .filter { it.id in selection.bookIds }
         .map { it.copy(albumId = null) }
+    val selectedPlaylists = written.playlists.filter { it.playlistId in selection.playlistIds }
+    val itemsByPlaylist = playlistItems.groupBy { it.playlistId }
     return SyncPlan(
         tracks = (albumTracks + playlistTracks).distinctBy { it.id },
         books = books,
-        playlistIds = written.playlists
-            .filter { it.playlistId in selection.playlistIds }
-            .mapTo(HashSet()) { it.playlistId }
+        playlistIds = selectedPlaylists.mapTo(HashSet()) { it.playlistId },
+        playlists = selectedPlaylists.map { playlist ->
+            PlannedPlaylist(
+                playlistId = playlist.playlistId,
+                name = playlist.name,
+                items = itemsByPlaylist[playlist.playlistId].orEmpty()
+                    .sortedBy { it.position }
+                    .mapNotNull { audioById[it.itemId] }
+            )
+        }
     )
 }
 

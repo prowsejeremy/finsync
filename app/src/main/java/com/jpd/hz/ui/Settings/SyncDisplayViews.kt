@@ -41,6 +41,18 @@ fun Resources.syncIncompleteDetail(failedItems: Int): String =
 fun Resources.syncIncompleteMessage(failedItems: Int): String =
     getString(R.string.sync_incomplete_message, syncIncompleteDetail(failedItems))
 
+/** "2 files couldn't be tagged." (T2), or null when every file was tagged. */
+fun Resources.syncUntaggedDetail(untaggedFiles: Int): String? =
+    if (untaggedFiles > 0) {
+        getQuantityString(R.plurals.sync_untagged_detail, untaggedFiles, untaggedFiles)
+    } else {
+        null
+    }
+
+/** [line] with the tagging sentence after it, when there is one. Null when both are. */
+fun Resources.withUntaggedDetail(line: String?, untaggedFiles: Int): String? =
+    listOfNotNull(line, syncUntaggedDetail(untaggedFiles)).joinToString(" ").ifEmpty { null }
+
 /**
  * The Sync card's counts line (spec "Sync card detail line"): "1,280 of 1,400 songs synced",
  * "1,280 of 1,400 songs · 0 of 2 books synced" or "0 of 2 books synced". Null when nothing is

@@ -157,7 +157,12 @@ data class SyncState(
      * Items this run couldn't sync, set on the terminal emission: failed fetches plus failed
      * downloads. Above zero, the sync is incomplete and they retry next sync (3b spec).
      */
-    val failedItems: Int = 0
+    val failedItems: Int = 0,
+    /**
+     * Files this run couldn't tag, set on the terminal emission. They play with their own tags,
+     * and the next sync tries again. It doesn't make the sync incomplete (T2 spec).
+     */
+    val untaggedFiles: Int = 0
 ) {
     val progress: Int get() = if (totalItems > 0) (downloadedItems * 100) / totalItems else 0
 }

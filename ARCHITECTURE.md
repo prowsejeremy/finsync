@@ -1,8 +1,9 @@
 # hz: architecture and feature reference
 
 Updated 2026-10-08, on `feature/fragment` after `23bcac1`, with T2 of the player and adapter
-split (the adapter writes the format) in progress. 336 unit tests in 53 suites pass: 295 in 47
-for `:app` and 41 in 6 for `:tags`. `:tags` also has 95 instrumented tests, which run on a phone.
+split (the adapter writes the format) built but not yet committed. 342 unit tests in 55 suites
+pass: 301 in 49 for `:app` and 41 in 6 for `:tags`. `:tags` also has 95 instrumented tests, which
+run on a phone.
 
 Start here before extending the app. This document summarises what is built and the rules every
 change follows. The specs hold the full reasoning behind each decision.
@@ -76,7 +77,7 @@ its own spec, plan and alpha build, and each left the app working.
 | 5 | Equaliser, plus swiping the Player to change track | Done | `3863dee` | `2026-10-05-equaliser-design.md` |
 | 5+ | Equaliser saved presets | Done | `a2dd48d` | `2026-10-05-equaliser-saved-presets-design.md` |
 | T1 | Player and adapter split, T1: the tag engine (`:tags`) | Done | `4a62e00`, `23bcac1` | `2026-10-07-player-adapter-split-design.md` |
-| T2 | Player and adapter split, T2: the adapter writes the format | In progress | — | `2026-10-07-player-adapter-split-design.md` |
+| T2 | Player and adapter split, T2: the adapter writes the format | Built, awaiting device check and commit | — | `2026-10-07-player-adapter-split-design.md` |
 | 4 | Search | Not designed | — | Overview row 4 only |
 
 Sub-project 5 was built before 4 at the user's request. The plans are in `docs/superpowers/plans/`
@@ -172,7 +173,9 @@ Native libraries are in `app/src/main/jniLibs/<abi>/` for arm64-v8a, armeabi-v7a
 only, and hz is never sold.
 
 The tag engine is its own Gradle module, `tags/` (package `com.jpd.hz.tags`), which the app
-depends on. Nothing in the app calls it yet; T2's sync and T3's scanner will.
+depends on. Sync writes tags through it (T2), always behind `adapter/FileTagger.kt`: the JVM has
+no `libhztags.so`, so code that unit tests reach takes the interface and tests pass fakes. T3's
+scanner will read through it.
 - `src/main/cpp/`:
   - TagLib 2.3.2, vendored unmodified in `taglib/` with its licences;
   - hz's bridge: `hz_tags.cpp` holds the logic, and `hz_tags_jni.cpp` is the JNI glue;
@@ -215,7 +218,8 @@ depends on. Nothing in the app calls it yet; T2's sync and T3's scanner will.
 
 | File | Keys | Owner |
 |---|---|---|
-| `settings` | `selected_albums`, `selected_playlists`, `selected_books` (string sets); `sync_directory`; `auto_sync_interval`, `auto_sync_on_boot` | Settings view models, `library/SyncSelections.kt`, `SyncEngine`, `BootReceiver` |
+| `settings` | `selected_albums`, `selected_playlists`, `selected_books` (string sets); `auto_sync_interval`, `auto_sync_on_boot` | Settings view models, `library/SyncSelections.kt`, `SyncEngine`, `BootReceiver` |
+| `settings` | `adapter_folders` (T2): one `<adapter>:<serverId>\|<absolute path>` per line, kept on sign-out. `sync_directory` (before T2) is read only to fill the first entry. | `adapter/AdapterFolderStore.kt`, `SyncEngine.getSyncDirectory` |
 | `settings` | `theme_mode` (`dark`, `light`, `system`), `accent` (`green`, `blue`, `purple`, `pink`, `red`) | `appearance/AppearanceStore.kt` |
 | `settings` | `home_order` (comma-separated keys), `home_hidden` (string set) | `home/HomeLayoutStore.kt` |
 | `playback` | `resume_state` (queue IDs, index, position, repeat, shuffle), `book_speed` | `playback/ResumeStore.kt`, `playback/BookSpeedStore.kt` |
@@ -233,6 +237,8 @@ service's EQ listener.
 - `filesDir/artist_images/<artistId>.jpg` and `filesDir/playlist_images/<playlistId>.jpg`. They
   live in private storage because sync's orphan cleanup deletes unknown files in the music
   folder. A photo exists when its file does. Logout deletes both folders.
+  - From T2, sync also copies them into the sync folder (see "On disk"), which the keep set
+    protects. The player still reads the private ones until T3.
 
 ## Sync
 
@@ -244,34 +250,60 @@ Entry points: `SyncService` for a manual sync (a foreground service of type `dat
 One run:
 
 1. **Fetch** the whole music library (`Users/{userId}/Items`, `Audio`, paged 500 at a time),
-   then the playlists and their entries, then `AudioBook` items with chapters and people.
+   then the playlists and their entries, then `AudioBook` items with chapters, people and
+   genres.
 2. **Write the catalogue** before any download, so a cancelled sync still leaves it current. A
    failed playlist or book fetch keeps that part of the old catalogue.
 3. **Plan** with `syncPlanOf`: selected albums' tracks, then tracks only selected playlists need,
    then selected books. Books go last so new music isn't stuck behind a large book.
-4. **Download** whatever is missing or changed. Each file goes to `.part`, then is renamed. A
-   file that is on disk but has no record is re-linked without downloading
-   (`SyncEngine.needsDownload`). Downloads use `Audio/{itemId}/stream?static=true`, which fetches
-   the original file with no transcoding. Each album's `folder.jpg` downloads alongside its tracks.
+4. **Download and tag** whatever is missing or changed (T2). Each file downloads to
+   `<file>.part`, is tagged there with our fields (`JellyfinTagMapping`, through `FileTagger`),
+   then is renamed into place (`adapter/AdapterFiles.kt`). Its record keeps the size after
+   tagging and the `tagFingerprint`, so a tagged file never downloads again.
+   - A file that is on disk but has no record is re-linked without downloading
+     (`SyncEngine.needsDownload`).
+   - A file on disk whose fingerprint differs from the server's fields is **re-tagged**, with no
+     download: copied to `.part`, tagged there and renamed over the original. That's an edit on
+     the server, or a file that was never tagged. The first sync after upgrading to T2 re-tags
+     every file once: about 2–3 minutes for 21 GB on a Pixel 8.
+   - Downloads use `Audio/{itemId}/stream?static=true`, which fetches the original file with no
+     transcoding. Each album's `folder.jpg` downloads alongside its tracks.
 5. **Clean up.** Every file in the sync folder outside `filesToKeep` (`sync/SyncPaths.kt`) is
-   deleted. Deselecting an album, playlist or book therefore removes its files on the next sync.
-6. **Artist photos, then covers.** `ArtistPhotoSync` runs, then `CoverSync` fetches playlist and
-   book covers. A failed photo or cover is logged and retried next sync; it never fails the sync.
+   deleted, by `adapter/AdapterCleanup.kt`, which never touches anything outside the folder.
+   Deselecting an album, playlist or book therefore removes its files on the next sync. The keep
+   set also holds each album artist's `artist.jpg` and each selected playlist's file and cover.
+6. **Artist photos, covers, then the folder copies.** `ArtistPhotoSync` runs, then `CoverSync`
+   fetches playlist and book covers. Then `FolderCopies` copies the photos and playlist covers
+   into the sync folder and writes the playlist files. A failed photo, cover or copy is logged
+   and retried next sync; it never fails the sync.
 
 **Failures.** A failed item is skipped, not fatal. The sync ends **incomplete** ("Sync
 incomplete: 2 items couldn't sync. They'll retry next sync."), and cleanup never deletes a file
-a failed item might own.
+a failed item might own. A file that couldn't be tagged plays with its own tags, and the next
+sync tries again. When TagLib's write fails on a new download, that download is deleted, as it
+may be half-written, and a fresh one is kept untagged. The Sync card adds "2 files couldn't be
+tagged.", and that never makes the sync incomplete.
 
 **On disk:**
 
 | What | Where |
 |---|---|
 | Music | `<syncDir>/Music/<album artist>/<album>/<track>`, with `folder.jpg` |
+| Artist photos (T2) | `<syncDir>/Music/<album artist>/artist.jpg`, for the album's first album artist |
 | Books | `<syncDir>/Audiobooks/<author>/<title>/`, the `.m4b` plus `folder.jpg` |
+| Playlists (T2) | `<syncDir>/Playlists/<name>.m3u8`, plus `<name>.jpg` for the cover |
 
-The default `syncDir` is public `Media/hz/<server name>`. If that isn't writable (no all-files
-access) it falls back to `Media/hz/<server name>` in the app's own external files folder. The
-user can pick another in Settings → Sync.
+**The folder** (`SyncEngine.getSyncDirectory`) is the server's `adapter_folders` entry, fixed
+the first time it's needed.
+- An install upgraded from before T2 keeps its old folder: the `sync_directory` choice, else the
+  default `Media/hz/<server name>` when that holds files.
+- A new server gets `<server name>` in `Media/hz`, or beside the folder of a server whose folder
+  is `Media/hz` itself or holds it, so no adapter's folder is ever inside another's. When that
+  folder holds anything, or holds another server's, it gets `<server name> (Jellyfin)`, then
+  `(Jellyfin 2)` (D4).
+- Without all-files access, the folder is `Media/hz/<server name>` in the app's own external files
+  folder, and it isn't saved until access is granted.
+- The Sync Directory picker in Settings → Sync replaces the server's entry.
 
 **Sync card.** `ui/Settings/SyncDisplay.kt` is a pure, ordered rule table that turns the state
 into a status: OFFLINE, SYNCING, STOPPED, FAILED, INCOMPLETE, SYNCED or NOT_SYNCED. The counts
@@ -568,8 +600,9 @@ None is scheduled.
 ## What's next
 
 - **The player and adapter split** (spec `2026-10-07-player-adapter-split-design.md`). T1 is
-  done and T2 is being built. Then T3, the player reading the Library folder; T4, Settings,
-  launch and sign-out; and the optional T5, Gradle modules. Search builds after it.
+  done and T2 is built, awaiting the user's device check and commit. Then T3, the player reading
+  the Library folder; T4, Settings, launch and sign-out; and the optional T5, Gradle modules.
+  Search builds after it.
 - **Sub-project 4, Search.** Not designed yet. It will search albums, artists, songs, playlists
   and audiobooks. Points to settle:
   - Search reads the catalogue through the repositories and applies the visibility rule.

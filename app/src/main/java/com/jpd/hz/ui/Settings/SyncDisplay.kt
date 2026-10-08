@@ -18,11 +18,18 @@ data class SyncDisplay(
     val progress: Float?,
     val errorMessage: String?,
     /** Items the last sync couldn't sync; above zero only when the status is INCOMPLETE. */
-    val failedItems: Int = 0
+    val failedItems: Int = 0,
+    /**
+     * Files the last sync couldn't tag (T2). Above zero only after a finished sync: INCOMPLETE,
+     * SYNCED or NOT_SYNCED. It never changes the status.
+     */
+    val untaggedFiles: Int = 0
 ) {
     enum class Status { OFFLINE, SYNCING, STOPPED, FAILED, INCOMPLETE, SYNCED, NOT_SYNCED }
 
     companion object {
+
+        private val FINISHED = setOf(Status.INCOMPLETE, Status.SYNCED, Status.NOT_SYNCED)
 
         fun from(state: MainViewModel.UiState): SyncDisplay {
             val counts = state.syncCounts
@@ -37,7 +44,7 @@ data class SyncDisplay(
             fun display(status: Status, progress: Float?) =
                 SyncDisplay(status, counts, 0, 0, progress, sync.errorMessage)
 
-            return when {
+            val shown = when {
                 sync.isRunning -> display(Status.SYNCING, runningProgress(sync))
                     .copy(runDone = sync.downloadedItems, runTotal = sync.totalItems)
                 sync.wasStopped -> display(Status.STOPPED, 0f)
@@ -52,6 +59,9 @@ data class SyncDisplay(
                 sync.syncComplete -> display(Status.SYNCED, 1f)
                 else -> display(Status.NOT_SYNCED, 0f)
             }
+            // The tagging line follows whatever a finished sync shows (T2 spec).
+            if (shown.status !in FINISHED) return shown
+            return shown.copy(untaggedFiles = sync.untaggedFiles)
         }
 
         private fun runningProgress(sync: SyncState): Float? =
