@@ -1,9 +1,9 @@
 # hz: architecture and feature reference
 
-Updated 2026-10-08, on `feature/fragment`, with T3 of the player and adapter split (the player
-reads the Library folder) built but not yet checked on the phone. 421 unit tests in 64 suites
-pass: 380 in 58 for `:app` and 41 in 6 for `:tags`. `:tags` also has 95 instrumented tests, which
-run on a phone.
+Updated 2026-10-09, on `feature/fragment`, with T3 of the player and adapter split (the player
+reads the Library folder) done and checked on the phone. 448 unit tests in 64 suites pass: 407
+in 58 for `:app` and 41 in 6 for `:tags`. `:tags` also has 95 instrumented tests, which run on a
+phone.
 
 Start here before extending the app. This document summarises what is built and the rules every
 change follows. The specs hold the full reasoning behind each decision.
@@ -82,7 +82,7 @@ its own spec, plan and alpha build, and each left the app working.
 | 5+ | Equaliser saved presets | Done | `a2dd48d` | `2026-10-05-equaliser-saved-presets-design.md` |
 | T1 | Player and adapter split, T1: the tag engine (`:tags`) | Done | `4a62e00`, `23bcac1` | `2026-10-07-player-adapter-split-design.md` |
 | T2 | Player and adapter split, T2: the adapter writes the format | Done | `3fa93a8`, `2ca5ece` | `2026-10-07-player-adapter-split-design.md` |
-| T3 | Player and adapter split, T3: the player reads the Library folder | Built, awaiting device check and commit | — | `2026-10-07-player-adapter-split-design.md` |
+| T3 | Player and adapter split, T3: the player reads the Library folder | Done | `5be7d56`, `6849e60`, `af84426` | `2026-10-07-player-adapter-split-design.md` |
 | 4 | Search | Not designed | — | Overview row 4 only |
 
 Sub-project 5 was built before 4 at the user's request. The plans are in `docs/superpowers/plans/`
@@ -674,9 +674,13 @@ None is scheduled.
 
 ## What's next
 
-- **The player and adapter split** (spec `2026-10-07-player-adapter-split-design.md`). T1 and
-  T2 are done, and T3 is built, awaiting the user's device check and commit. Then T4, Settings,
-  launch and sign-out; and the optional T5, Gradle modules. Search builds after it.
+- **The player and adapter split** (spec `2026-10-07-player-adapter-split-design.md`). T1, T2
+  and T3 are done. Then T4, Settings, launch and sign-out; and the optional T5, Gradle modules.
+  Search builds after it.
+- **The user's own upgrade of the release app,** a step of its own: its first launch moves
+  `Media/hz`'s `Music/` and `Audiobooks/` into `Media/hz/kurage` (decision 9), and its first sync
+  re-tags every file once (T2), about 2–3 minutes. Playlists and artist photos show after that
+  sync: the release app kept them inside the app.
 - **Sub-project 4, Search.** Not designed yet. It will search albums, artists, songs, playlists
   and audiobooks. Points to settle:
   - Search reads the library through the repositories.
