@@ -2,6 +2,7 @@ package com.jpd.hz.ui
 
 import android.view.LayoutInflater
 import android.view.View
+import com.jpd.hz.R
 import com.jpd.hz.databinding.FragmentHomeBinding
 import com.jpd.hz.databinding.ItemHomeCategoryBinding
 import com.jpd.hz.home.HomeCategory
@@ -37,5 +38,27 @@ class HomeLayoutTest {
         val visible = scroller.frameIn(binding.root)
         val card = lastCard.frameIn(binding.root)
         assertTrue("last card $card is outside the scroller's $visible", visible.contains(card))
+    }
+
+    @Test
+    fun theEmptyStateButtonsScrollIntoViewInLandscape() {
+        val inflater = LayoutInflater.from(themedContext())
+        val binding = FragmentHomeBinding.inflate(inflater)
+        val cards = binding.libraryCards
+        cards.visibility = View.VISIBLE
+        HomeCategory.entries.forEach { ItemHomeCategoryBinding.inflate(inflater, cards, true) }
+        binding.tvLibraryNote.text = inflater.context.getString(R.string.home_library_empty, "Music")
+        binding.tvLibraryNote.visibility = View.VISIBLE
+        binding.emptyActions.visibility = View.VISIBLE
+        layOut(binding.root, LANDSCAPE_WIDTH_DP, LANDSCAPE_HEIGHT_DP)
+
+        val lastButton = binding.btnSetUpJellyfin
+        val scroller = lastButton.scrollingAncestor()
+        assertNotNull("nothing scrolls Home's empty-state buttons", scroller)
+        scroller!!.scrollToEnd()
+
+        val visible = scroller.frameIn(binding.root)
+        val button = lastButton.frameIn(binding.root)
+        assertTrue("button $button is outside the scroller's $visible", visible.contains(button))
     }
 }
