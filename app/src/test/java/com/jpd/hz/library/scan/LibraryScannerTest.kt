@@ -90,6 +90,7 @@ class LibraryScannerTest {
     }
 
     private val folderChanges = AtomicInteger()
+    private var scannedFolder: String? = null
 
     private fun scanner(stamper: FileStamper = JvmStamper) = LibraryScanner(
         dao = dao,
@@ -97,6 +98,8 @@ class LibraryScannerTest {
             passes.incrementAndGet()
             libraryFolder
         },
+        scannedFolder = { scannedFolder },
+        saveScannedFolder = { scannedFolder = it },
         stamper = stamper,
         tags = tags,
         decode = DecodeCheck { decodes },
@@ -466,6 +469,33 @@ class LibraryScannerTest {
         assertEquals(ScanState.Failed(root.absolutePath), scanner.state.value)
         assertEquals(2, trackPaths().size)
         assertEquals(1, query("SELECT bookId FROM book_progress").size)
+    }
+
+    @Test
+    fun anEmptyFolderChosenAsTheLibraryFolderShowsAnEmptyLibrary() {
+        val scanner = scanner()
+        runBlocking { scanner.runPass() }
+        // Settings → Library → Change to a new, empty folder: chosen, not unmounted (T4 M3).
+        libraryFolder = temp.newFolder("hz-t4")
+
+        runBlocking { scanner.runPass() }
+
+        assertEquals(ScanState.Idle(ScanResult(0, 0, 0, 0, 42L)), scanner.state.value)
+        assertEquals(emptyList<String>(), trackPaths())
+    }
+
+    @Test
+    fun aLibraryWithNoScannedFolderSavedKeepsItWhenItsFolderLooksEmpty() {
+        val scanner = scanner()
+        runBlocking { scanner.runPass() }
+        // As a library written before the scanned folder was saved.
+        scannedFolder = null
+        root.listFiles()!!.forEach { it.deleteRecursively() }
+
+        runBlocking { scanner.runPass() }
+
+        assertEquals(ScanState.Failed(root.absolutePath), scanner.state.value)
+        assertEquals(2, trackPaths().size)
     }
 
     @Test

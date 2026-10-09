@@ -49,6 +49,8 @@ private const val UNIDENTIFIED = ""
 class LibraryScanner internal constructor(
     private val dao: LibraryScanDao,
     private val folder: () -> File,
+    private val scannedFolder: () -> String?,
+    private val saveScannedFolder: (String) -> Unit,
     private val stamper: FileStamper,
     private val tags: TagSource,
     private val decode: DecodeCheck,
@@ -152,8 +154,10 @@ class LibraryScanner internal constructor(
         }
         val stored = StoredLibrary(dao.files(), dao.tracks(), dao.books(), dao.chapters())
         // A folder that's gone, or suddenly holds no audio at all, is far more likely unmounted,
-        // renamed or unreadable than emptied: the library, and its book progress, stay.
-        if (listing == null || (listing.audio.isEmpty() && stored.byPath.isNotEmpty())) {
+        // renamed or unreadable than emptied: the library, and its book progress, stay. Only the
+        // folder the library came from: an empty folder chosen in its place is simply empty.
+        val emptied = listing != null && listing.audio.isEmpty() && stored.byPath.isNotEmpty()
+        if (listing == null || (emptied && isScannedFolder(root))) {
             _state.value = ScanState.Failed(root.path)
             return true
         }
@@ -178,6 +182,8 @@ class LibraryScanner internal constructor(
             deriveLibrary(tracks, books.map { it.book }, paths, playlists, listing.images, covers)
         }
         if (folderChanges() != changesAtStart) return false
+        // Saved first: if writing the library fails, the library left behind stays guarded.
+        withContext(Dispatchers.IO) { saveScannedFolder(root.path) }
         dao.replaceLibrary(
             LibraryContents(
                 files = scanned.map { it.file },
@@ -208,6 +214,11 @@ class LibraryScanner internal constructor(
         _state.value = ScanState.Idle(result)
         return true
     }
+
+    // Shared storage ignores case, as FolderSetup does. A library saved before this setting
+    // existed is taken to be this folder's, so it stays guarded.
+    private fun isScannedFolder(root: File): Boolean =
+        scannedFolder()?.equals(root.path, ignoreCase = true) ?: true
 
     /** A file to read. [fileId] is known when the file is at a path the library already has. */
     private class PendingRead(val found: FoundFile, val stamp: FileStamp, val fileId: String?)
@@ -377,6 +388,8 @@ class LibraryScanner internal constructor(
             return LibraryScanner(
                 dao = LibraryDatabase.getInstance(app).scanDao(),
                 folder = folders::folder,
+                scannedFolder = folders::scannedFolder,
+                saveScannedFolder = folders::saveScannedFolder,
                 stamper = OsStamper,
                 tags = TagLibSource,
                 decode = BassDecodeCheck(app.applicationInfo.nativeLibraryDir),

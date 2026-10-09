@@ -1,9 +1,8 @@
 # hz: architecture and feature reference
 
 Updated 2026-10-09, on `feature/fragment`, with T4 of the player and adapter split (Settings,
-launch and sign-out) built but not yet checked on the phone. 464 unit tests in 69 suites pass:
-423 in 63 for `:app` and 41 in 6 for `:tags`. `:tags` also has 95 instrumented tests, which run
-on a phone.
+launch and sign-out) done and checked on the phone. 466 unit tests in 69 suites pass: 425 in 63
+for `:app` and 41 in 6 for `:tags`. `:tags` also has 95 instrumented tests, which run on a phone.
 
 Start here before extending the app. This document summarises what is built and the rules every
 change follows. The specs hold the full reasoning behind each decision.
@@ -85,7 +84,7 @@ its own spec, plan and alpha build, and each left the app working.
 | T1 | Player and adapter split, T1: the tag engine (`:tags`) | Done | `4a62e00`, `23bcac1` | `2026-10-07-player-adapter-split-design.md` |
 | T2 | Player and adapter split, T2: the adapter writes the format | Done | `3fa93a8`, `2ca5ece` | `2026-10-07-player-adapter-split-design.md` |
 | T3 | Player and adapter split, T3: the player reads the Library folder | Done | `5be7d56`, `6849e60`, `af84426` | `2026-10-07-player-adapter-split-design.md` |
-| T4 | Player and adapter split, T4: Settings, launch and sign-out | Built, awaiting device check and commit | — | `2026-10-07-player-adapter-split-design.md` |
+| T4 | Player and adapter split, T4: Settings, launch and sign-out | Done | `d56fcd5`, `44af185` | `2026-10-07-player-adapter-split-design.md` |
 | 4 | Search | Not designed | — | Overview row 4 only |
 
 Sub-project 5 was built before 4 at the user's request. The plans are in `docs/superpowers/plans/`
@@ -248,8 +247,10 @@ Each adapter syncs into its own folder inside the Library folder, named after th
   it, titled from its name.
   Playlists are parsed every pass. Only files really gone are dropped: a known file that can't be
   stamped or read keeps its rows, and so does every known file under a folder that can't be
-  listed. A Library folder that can't be listed, or holds no audio while the library has files,
-  leaves the library as it was ("Can't read"). A pass that ran across a move of files
+  listed. A Library folder that can't be listed leaves the library as it was ("Can't read"), and
+  so does one that holds no audio while the library has files, if it's the folder the library
+  was scanned from (`scanned_folder`). An empty folder chosen in its place is simply empty: Home
+  shows its empty state (fixed in T4's device check). A pass that ran across a move of files
   (`LibraryFolderStore.noteFolderChange`) writes nothing and runs again. A new file whose read
   throws is left out of that pass only; Rescan also re-reads unreadable files.
   Triggers: the app opens, a sync ends, the Library folder changes, and Rescan. One scan runs at
@@ -269,7 +270,7 @@ Each adapter syncs into its own folder inside the Library folder, named after th
 |---|---|---|
 | `settings` | `selected_albums`, `selected_playlists`, `selected_books` (string sets); `auto_sync_interval`, `auto_sync_on_boot`. Sign-out keeps the selections and sets `auto_sync_interval` to `disabled` (T4). `selections_server`: whose selections they are; another server's wait under `selected_albums:<serverId>` and so on (T4). | Settings view models, `library/SyncSelections.kt`, `SyncEngine`, `BootReceiver`, `sync/JellyfinSignOut.kt` |
 | `settings` | `adapter_folders` (T2): one `<adapter>:<serverId>\|<path>` per line, kept on sign-out. From T3 the path is relative to the Library folder (`kurage`); a full path is a pre-T3 one, until the first launch settles it. `sync_directory` (before T2) is read only to fill the first entry, and removed once settled. | `adapter/AdapterFolderStore.kt`, `SyncEngine.getSyncDirectory` |
-| `settings` | `library_folder` (T3): the Library folder's full path, the only one hz saves. `library_move`: a change of folder begun and not yet finished. | `library/LibraryFolderStore.kt`, `sync/FolderSetup.kt` |
+| `settings` | `library_folder` (T3): the Library folder's full path, the only one hz saves. `library_move`: a change of folder begun and not yet finished. `scanned_folder` (T4): the folder the last scan wrote the library from, saved just before the write; only it keeps the library when it looks empty. | `library/LibraryFolderStore.kt`, `sync/FolderSetup.kt`, `library/scan/LibraryScanner.kt` |
 | `settings` | `theme_mode` (`dark`, `light`, `system`), `accent` (`green`, `blue`, `purple`, `pink`, `red`) | `appearance/AppearanceStore.kt` |
 | `settings` | `home_order` (comma-separated keys), `home_hidden` (string set) | `home/HomeLayoutStore.kt` |
 | `playback` | `resume_state` (queue IDs, index, position, repeat, shuffle), `book_speed` | `playback/ResumeStore.kt`, `playback/BookSpeedStore.kt` |
@@ -711,9 +712,9 @@ None is scheduled.
 
 ## What's next
 
-- **The player and adapter split** (spec `2026-10-07-player-adapter-split-design.md`). T1, T2
-  and T3 are done, and T4 is built, awaiting the user's device check and commit. Then the
-  optional T5, Gradle modules. Search builds after it.
+- **The player and adapter split** (spec `2026-10-07-player-adapter-split-design.md`). T1 to T4
+  are done. Next comes the user's own upgrade of the release app (below), then the optional T5,
+  Gradle modules. Search builds after it.
 - **The user's own upgrade of the release app,** a step of its own: its first launch moves
   `Media/hz`'s `Music/` and `Audiobooks/` into `Media/hz/kurage` (decision 9), and its first sync
   re-tags every file once (T2), about 2–3 minutes. Playlists and artist photos show after that

@@ -7,6 +7,7 @@ import java.util.concurrent.atomic.AtomicInteger
 
 private const val PREFS = "settings"
 private const val KEY = "library_folder"
+private const val SCANNED_FOLDER_KEY = "scanned_folder"
 // The default Library folder, in public storage or else in the app's external files folder.
 private const val DEFAULT_FOLDER = "Media/hz"
 
@@ -39,6 +40,14 @@ class LibraryFolderStore(context: Context) {
     /** Written at once, not in the background: a folder move relies on it (T3). */
     fun save(path: String) {
         prefs.edit().putString(KEY, path).commit()
+    }
+
+    /** The folder the library was last scanned from (LibraryScanner); null before the first. */
+    fun scannedFolder(): String? = prefs.getString(SCANNED_FOLDER_KEY, null)
+
+    /** Written at once: the scanner saves it before it writes the library. */
+    fun saveScannedFolder(path: String) {
+        prefs.edit().putString(SCANNED_FOLDER_KEY, path).commit()
     }
 
     /** The saved folder, else the default. Nothing is saved here. */
