@@ -1,7 +1,7 @@
 # hz: architecture and feature reference
 
 Updated 2026-10-09, on `feature/fragment`, with T4 of the player and adapter split (Settings,
-launch and sign-out) done and checked on the phone. 466 unit tests in 69 suites pass: 425 in 63
+launch and sign-out) done and checked on the phone. 486 unit tests in 73 suites pass: 445 in 67
 for `:app` and 41 in 6 for `:tags`. `:tags` also has 95 instrumented tests, which run on a phone.
 
 Start here before extending the app. This document summarises what is built and the rules every
@@ -122,7 +122,9 @@ Streaming, if it comes, becomes an adapter feature.
   login POST, and throws on anything else. There is no play reporting. Adding some (play counts,
   now playing, book positions) would need a deliberate exception.
 - **Jellyfin 12 auth.** Every request sends `Authorization: MediaBrowser Client=…, Token=…`
-  (`JellyfinClient.buildAuthHeader`). Jellyfin 12 disables the old Emby headers and `api_key`
+  (`JellyfinClient.buildAuthHeader`). Its `DeviceId` is the install's, a UUID kept in
+  `noBackupFilesDir/device_id` (`api/DeviceIdentity.kt`): Jellyfin ends a device's other
+  sessions when it signs in again. Jellyfin 12 disables the old Emby headers and `api_key`
   URLs by default, so streaming must send this header too.
 - New requests should use the documented `GET /Items?userId=…` routes, as 3b's do. A local copy
   of Jellyfin 12.1.0's OpenAPI is at `.superpowers/jellyfin-openapi-stable.json`.
@@ -159,7 +161,8 @@ All paths are under `app/src/main/java/com/jpd/hz/`.
 
 ```
 Hz.kt                     Application: applies the saved night mode before any activity starts
-api/                      Retrofit interface, OkHttp client, auth header, ReadOnlyInterceptor
+api/                      Retrofit interface, OkHttp client, auth header and device ID,
+                          ReadOnlyInterceptor, SignInStatus (a refused sign-in), ServerCheck
 auth/                     CredentialStore (encrypted prefs), JellyfinRepository (every server call)
 model/Models.kt           Server DTOs (MediaItem, MediaStream…), ServerConfig, SyncState
 db/                       Room: the Jellyfin adapter's SyncDatabase v9 (sync records, catalogue)
@@ -290,6 +293,8 @@ service's EQ listener.
   deletes the ones it no longer needs.
 - T3 deleted the private `filesDir/artist_images/` and `filesDir/playlist_images/`. Photos and
   covers now live in the Library folder.
+- `noBackupFilesDir/device_id`: the install's Jellyfin device ID. Android never backs it up, so
+  a restored backup can't give two installs one ID.
 
 ## Sync
 
@@ -686,12 +691,12 @@ None is scheduled.
   later release may remove it. Move them to `GET Items?userId=`.
 - **Dead code.** `JellyfinApi.downloadAudio` is unused; real downloads use the client in
   `JellyfinClient`.
-- **Device ID.** It's hard-coded as `hz-android-001`, so every install shares one device
-  identity on the server.
 - **HTTP logging** is always on at BASIC level (`JellyfinRepository`, `debug = true`).
-- **Cancellation.** `JellyfinRepository.isServerHealthy()` and `safeCall` catch
-  `CancellationException`, and `MainViewModel.checkServerConnection()` works around it with
-  `ensureActive()`. The fix is to rethrow it there and remove the workaround.
+- **Cancellation.** `JellyfinRepository.safeCall` catches `CancellationException`;
+  `JellyfinCatalogue.refresh` works around it with `ensureActive()`. The fix is to rethrow it
+  there.
+- **Unticking every album** saves an empty selection, which means every album
+  (`selectsEveryAlbum`), so the next sync downloads the whole server. Needs a decision.
 - **Downloader.** The file downloader builds its own OkHttp client without
   `ReadOnlyInterceptor`. Its only request is a hard-coded GET, so it's safe, but routing it
   through the interceptor would add a backstop.
@@ -713,12 +718,12 @@ None is scheduled.
 ## What's next
 
 - **The player and adapter split** (spec `2026-10-07-player-adapter-split-design.md`). T1 to T4
-  are done. Next comes the user's own upgrade of the release app (below), then the optional T5,
-  Gradle modules. Search builds after it.
-- **The user's own upgrade of the release app,** a step of its own: its first launch moves
-  `Media/hz`'s `Music/` and `Audiobooks/` into `Media/hz/kurage` (decision 9), and its first sync
-  re-tags every file once (T2), about 2–3 minutes. Playlists and artist photos show after that
-  sync: the release app kept them inside the app.
+  are done, and the user's release app was upgraded on 2026-10-09: its first launch moved
+  `Media/hz`'s `Music/` and `Audiobooks/` into `Media/hz/kurage` (all 1,609 files), and its
+  first sync re-tagged every file with nothing downloaded or deleted, adding artist photos and
+  playlists. Next, the optional T5, Gradle modules. Search builds after it.
+- **Sign-in health** (spec `2026-10-09-sign-in-health-design.md`): built; the phone check is
+  next.
 - **Sub-project 4, Search.** Not designed yet. It will search albums, artists, songs, playlists
   and audiobooks. Points to settle:
   - Search reads the library through the repositories.

@@ -25,7 +25,9 @@ data class SyncDisplay(
      */
     val untaggedFiles: Int = 0
 ) {
-    enum class Status { OFFLINE, SYNCING, STOPPED, FAILED, INCOMPLETE, SYNCED, NOT_SYNCED }
+    enum class Status {
+        SIGN_IN_AGAIN, OFFLINE, SYNCING, STOPPED, FAILED, INCOMPLETE, SYNCED, NOT_SYNCED
+    }
 
     companion object {
 
@@ -33,6 +35,11 @@ data class SyncDisplay(
 
         fun from(state: MainViewModel.UiState): SyncDisplay {
             val counts = state.syncCounts
+            if (state.signInRefused) {
+                // A refused sign-in overrides offline and every sync state, and shows no error
+                // (spec "Sign-in health", decision 4).
+                return SyncDisplay(Status.SIGN_IN_AGAIN, counts, 0, 0, 0f, null)
+            }
             if (!state.serverConnected) {
                 // Offline overrides every sync state, and shows no error.
                 return SyncDisplay(Status.OFFLINE, counts, 0, 0, 0f, null)

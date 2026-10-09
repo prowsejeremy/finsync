@@ -75,20 +75,27 @@ class SyncSettingsFragment : Fragment() {
                 folder?.let { getString(R.string.sync_target, it) }.orEmpty()
             viewModel.loadAlbumsFor(config)
         }
-        binding.btnSignIn.setOnClickListener {
-            startActivity(Intent(requireContext(), LoginActivity::class.java))
-        }
+        binding.btnSignIn.setOnClickListener { openSignIn() }
         binding.cardServer.setOnClickListener {
             ServerBottomSheet().show(childFragmentManager, ServerBottomSheet.TAG)
         }
     }
 
-    private fun renderServerStatus(connected: Boolean) {
+    private fun openSignIn() {
+        startActivity(Intent(requireContext(), LoginActivity::class.java))
+    }
+
+    private fun renderServerStatus(state: MainViewModel.UiState) {
+        val connected = state.serverConnected && !state.signInRefused
         binding.serverStatusDot.setBackgroundResource(
             if (connected) R.drawable.circle_status_good else R.drawable.circle_accent_muted
         )
         binding.tvServerStatus.setText(
-            if (connected) R.string.server_connected else R.string.server_offline
+            when {
+                state.signInRefused -> R.string.status_sign_in_again
+                state.serverConnected -> R.string.server_connected
+                else -> R.string.server_offline
+            }
         )
     }
 
@@ -97,11 +104,18 @@ class SyncSettingsFragment : Fragment() {
     private fun bindSyncCard() {
         // One observer for the Connected dot and the card.
         mainViewModel.uiState.observe(viewLifecycleOwner) { state ->
-            renderServerStatus(state.serverConnected)
+            renderServerStatus(state)
             renderSyncCard(SyncDisplay.from(state))
         }
         // The card itself has no listener since Sync Status went, so it has no ripple either.
-        binding.btnSyncCard.setOnClickListener { mainViewModel.toggleSync() }
+        // A refused sign-in turns the card's button into Sign in (decision 4).
+        binding.btnSyncCard.setOnClickListener {
+            if (mainViewModel.uiState.value?.signInRefused == true) {
+                openSignIn()
+            } else {
+                mainViewModel.toggleSync()
+            }
+        }
     }
 
     private fun renderSyncCard(display: SyncDisplay) {
@@ -117,6 +131,10 @@ class SyncSettingsFragment : Fragment() {
             SyncDisplay.Status.FAILED ->
                 getString(R.string.sync_error, display.errorMessage.orEmpty())
             SyncDisplay.Status.INCOMPLETE -> resources.syncIncompleteDetail(display.failedItems)
+            SyncDisplay.Status.SIGN_IN_AGAIN -> getString(
+                R.string.sync_detail_sign_in_again,
+                mainViewModel.config.value?.serverName.orEmpty()
+            )
             // Stopped, synced or not synced: the counts, or nothing when nothing is selected.
             else -> resources.syncCountsLine(display.counts)
         }
@@ -147,6 +165,10 @@ class SyncSettingsFragment : Fragment() {
             // Moved to a string (spec "Sync (new screen)").
             binding.tvAlbumsSummary.text =
                 getString(R.string.settings_albums_summary, selectedCount, total)
+        }
+        // A failed fetch, such as on a refused sign-in, instead of "Loading..." for ever.
+        viewModel.albumsFailed.observe(viewLifecycleOwner) { failed ->
+            if (failed) binding.tvAlbumsSummary.setText(R.string.settings_albums_failed)
         }
         // From the catalogue; an empty selection means none (3b).
         viewModel.playlistChoices.observe(viewLifecycleOwner) { playlists ->

@@ -22,7 +22,8 @@ data class SyncRowSummary(
         fun from(display: SyncDisplay): SyncRowSummary = when (display.status) {
             SyncDisplay.Status.SYNCING ->
                 SyncRowSummary(display.status, runPercent(display.runDone, display.runTotal), null)
-            SyncDisplay.Status.OFFLINE -> SyncRowSummary(display.status, null, null)
+            SyncDisplay.Status.OFFLINE, SyncDisplay.Status.SIGN_IN_AGAIN ->
+                SyncRowSummary(display.status, null, null)
             else -> SyncRowSummary(display.status, null, display.counts.takeIf { it.total > 0 })
         }
 

@@ -12,6 +12,7 @@ import androidx.recyclerview.widget.RecyclerView
 import com.jpd.hz.R
 import com.jpd.hz.databinding.FragmentAlbumSelectionBinding
 import com.jpd.hz.databinding.ItemAlbumSelectionBinding
+import com.jpd.hz.library.albumIdsToSave
 import com.jpd.hz.model.AlbumSelection
 
 class AlbumSelectionFragment : Fragment() {
@@ -49,6 +50,10 @@ class AlbumSelectionFragment : Fragment() {
         }
         binding.rvAlbums.layoutManager = LinearLayoutManager(requireContext())
         binding.rvAlbums.adapter = adapter
+        // Select saves nothing until the albums have loaded (spec "Sign-in health", decision 5);
+        // after a failed fetch, opening this screen tries again.
+        binding.btnSelect.isEnabled = viewModel.albums.value != null
+        if (viewModel.albumsFailed.value == true) viewModel.loadAlbums()
 
         viewModel.albums.observe(viewLifecycleOwner) { albums ->
             val selectedIds = viewModel.getSelectedAlbumIds()
@@ -61,6 +66,7 @@ class AlbumSelectionFragment : Fragment() {
             adapter.submitList(albums.map { it.copy(isSelected = checkedIds.contains(it.item.id)) })
             syncSelectAll()
             updateCount()
+            binding.btnSelect.isEnabled = true
         }
 
         binding.rowSelectAll.setOnClickListener {
@@ -84,12 +90,8 @@ class AlbumSelectionFragment : Fragment() {
         }
 
         binding.btnSelect.setOnClickListener {
-            val albums = viewModel.albums.value ?: emptyList()
-            val ids = if (checkedIds.size == albums.size) {
-                mutableSetOf("all")
-            } else {
-                checkedIds.toMutableSet()
-            }
+            val total = viewModel.albums.value?.size ?: 0
+            val ids = albumIdsToSave(checkedIds, total) ?: return@setOnClickListener
             viewModel.setSelectedAlbumIds(ids)
             viewModel.loadAlbums()
             findNavController().popBackStack()

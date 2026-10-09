@@ -17,13 +17,15 @@ class SyncRowSummaryTest {
     private fun summaryFor(
         syncState: SyncState?,
         counts: SyncCounts = someCounts,
-        serverConnected: Boolean = true
+        serverConnected: Boolean = true,
+        signInRefused: Boolean = false
     ): SyncRowSummary = SyncRowSummary.from(
         SyncDisplay.from(
             MainViewModel.UiState(
                 syncState = syncState,
                 syncCounts = counts,
-                serverConnected = serverConnected
+                serverConnected = serverConnected,
+                signInRefused = signInRefused
             )
         )
     )
@@ -61,6 +63,13 @@ class SyncRowSummaryTest {
         )
 
         assertEquals(SyncRowSummary(SyncDisplay.Status.OFFLINE, null, null), summary)
+    }
+
+    @Test
+    fun `a refused sign-in shows only its label, even with items selected`() {
+        val summary = summaryFor(SyncState(syncComplete = true), signInRefused = true)
+
+        assertEquals(SyncRowSummary(SyncDisplay.Status.SIGN_IN_AGAIN, null, null), summary)
     }
 
     @Test

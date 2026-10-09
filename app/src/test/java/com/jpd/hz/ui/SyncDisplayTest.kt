@@ -16,12 +16,14 @@ class SyncDisplayTest {
     private fun displayFor(
         syncState: SyncState?,
         counts: SyncCounts = SyncCounts.NONE,
-        serverConnected: Boolean = true
+        serverConnected: Boolean = true,
+        signInRefused: Boolean = false
     ): SyncDisplay = SyncDisplay.from(
         MainViewModel.UiState(
             syncState = syncState,
             syncCounts = counts,
-            serverConnected = serverConnected
+            serverConnected = serverConnected,
+            signInRefused = signInRefused
         )
     )
 
@@ -33,6 +35,36 @@ class SyncDisplayTest {
         )
 
         assertEquals(SyncDisplay.Status.OFFLINE, display.status)
+        assertNull(display.errorMessage)
+    }
+
+    @Test
+    fun `a refused sign-in wins over offline and a running sync, with no error`() {
+        val running = SyncState(
+            isRunning = true,
+            totalItems = 10,
+            downloadedItems = 4,
+            errorMessage = "boom"
+        )
+
+        val display = displayFor(
+            running,
+            serverConnected = false,
+            signInRefused = true
+        )
+
+        assertEquals(SyncDisplay.Status.SIGN_IN_AGAIN, display.status)
+        assertNull(display.errorMessage)
+    }
+
+    @Test
+    fun `a refused sign-in wins over the failed sync it caused`() {
+        val display = displayFor(
+            SyncState(errorMessage = "Failed to fetch audio items: 401"),
+            signInRefused = true
+        )
+
+        assertEquals(SyncDisplay.Status.SIGN_IN_AGAIN, display.status)
         assertNull(display.errorMessage)
     }
 

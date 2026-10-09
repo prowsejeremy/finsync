@@ -16,13 +16,14 @@ import kotlin.math.roundToInt
 @get:StringRes
 val SyncDisplay.Status.labelRes: Int
     get() = when (this) {
-        SyncDisplay.Status.OFFLINE    -> R.string.status_offline
-        SyncDisplay.Status.SYNCING    -> R.string.status_syncing
-        SyncDisplay.Status.STOPPED    -> R.string.status_sync_stopped
-        SyncDisplay.Status.FAILED     -> R.string.status_sync_failed
-        SyncDisplay.Status.INCOMPLETE -> R.string.status_sync_incomplete
-        SyncDisplay.Status.SYNCED     -> R.string.status_synced
-        SyncDisplay.Status.NOT_SYNCED -> R.string.status_not_synced
+        SyncDisplay.Status.SIGN_IN_AGAIN -> R.string.status_sign_in_again
+        SyncDisplay.Status.OFFLINE       -> R.string.status_offline
+        SyncDisplay.Status.SYNCING       -> R.string.status_syncing
+        SyncDisplay.Status.STOPPED       -> R.string.status_sync_stopped
+        SyncDisplay.Status.FAILED        -> R.string.status_sync_failed
+        SyncDisplay.Status.INCOMPLETE    -> R.string.status_sync_incomplete
+        SyncDisplay.Status.SYNCED        -> R.string.status_synced
+        SyncDisplay.Status.NOT_SYNCED    -> R.string.status_not_synced
     }
 
 @get:ColorRes
@@ -31,7 +32,11 @@ val SyncDisplay.Status.labelColorRes: Int
 
 @get:StringRes
 val SyncDisplay.buttonLabelRes: Int
-    get() = if (status == SyncDisplay.Status.SYNCING) R.string.btn_stop_sync else R.string.btn_sync_now
+    get() = when (status) {
+        SyncDisplay.Status.SYNCING -> R.string.btn_stop_sync
+        SyncDisplay.Status.SIGN_IN_AGAIN -> R.string.btn_sign_in
+        else -> R.string.btn_sync_now
+    }
 
 /** "2 items couldn't sync. They'll retry next sync." */
 fun Resources.syncIncompleteDetail(failedItems: Int): String =

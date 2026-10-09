@@ -9,8 +9,9 @@ import retrofit2.Response
 import retrofit2.http.*
 
 interface JellyfinApi {
-    @GET("health")
-    suspend fun getHealth(): Response<ResponseBody>
+    /** The signed-in user; only its status code is read (spec "Sign-in health", decision 3). */
+    @GET("Users/Me")
+    suspend fun getMe(@Header("Authorization") authorization: String): Response<ResponseBody>
 
     @POST("Users/AuthenticateByName")
     @Headers("Content-Type: application/json")

@@ -1,7 +1,10 @@
 package com.jpd.hz.auth
 
 import android.content.Context
+import com.jpd.hz.api.DeviceIdentity
 import com.jpd.hz.api.JellyfinClient
+import com.jpd.hz.api.RefusedSignInInterceptor
+import com.jpd.hz.api.ServerCheck
 import com.jpd.hz.model.AuthenticateRequest
 import com.jpd.hz.model.ItemsResponse
 import com.jpd.hz.model.MediaItem
@@ -33,17 +36,29 @@ sealed class Result<out T> {
 }
 
 class JellyfinRepository(private val context: Context) {
-    suspend fun isServerHealthy(serverUrl: String): Boolean {
-        return try {
-            val response = readApi(serverUrl).getHealth()
-            response.isSuccessful
-        } catch (e: Exception) {
-            false
-        }
+    /**
+     * Whether the server answers and takes [config]'s sign-in (spec "Sign-in health", decision
+     * 3). A 401 is also recorded by RefusedSignInInterceptor, which the screens read.
+     */
+    suspend fun checkServer(config: ServerConfig): ServerCheck = try {
+        val response = readApi(config.serverUrl).getMe(authorization(config))
+        // Only the code matters; the body is closed either way.
+        response.body()?.close()
+        response.errorBody()?.close()
+        ServerCheck.from(response.code())
+    } catch (e: CancellationException) {
+        throw e
+    } catch (e: Exception) {
+        // No response: offline, unreachable, or a saved URL that no longer parses.
+        Log.w(TAG, "Server check failed: ${e.message}")
+        ServerCheck.OFFLINE
     }
 
     private val credentialStore = CredentialStore(context)
     private val activeAudioCall = AtomicReference<Call?>(null)
+
+    // The install's (DeviceIdentity): one file read, the first time a request needs it.
+    private val deviceId by lazy { DeviceIdentity.of(context) }
 
     fun cancelAudioDownload() {
         activeAudioCall.getAndSet(null)?.cancel()
@@ -70,7 +85,7 @@ class JellyfinRepository(private val context: Context) {
     }
 
     private fun authorization(config: ServerConfig) =
-        JellyfinClient.buildAuthHeader(token = config.accessToken)
+        JellyfinClient.buildAuthHeader(deviceId, token = config.accessToken)
 
     suspend fun testServer(serverUrl: String): Result<ServerInfo> = safeCall {
         val response = readApi(serverUrl).getPublicServerInfo()
@@ -84,7 +99,7 @@ class JellyfinRepository(private val context: Context) {
         password: String
     ): Result<ServerConfig> = safeCall {
         val response = authApi(serverUrl).authenticateByName(
-            JellyfinClient.buildAuthHeader(),
+            JellyfinClient.buildAuthHeader(deviceId),
             AuthenticateRequest(username, password)
         )
         if (!response.isSuccessful) {
@@ -235,12 +250,14 @@ class JellyfinRepository(private val context: Context) {
             .readTimeout(0, TimeUnit.SECONDS)
             .followRedirects(true)
             .followSslRedirects(true)
+            .addInterceptor(RefusedSignInInterceptor())
             .build()
 
         val request = JellyfinClient.buildAudioStreamRequest(
-            baseUrl = config.serverUrl,
-            itemId  = itemId,
-            token   = config.accessToken
+            baseUrl  = config.serverUrl,
+            itemId   = itemId,
+            token    = config.accessToken,
+            deviceId = deviceId
         )
 
         val call = client.newCall(request)

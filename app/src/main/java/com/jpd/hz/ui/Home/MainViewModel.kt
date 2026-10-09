@@ -9,7 +9,9 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MediatorLiveData
 import androidx.lifecycle.MutableLiveData
+import androidx.lifecycle.asLiveData
 import androidx.lifecycle.viewModelScope
+import com.jpd.hz.api.SignInStatus
 import com.jpd.hz.auth.JellyfinRepository
 import com.jpd.hz.db.SyncDatabase
 import com.jpd.hz.library.SyncSelections
@@ -27,7 +29,6 @@ import com.jpd.hz.sync.SyncSelection
 import com.jpd.hz.sync.syncCountsOf
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.NonCancellable
-import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -39,12 +40,11 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     fun checkServerConnection() {
         val cfg = _config.value ?: return
         viewModelScope.launch {
-            val healthy = repo.isServerHealthy(cfg.serverUrl)
-            // isServerHealthy() returns false when cancelled, which mustn't stop a running sync.
-            ensureActive()
-            _serverConnected.postValue(healthy)
+            // checkServer rethrows cancellation, so a cancelled check posts nothing.
+            val check = repo.checkServer(cfg)
+            _serverConnected.postValue(check.reachable)
             // Only a running sync needs stopping; stopping an idle one would mark it "stopped".
-            if (!healthy && SyncEngine.syncState.value.isRunning) stopSync()
+            if (!check.reachable && SyncEngine.syncState.value.isRunning) stopSync()
         }
     }
 
@@ -70,7 +70,9 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     data class UiState(
         val syncState: SyncState? = null,
         val syncCounts: SyncCounts = SyncCounts.NONE,
-        val serverConnected: Boolean = true
+        val serverConnected: Boolean = true,
+        /** The server refuses the saved sign-in (spec "Sign-in health", decision 2). */
+        val signInRefused: Boolean = false
     )
 
     // Counts first: when the screen comes back, they're delivered before the sync state too.
@@ -78,7 +80,18 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         addSource(_syncCounts)      { value = (value ?: UiState()).copy(syncCounts = it) }
         addSource(_syncState)       { value = (value ?: UiState()).copy(syncState = it) }
         addSource(_serverConnected) { value = (value ?: UiState()).copy(serverConnected = it) }
+        addSource(SignInStatus.shared.refusedToken.asLiveData()) { showSignInRefused() }
+        addSource(_config) { showSignInRefused() }
     }
+
+    private fun MediatorLiveData<UiState>.showSignInRefused() {
+        val refused = SignInStatus.isRefused(
+            SignInStatus.shared.refusedToken.value,
+            _config.value?.accessToken
+        )
+        value = (value ?: UiState()).copy(signInRefused = refused)
+    }
+
     val uiState: LiveData<UiState> = _uiState
 
     /** Jellyfin as Settings → Adapters shows it (D12). */

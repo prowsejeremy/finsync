@@ -43,6 +43,9 @@ class SettingsViewModel(app: Application) : AndroidViewModel(app) {
 
     private val _albums  = MutableLiveData<List<AlbumSelection>>()
     val albums: LiveData<List<AlbumSelection>> = _albums
+    private val _albumsFailed = MutableLiveData(false)
+    /** The last album fetch failed, such as on a refused sign-in (spec "Sign-in health"). */
+    val albumsFailed: LiveData<Boolean> = _albumsFailed
     // The sign-in the albums were loaded for: one made on the Jellyfin page loads them again (T4).
     private var albumsLoadedFor: ServerConfig? = null
 
@@ -53,24 +56,30 @@ class SettingsViewModel(app: Application) : AndroidViewModel(app) {
     fun loadAlbums() {
         val cfg = repo.getSavedConfig() ?: return
         albumsLoadedFor = cfg
+        _albumsFailed.value = false
         viewModelScope.launch {
-            val result = repo.getAlbums(cfg)
-            if (result is Result.Success) {
-                val selectedIds = getSelectedAlbumIds()
-                val albumList = result.data.items.map { album ->
-                    val syncedCount = dao.getSyncedTrackCountForAlbum(album.id)
-                    val isDownloaded = album.childCount != null &&
-                            album.childCount > 0 &&
-                            syncedCount >= album.childCount
-                    AlbumSelection(
-                        item        = album,
-                        isSelected  = selectedIds.contains("all") ||
-                                      selectedIds.contains(album.id) ||
-                                      isDownloaded,
-                        isDownloaded = isDownloaded
-                    )
-                }.sortedBy { it.item.name }
-                _albums.postValue(albumList)
+            when (val result = repo.getAlbums(cfg)) {
+                is Result.Success -> {
+                    val selectedIds = getSelectedAlbumIds()
+                    val albumList = result.data.items.map { album ->
+                        val syncedCount = dao.getSyncedTrackCountForAlbum(album.id)
+                        val isDownloaded = album.childCount != null &&
+                                album.childCount > 0 &&
+                                syncedCount >= album.childCount
+                        AlbumSelection(
+                            item        = album,
+                            isSelected  = selectedIds.contains("all") ||
+                                          selectedIds.contains(album.id) ||
+                                          isDownloaded,
+                            isDownloaded = isDownloaded
+                        )
+                    }.sortedBy { it.item.name }
+                    _albums.postValue(albumList)
+                }
+                is Result.Error -> {
+                    Log.w(TAG, "Couldn't load albums: ${result.message}")
+                    _albumsFailed.value = true
+                }
             }
         }
     }

@@ -14,17 +14,21 @@ object JellyfinClient {
     private const val CONNECT_TIMEOUT_SEC  = 15L
     private const val READ_TIMEOUT_SEC     = 0L
 
+    // The token in a header buildAuthHeader made: Token="…".
+    private val TOKEN = Regex("Token=\"([^\"]+)\"")
+
     /**
      * Value for the standard `Authorization` header using Jellyfin's `MediaBrowser` scheme.
      *
      * Jellyfin 12 disabled the Emby-era `X-Emby-Authorization`, `X-MediaBrowser-Token` and
      * `api_key` mechanisms by default, so this header is the only supported way to identify
-     * the client and, once logged in, to carry the access token.
+     * the client and, once logged in, to carry the access token. [deviceId] is the install's
+     * (DeviceIdentity): Jellyfin ends a device's other sessions when it signs in again.
      */
     fun buildAuthHeader(
+        deviceId:   String,
         clientName: String = "hz",
         deviceName: String = "Android",
-        deviceId:   String = "hz-android-001",
         version:    String = "1.0.0",
         token:      String? = null
     ): String {
@@ -33,11 +37,19 @@ object JellyfinClient {
         return if (token.isNullOrBlank()) identity else "$identity, Token=\"$token\""
     }
 
+    /** The token in a header [buildAuthHeader] made, or null when it carries none. */
+    fun tokenOf(authorization: String): String? = TOKEN.find(authorization)?.groupValues?.get(1)
+
     /** Raw audio download request, authenticated via header so the token never appears in a URL. */
-    fun buildAudioStreamRequest(baseUrl: String, itemId: String, token: String): Request =
+    fun buildAudioStreamRequest(
+        baseUrl: String,
+        itemId: String,
+        token: String,
+        deviceId: String
+    ): Request =
         Request.Builder()
             .url("${normalizeBaseUrl(baseUrl)}Audio/$itemId/stream?static=true")
-            .header("Authorization", buildAuthHeader(token = token))
+            .header("Authorization", buildAuthHeader(deviceId, token = token))
             .get()
             .build()
 
@@ -51,6 +63,7 @@ object JellyfinClient {
             .connectTimeout(CONNECT_TIMEOUT_SEC, TimeUnit.SECONDS)
             .readTimeout(READ_TIMEOUT_SEC,        TimeUnit.SECONDS)
             .addInterceptor(ReadOnlyInterceptor(allowLoginPost))
+            .addInterceptor(RefusedSignInInterceptor())
             .addInterceptor(logging)
             .build()
 
