@@ -1,0 +1,54 @@
+# plan: item, path, fingerprint
+t1	Music/Daft Punk/Discovery/01 One More Time.flac	5ec031f941019f2bb3473eaf8596c7e888b1a22e7a35473491c3d9e13ea1239a
+t2	Music/Daft Punk/Discovery/02 Aerodynamic.flac	ac948d71be436a8091e9d7f7b2a0f45a1eee016b2c717617908b4644d1d6d27b
+t3	Music/Daft Punk/Discovery/01 Digital Love.flac	fe47f84b78532d92a6c52a7022c0a7669d28e4dc5717f0a9496e7fc730b04c2a
+c1	Music/Various Artists/Late Night Tales/01 Alpha Beta Gaga.mp3	256ea84c5682a5b4b41b4bd45389d1a23f7aaeeeceda6dca4866b8e11b4e6bc1
+c2	Music/Various Artists/Late Night Tales/02 Stay the Same.mp3	1ff388da4c36c27cc773ab6a0170d5ae74fec80f1054735168c1fb397612557c
+x1	Music/AC_DC/What's _ Up_/07 Thunder_ Live_.flac	10371ffe116a079ebd1a4ba347ed1ceed695defb895d09635b991ad94c359548
+n1	Music/Solo/Unknown Album/Loose Song.m4a	005a78a79cd4f9b98af42678ef68949948ac96d0f47b108476d8e5cc641451d1
+b1	Audiobooks/Frank Herbert/Dune/Dune.m4b	99d73032242a7cecbfb9f3ea243b8b0aa51a3290bdc8f24e6d6570a10eb9527c
+b2	Audiobooks/Unknown Author/Untitled_ Draft/Untitled_ Draft.m4b	94e46fbe9ecf9f47812fdab38e2d9af1383a3b9bd8b32a3317b3e4181d759a09
+# fields
+t1	ALBUM=Discovery | ALBUMARTIST=Daft Punk | ARTIST=Daft Punk | DATE=2001 | DISCNUMBER=1 | GENRE=House; French House | TITLE=One More Time | TRACKNUMBER=1
+t2	ALBUM=Discovery | ALBUMARTIST=Daft Punk | ARTIST=Daft Punk | DATE=2001 | DISCNUMBER=1 | TITLE=Aerodynamic | TRACKNUMBER=2
+t3	ALBUM=Discovery | ALBUMARTIST=Daft Punk | ARTIST=Daft Punk; Romanthony | DATE=2001 | DISCNUMBER=2 | TITLE=Digital Love | TRACKNUMBER=1
+c1	ALBUM=Late Night Tales | ALBUMARTIST=Various Artists | ARTIST=Air | TITLE=Alpha Beta Gaga | TRACKNUMBER=1
+c2	ALBUM=Late Night Tales | ALBUMARTIST=Various Artists | ARTIST=Bonobo; Andreya Triana | GENRE=Downtempo | TITLE=Stay the Same | TRACKNUMBER=2
+x1	ALBUM=What's / Up? | ALBUMARTIST=AC/DC | ARTIST=AC/DC | DISCNUMBER=1 | TITLE=Thunder: Live? | TRACKNUMBER=7
+n1	ARTIST=Solo | TITLE=Loose Song
+b1	ALBUM=Dune | ALBUMARTIST=Frank Herbert | ARTIST=Frank Herbert | DATE=1965 | GENRE=Science Fiction | TITLE=Dune
+b2	ALBUM=Untitled: Draft | TITLE=Untitled: Draft
+# keep
+Audiobooks/Frank Herbert/Dune/Dune.m4b
+Audiobooks/Frank Herbert/Dune/folder.jpg
+Audiobooks/Unknown Author/Untitled_ Draft/Untitled_ Draft.m4b
+Audiobooks/Unknown Author/Untitled_ Draft/folder.jpg
+Music/AC_DC/What's _ Up_/07 Thunder_ Live_.flac
+Music/AC_DC/What's _ Up_/folder.jpg
+Music/AC_DC/artist.jpg
+Music/Daft Punk/Discovery/01 Digital Love.flac
+Music/Daft Punk/Discovery/01 One More Time.flac
+Music/Daft Punk/Discovery/02 Aerodynamic.flac
+Music/Daft Punk/Discovery/folder.jpg
+Music/Daft Punk/artist.jpg
+Music/Solo/Unknown Album/Loose Song.m4a
+Music/Solo/Unknown Album/folder.jpg
+Music/Various Artists/Late Night Tales/01 Alpha Beta Gaga.mp3
+Music/Various Artists/Late Night Tales/02 Stay the Same.mp3
+Music/Various Artists/Late Night Tales/folder.jpg
+Music/Various Artists/artist.jpg
+Playlists/Road Trip.jpg
+Playlists/Road Trip.m3u8
+# artist photos: path, artist
+Music/AC_DC/artist.jpg	acdc
+Music/Daft Punk/artist.jpg	dp
+Music/Various Artists/artist.jpg	va
+# playlist file Playlists/Road Trip.m3u8
+#EXTM3U
+#PLAYLIST:Road Trip
+#EXTINF:216,Air - Alpha Beta Gaga
+../Music/Various Artists/Late Night Tales/01 Alpha Beta Gaga.mp3
+#EXTINF:216,Daft Punk - One More Time
+../Music/Daft Punk/Discovery/01 One More Time.flac
+#EXTINF:216,Air - Alpha Beta Gaga
+../Music/Various Artists/Late Night Tales/01 Alpha Beta Gaga.mp3

@@ -1,8 +1,9 @@
 # hz: architecture and feature reference
 
 Updated 2026-10-09, on `feature/fragment`, with T4 of the player and adapter split (Settings,
-launch and sign-out) done and checked on the phone. 486 unit tests in 73 suites pass: 445 in 67
-for `:app` and 41 in 6 for `:tags`. `:tags` also has 95 instrumented tests, which run on a phone.
+launch and sign-out) done and checked on the phone. Queue editing (2026-10-10) brings `:app` to
+474 unit tests in 71 suites; `:tags` has 41 in 6, plus 95 instrumented tests, which run on a
+phone.
 
 Start here before extending the app. This document summarises what is built and the rules every
 change follows. The specs hold the full reasoning behind each decision.
@@ -40,8 +41,9 @@ It was called Finsync until 2026-10-06. The rename changed the application ID to
 hz installs beside Finsync instead of upgrading it. The local specs, plans and handovers predate
 the rename and still say Finsync and `com/jpd/finsync`.
 
-- **Sign-in** to Jellyfin 12+, from Settings → Adapters → Jellyfin. hz opens and plays without
-  one. Credentials are kept in `EncryptedSharedPreferences`.
+- **Sign-in** to Jellyfin 12+, from Settings → Adapters → Jellyfin, by Quick Connect (the
+  default) or username and password. hz opens and plays without one. Credentials are kept in
+  `EncryptedSharedPreferences`.
 - **Sync** of chosen albums, playlists and audiobooks. Sync is incremental, runs in a foreground
   service with a notification, and can repeat on a schedule (WorkManager).
 - **The Library folder** (`Media/hz` by default) is scanned when the app opens, after each sync
@@ -52,9 +54,9 @@ the rename and still say Finsync and `com/jpd/finsync`.
 - **Playback** through BASS, behind Media3's session layer:
   - gapless albums;
   - repeat and shuffle;
-  - a queue sheet and Android's output switcher;
+  - a queue sheet that moves and removes tracks, and Android's output switcher;
   - notification, lock screen and Bluetooth controls;
-  - the queue restored after a force-stop.
+  - the queue restored after a force-stop, as it was left.
 - **Mini-player and Player.** Swipe the mini-player, or the Player's art and title, to change
   track. A Player title too long for one line scrolls sideways.
 - **Audiobooks** play as one queue item each. They have chapters, −15 s and +30 s skips, a
@@ -118,9 +120,12 @@ Streaming, if it comes, becomes an adapter feature.
 ### Server and auth
 
 - **hz never changes anything on the server.** API calls pass through `ReadOnlyInterceptor`
-  (`app/src/main/java/com/jpd/hz/api/JellyfinClient.kt`). It allows GET and HEAD, plus the
-  login POST, and throws on anything else. There is no play reporting. Adding some (play counts,
-  now playing, book positions) would need a deliberate exception.
+  (`app/src/main/java/com/jpd/hz/api/JellyfinClient.kt`). It allows GET and HEAD, plus three
+  sign-in POSTs on the sign-in client only (`Users/AuthenticateByName`, `QuickConnect/Initiate`,
+  `Users/AuthenticateWithQuickConnect`; `ReadOnlyInterceptor.allows`), and throws on anything
+  else. `QuickConnect/Authorize`, which approves another device's code, stays blocked. There is
+  no play reporting. Adding some (play counts, now playing, book positions) would need a
+  deliberate exception.
 - **Jellyfin 12 auth.** Every request sends `Authorization: MediaBrowser Client=…, Token=…`
   (`JellyfinClient.buildAuthHeader`). Its `DeviceId` is the install's, a UUID kept in
   `noBackupFilesDir/device_id` (`api/DeviceIdentity.kt`): Jellyfin ends a device's other
@@ -162,7 +167,8 @@ All paths are under `app/src/main/java/com/jpd/hz/`.
 ```
 Hz.kt                     Application: applies the saved night mode before any activity starts
 api/                      Retrofit interface, OkHttp client, auth header and device ID,
-                          ReadOnlyInterceptor, SignInStatus (a refused sign-in), ServerCheck
+                          ReadOnlyInterceptor, SignInStatus (a refused sign-in), ServerCheck,
+                          QuickConnect (a code's start and poll)
 auth/                     CredentialStore (encrypted prefs), JellyfinRepository (every server call)
 model/Models.kt           Server DTOs (MediaItem, MediaStream…), ServerConfig, SyncState
 db/                       Room: the Jellyfin adapter's SyncDatabase v9 (sync records, catalogue)
@@ -276,7 +282,7 @@ Each adapter syncs into its own folder inside the Library folder, named after th
 | `settings` | `library_folder` (T3): the Library folder's full path, the only one hz saves. `library_move`: a change of folder begun and not yet finished. `scanned_folder` (T4): the folder the last scan wrote the library from, saved just before the write; only it keeps the library when it looks empty. | `library/LibraryFolderStore.kt`, `sync/FolderSetup.kt`, `library/scan/LibraryScanner.kt` |
 | `settings` | `theme_mode` (`dark`, `light`, `system`), `accent` (`green`, `blue`, `purple`, `pink`, `red`) | `appearance/AppearanceStore.kt` |
 | `settings` | `home_order` (comma-separated keys), `home_hidden` (string set) | `home/HomeLayoutStore.kt` |
-| `playback` | `resume_state` (queue IDs, index, position, repeat, shuffle), `book_speed` | `playback/ResumeStore.kt`, `playback/BookSpeedStore.kt` |
+| `playback` | `resume_state` (source IDs, queue, index, position, repeat, shuffle), `book_speed` | `playback/ResumeStore.kt`, `playback/BookSpeedStore.kt` |
 | `equaliser` | `enabled`, `preset` (a built-in key, `custom` or `saved_<id>`), `custom_gains`, `saved_presets` (one `<id>\|<gains>\|<name>` per line) | `equaliser/EqualiserStore.kt` |
 | encrypted | server URL, user and token | `auth/CredentialStore.kt` |
 
@@ -440,10 +446,17 @@ Fragments ──▶ PlaybackViewModel (activity-scoped, wraps one MediaControlle
   "Files missing. Rescan your library."
 - **Gapless.** The next track is queued in the mixer (`BASS_MIXER_QUEUE`), so it starts with no
   gap. Seeking moves the position in place without reopening the file, so book skips are quick.
-- **Order.** `QueueOrder` (pure) holds the repeat and shuffle rules. Shuffle starts with the
-  current track. Repeat cycles off → all → one. Previous restarts the track after 3 s.
+- **Queue.** Playing from a list (album, All songs, playlist and so on) copies it into the queue,
+  and `BassPlayer` keeps the list as the source. The Queue sheet moves tracks by their handle and
+  swipes them away (not the playing one); edits change only the queue. Turning shuffle on or off
+  rebuilds the queue from the whole source, shuffled or in order, and the playing track carries
+  on. Adding and replacing do nothing (spec `2026-10-10-queue-editing-design.md`).
+- **Order.** `QueueOrder` (pure) holds the repeat and shuffle rules and the queue's move and
+  remove arithmetic, used by `BassPlayer`, the saved queue and the Queue sheet. Shuffle starts
+  with the current track. Repeat cycles off → all → one. Previous restarts the track after 3 s.
 - **Resume.** The queue is saved on play/pause, track change, seek, repeat and shuffle, a book's
-  new chapter, and every 10 s while playing; `ResumeSaves` (pure) holds which events save. A
+  new chapter, and every 10 s while playing; `ResumeSaves` (pure) holds which events save. The
+  save holds the source and the queue, so edits and a shuffled order come back as they were. A
   service starting with an empty queue restores it paused.
   `onPlaybackResumption` gives Bluetooth or lock-screen Play the same queue.
 - **Lifecycle.** Swiped away while playing, the app keeps playing; while paused, the service
@@ -478,9 +491,11 @@ takes precedence.
 ## Screens and navigation
 
 **Activities.** `PermissionsActivity` is the launcher and goes on to `MainActivity`, signed in
-or not (D10). `LoginActivity` opens from Adapters → Jellyfin and returns there. `MainActivity`
-hosts every other screen through one `NavHostFragment`, above `miniPlayerContainer`. There's no
-tab bar: Home's header has a round Settings button, which also shows a sync progress ring.
+or not (D10). `LoginActivity` opens from Adapters → Jellyfin and returns there. It opens on
+Quick Connect: Get code shows a code to approve in a signed-in Jellyfin app, checked every 5 s;
+a link swaps in the username and password form. `MainActivity` hosts every other screen through
+one `NavHostFragment`, above `miniPlayerContainer`. There's no tab bar: Home's header has a
+round Settings button, which also shows a sync progress ring.
 
 **Navigation graph** (`app/src/main/res/navigation/nav_graph.xml`):
 
@@ -725,6 +740,9 @@ None is scheduled.
   playlists. Next, the optional T5, Gradle modules. Search builds after it.
 - **Sign-in health** (spec `2026-10-09-sign-in-health-design.md`): built; the phone check is
   next.
+- **Queue editing** (spec `2026-10-10-queue-editing-design.md`): built; the phone check is next.
+- **Quick Connect sign-in** (spec `2026-10-10-quick-connect-sign-in-design.md`): built; the
+  phone check is next.
 - **Sub-project 4, Search.** Not designed yet. It will search albums, artists, songs, playlists
   and audiobooks. Points to settle:
   - Search reads the library through the repositories.
@@ -738,5 +756,5 @@ None is scheduled.
   - artwork for albums that aren't downloaded (small).
 - **Later ideas from the specs:** an Artists category, Appears on, sort options, an A–Z index, a
   sleep timer, rewinding on resume, marking a book finished by hand, books split into several
-  files, lyrics, queue editing, colours from artwork, EQ settings per output, a manual preamp,
+  files, lyrics, colours from artwork, EQ settings per output, a manual preamp,
   and a smaller playback buffer if slider lag matters.
