@@ -34,9 +34,13 @@ private const val TAG = "PlaybackService"
 // progress saves on the same tick (3b "Progress").
 private const val SAVE_INTERVAL_MS = 10_000L
 
-/** A saved queue, already resolved to playable items. */
+/**
+ * A saved queue, resolved to playable items. [index] is the playing track among [items]; [order]
+ * is ResumeState's queue.
+ */
 private class RestoredQueue(
     val items: List<MediaItem>,
+    val order: List<Int>,
     val index: Int,
     val positionMs: Long,
     val repeatMode: Int,
@@ -182,21 +186,26 @@ class PlaybackService : MediaSessionService() {
 
     private suspend fun loadRestorableQueue(): RestoredQueue? {
         val saved = resumeStore.load() ?: return null
-        val resolved = resolver.resolve(saved.itemIds)
-        val available = saved.itemIds.filterIndexed { index, _ -> resolved[index] != null }.toSet()
-        val state = saved.keepOnly(available) ?: return null
+        val resolved = resolver.resolve(saved.sourceIds)
+        // Judged per position, as items is filtered below, so the two always line up.
+        val state = saved.keepOnly(resolved.map { it != null }) ?: return null
         return RestoredQueue(
             items = resolved.filterNotNull(),
-            index = state.index,
+            order = state.queue,
+            index = state.queue[state.index],
             positionMs = state.positionMs,
             repeatMode = state.repeatMode,
             shuffle = state.shuffle
         )
     }
 
+    // Both restore paths call this just before the player gets the items: the service's own
+    // setMediaItems, or Media3's, which runs on the main thread as soon as onPlaybackResumption
+    // hands them back. So the saved order is never left waiting for a later, unrelated play.
     private fun applyQueueSettings(queue: RestoredQueue) {
         player.repeatMode = queue.repeatMode
         player.shuffleModeEnabled = queue.shuffle
+        player.restoreQueueOrder(queue.items.map { it.mediaId }, queue.order)
     }
 
     private fun openAppIntent(): PendingIntent = PendingIntent.getActivity(

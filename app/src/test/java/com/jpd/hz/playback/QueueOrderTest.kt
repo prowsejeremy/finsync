@@ -2,7 +2,9 @@ package com.jpd.hz.playback
 
 import androidx.media3.common.Player
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 import kotlin.random.Random
 
@@ -71,14 +73,70 @@ class QueueOrderTest {
     }
 
     @Test
-    fun `insert puts new entries at the position and clamps past the end`() {
-        assertEquals(listOf(2, 3, 4, 0, 1), QueueOrder.insert(listOf(2, 0, 1), 1, listOf(3, 4)))
-        assertEquals(listOf(0, 1), QueueOrder.insert(listOf(0), 5, listOf(1)))
+    fun `move takes a track forward or back to newIndex`() {
+        assertEquals(listOf(0, 2, 3, 1, 4), QueueOrder.move(listOf(0, 1, 2, 3, 4), 1, 2, 3))
+        assertEquals(listOf(3, 0, 1, 2, 4), QueueOrder.move(listOf(0, 1, 2, 3, 4), 3, 4, 0))
     }
 
     @Test
-    fun `removeRange drops positions and renumbers the remaining entries`() {
-        assertEquals(listOf(1, 0), QueueOrder.removeRange(listOf(2, 0, 3, 1), 1, 3))
+    fun `move takes a range and keeps the entries of a shuffled queue`() {
+        assertEquals(listOf(1, 4, 3, 0, 2), QueueOrder.move(listOf(3, 0, 1, 4, 2), 2, 4, 0))
+        assertEquals(listOf(2, 3, 4, 0, 1), QueueOrder.move(listOf(0, 1, 2, 3, 4), 0, 2, 3))
+    }
+
+    @Test
+    fun `move clamps newIndex past the end`() {
+        assertEquals(listOf(1, 2, 0), QueueOrder.move(listOf(0, 1, 2), 0, 1, 9))
+    }
+
+    @Test
+    fun `a dragged row lands where it's dropped`() {
+        assertEquals(3, QueueOrder.positionAfterMove(1, 1, 3))
+        assertEquals(1, QueueOrder.positionAfterMove(3, 3, 1))
+    }
+
+    @Test
+    fun `rows between the drag's ends shift into the gap`() {
+        assertEquals(1, QueueOrder.positionAfterMove(2, 1, 3))
+        assertEquals(2, QueueOrder.positionAfterMove(3, 1, 3))
+        assertEquals(2, QueueOrder.positionAfterMove(1, 3, 1))
+        assertEquals(3, QueueOrder.positionAfterMove(2, 3, 1))
+    }
+
+    @Test
+    fun `rows outside the drag stay`() {
+        assertEquals(0, QueueOrder.positionAfterMove(0, 1, 3))
+        assertEquals(4, QueueOrder.positionAfterMove(4, 1, 3))
+    }
+
+    @Test
+    fun `a dragged row's effect matches the player's move`() {
+        val size = 5
+        for (from in 0 until size) {
+            for (to in 0 until size) {
+                val moved = QueueOrder.move((0 until size).toList(), from, from + 1, to)
+                for (position in 0 until size) {
+                    assertEquals(
+                        moved.indexOf(position),
+                        QueueOrder.positionAfterMove(position, from, to)
+                    )
+                }
+            }
+        }
+    }
+
+    @Test
+    fun `a valid order is non-empty, inside the entries and has no entry twice`() {
+        assertTrue(QueueOrder.isValidOrder(listOf(2, 0, 1), 3))
+        assertFalse(QueueOrder.isValidOrder(emptyList(), 3))
+        assertFalse(QueueOrder.isValidOrder(listOf(0, 3), 3))
+        assertFalse(QueueOrder.isValidOrder(listOf(-1, 0), 3))
+        assertFalse(QueueOrder.isValidOrder(listOf(0, 0), 3))
+    }
+
+    @Test
+    fun `removeRange drops positions and keeps the others' entries`() {
+        assertEquals(listOf(2, 1), QueueOrder.removeRange(listOf(2, 0, 3, 1), 1, 3))
     }
 
     @Test

@@ -277,6 +277,16 @@ class PlaybackViewModel(app: Application) : AndroidViewModel(app) {
         mediaController.play()
     }
 
+    /** Moves the queue row at [fromIndex] to [toIndex], both in play order. */
+    fun moveQueueItem(fromIndex: Int, toIndex: Int) {
+        controller?.moveMediaItem(fromIndex, toIndex)
+    }
+
+    /** Takes the row at [queueIndex] out of the queue; the sheet never passes the playing one. */
+    fun removeQueueItem(queueIndex: Int) {
+        controller?.removeMediaItem(queueIndex)
+    }
+
     // The chapter seam (3b): screens never seek to chapters themselves.
 
     /** Next chapter's start; on the last chapter it does nothing (spec "Next chapter"). */

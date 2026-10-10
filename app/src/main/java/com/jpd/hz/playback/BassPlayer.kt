@@ -24,12 +24,16 @@ private const val CHAPTER_CHECK_MS = 1_000L
 data class BookPosition(val bookId: String, val positionMs: Long, val ended: Boolean)
 
 /**
- * The session's player. Owns the queue, play order, repeat and shuffle, and drives [BassEngine].
+ * The session's player. Owns the source, the queue, repeat and shuffle, and drives [BassEngine].
  *
  * SimpleBasePlayer 1.4.1 has no shuffle order, so while shuffle is on the playlist it reports is
  * already in play order. Media3's own next and previous handling (including "previous restarts
  * the track after 3 s"), the notification and the queue sheet then all follow play order.
  * Every handler finishes synchronously on the main thread.
+ *
+ * The queue is its own list (queue editing spec). [entries] is the source, the list played
+ * from, in its order; [order] is the queue, entry indices in play order. Moving and removing
+ * change only the queue; turning shuffle on or off rebuilds it from the whole source.
  *
  * A book (3b) is one queue item with its chapters in its extras. While one is current it plays
  * through a tempo stream at [bookSpeed], repeat counts as off, the system's previous and next
@@ -44,13 +48,16 @@ class BassPlayer(
 
     private class Entry(val uid: Long, val item: MediaItem)
 
+    // A saved queue order waiting for the setMediaItems that restores it (restoreQueueOrder).
+    private class SavedOrder(val itemIds: List<String>, val order: List<Int>)
+
     /** The speed every book plays at; the service loads it before anything plays. */
     var bookSpeed: Float = DEFAULT_BOOK_SPEED
     /** Called when a controller picks a book speed, so the service can keep it. */
     var onBookSpeedChanged: ((Float) -> Unit)? = null
 
-    private var entries: List<Entry> = emptyList()      // album order
-    private var order: List<Int> = emptyList()          // play order: indices into entries
+    private var entries: List<Entry> = emptyList()      // the source, in its list's order
+    private var order: List<Int> = emptyList()          // the queue: indices into entries
     private var current = 0                             // position in order
     private var queued = C.INDEX_UNSET                  // position queued in the engine
     private var loaded = false                          // engine holds the current track
@@ -63,6 +70,7 @@ class BassPlayer(
     private var playerError: PlaybackException? = null
     private var pendingAutoTransition = false
     private var nextUid = 0L
+    private var savedOrder: SavedOrder? = null
     private var reportedChapter = C.INDEX_UNSET         // chapter in the title; unset for music
     private val chapterHandler = Handler(looper)
     private val chapterCheck = object : Runnable {
@@ -81,12 +89,22 @@ class BassPlayer(
     fun resumeState(): ResumeState? {
         if (order.isEmpty()) return null
         return ResumeState(
-            itemIds = entries.map { it.item.mediaId },
-            index = order[current],
+            sourceIds = entries.map { it.item.mediaId },
+            queue = order,
+            index = current,
             positionMs = currentPositionMs(),
             repeatMode = repeatMode,
             shuffle = shuffle
         )
+    }
+
+    /**
+     * Has the next setMediaItems restore a saved queue instead of building one, if its items'
+     * IDs are [itemIds] and [order] is a valid play order over them. Its start index names the
+     * playing track among those items, as for any setMediaItems. Any other setMediaItems drops it.
+     */
+    fun restoreQueueOrder(itemIds: List<String>, order: List<Int>) {
+        savedOrder = SavedOrder(itemIds, order)
     }
 
     /** The current book's place for book_progress; null unless a book is current (3b). */
@@ -163,7 +181,8 @@ class BassPlayer(
         if (shuffleModeEnabled == shuffle) return Futures.immediateVoidFuture()
         shuffle = shuffleModeEnabled
         if (order.isNotEmpty()) {
-            // The playing track carries on; only what follows it changes.
+            // The queue is rebuilt from the whole source, dropping edits; the playing track
+            // carries on.
             if (shuffle) {
                 order = QueueOrder.shuffledOrder(entries.size, order[current], random)
                 current = 0
@@ -192,14 +211,27 @@ class BassPlayer(
         startPositionMs: Long
     ): ListenableFuture<*> {
         entries = mediaItems.map { Entry(nextUid++, it) }
+        val itemIds = mediaItems.map { it.mediaId }
+        val saved = savedOrder?.takeIf {
+            it.itemIds == itemIds && QueueOrder.isValidOrder(it.order, entries.size)
+        }
+        savedOrder = null
         val lastIndex = (entries.size - 1).coerceAtLeast(0)
         val start = if (startIndex == C.INDEX_UNSET) 0 else startIndex.coerceIn(0, lastIndex)
-        if (shuffle) {
-            order = QueueOrder.shuffledOrder(entries.size, start, random)
-            current = 0
-        } else {
-            order = QueueOrder.albumOrder(entries.size)
-            current = start
+        when {
+            saved != null -> {
+                // A restored queue, as it was left, playing from the start item's place in it.
+                order = saved.order
+                current = order.indexOf(start).coerceAtLeast(0)
+            }
+            shuffle -> {
+                order = QueueOrder.shuffledOrder(entries.size, start, random)
+                current = 0
+            }
+            else -> {
+                order = QueueOrder.albumOrder(entries.size)
+                current = start
+            }
         }
         playerError = null
         val positionMs = if (startPositionMs == C.TIME_UNSET) 0L else startPositionMs
@@ -211,44 +243,52 @@ class BassPlayer(
         return Futures.immediateVoidFuture()
     }
 
+    // Nothing in hz adds to the queue, and an added track wouldn't belong to the source (queue
+    // editing spec, decision 6). Completing without a change makes controllers re-read the
+    // unchanged state.
     override fun handleAddMediaItems(
         index: Int,
         mediaItems: MutableList<MediaItem>
-    ): ListenableFuture<*> {
-        val firstNewEntry = entries.size
-        entries = entries + mediaItems.map { Entry(nextUid++, it) }
-        val position = index.coerceIn(0, order.size)
-        val wasEmpty = order.isEmpty()
-        val newEntries = mediaItems.indices.map { firstNewEntry + it }
-        order = QueueOrder.insert(order, position, newEntries)
-        if (!wasEmpty && position <= current) current += mediaItems.size
-        if (loaded) queueNext()
-        return Futures.immediateVoidFuture()
-    }
+    ): ListenableFuture<*> = Futures.immediateVoidFuture()
 
+    // Media3's default adds and then removes, which with adding off would only remove.
+    override fun handleReplaceMediaItems(
+        fromIndex: Int,
+        toIndex: Int,
+        mediaItems: MutableList<MediaItem>
+    ): ListenableFuture<*> = Futures.immediateVoidFuture()
+
+    // The source keeps every track, so shuffle can rebuild from it, unless the queue empties.
     override fun handleRemoveMediaItems(fromIndex: Int, toIndex: Int): ListenableFuture<*> {
         val to = toIndex.coerceAtMost(order.size)
         if (fromIndex >= to) return Futures.immediateVoidFuture()
-        val removedEntries = order.subList(fromIndex, to).toSet()
         val currentRemoved = current in fromIndex until to
         order = QueueOrder.removeRange(order, fromIndex, to)
-        entries = entries.filterIndexed { entryIndex, _ -> entryIndex !in removedEntries }
         current = QueueOrder.currentAfterRemove(current, fromIndex, to, order.size)
         when {
-            order.isEmpty() -> clearEngine()
+            order.isEmpty() -> {
+                entries = emptyList()
+                clearEngine()
+            }
             currentRemoved && loaded -> loadCurrent(0L)
             loaded -> queueNext()
         }
         return Futures.immediateVoidFuture()
     }
 
-    // Queue editing is out of scope (spec). Completing without a change makes controllers
-    // re-read the unchanged state.
+    // Media3 has already clamped the range and newIndex to the queue.
     override fun handleMoveMediaItems(
         fromIndex: Int,
         toIndex: Int,
         newIndex: Int
-    ): ListenableFuture<*> = Futures.immediateVoidFuture()
+    ): ListenableFuture<*> {
+        val playing = order[current]
+        order = QueueOrder.move(order, fromIndex, toIndex, newIndex)
+        // Each entry is in the queue once, so the playing track is found by its entry.
+        current = order.indexOf(playing)
+        if (loaded) queueNext()
+        return Futures.immediateVoidFuture()
+    }
 
     override fun handleSeek(
         mediaItemIndex: Int,
