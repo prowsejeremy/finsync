@@ -2,620 +2,629 @@
 <!-- The Player on its side: the header over the art on the left, the track's details and the
      controls centred on the right. Same views and ids as layout/fragment_player.xml, so
      PlayerFragment drives both; a change to the controls or pills belongs in both files. -->
-<androidx.constraintlayout.widget.ConstraintLayout
+<!-- Swiping down closes the Player, except where a control takes the drag (PlayerDismiss) -->
+<com.jpd.hz.ui.SwipeDownLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
-    android:layout_height="match_parent"
-    android:background="@color/bg_primary"
-    android:clickable="true"
-    android:focusable="true"
-    android:paddingHorizontal="24dp"
-    android:paddingTop="12dp"
-    android:paddingBottom="12dp">
+    android:layout_height="match_parent">
 
-    <!-- Header: round chevron-down closes the Player -->
-    <com.google.android.material.card.MaterialCardView
-        android:id="@+id/btnClose"
-        android:layout_width="48dp"
-        android:layout_height="48dp"
+    <!-- The whole Player, which follows the drag down -->
+    <androidx.constraintlayout.widget.ConstraintLayout
+        android:id="@+id/playerContent"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="@color/bg_primary"
         android:clickable="true"
         android:focusable="true"
-        android:contentDescription="@string/cd_close_player"
-        app:cardBackgroundColor="@color/surface_2"
-        app:cardCornerRadius="24dp"
-        app:cardElevation="0dp"
-        app:strokeWidth="0dp"
-        app:layout_constraintTop_toTopOf="parent"
-        app:layout_constraintStart_toStartOf="parent">
+        android:paddingHorizontal="24dp"
+        android:paddingTop="12dp"
+        android:paddingBottom="12dp">
 
-        <ImageView
-            android:layout_width="24dp"
-            android:layout_height="24dp"
-            android:layout_gravity="center"
-            android:src="@drawable/ic_chevron_down"
-            android:importantForAccessibility="no"
-            app:tint="@color/text_primary" />
+        <!-- Header: round chevron-down closes the Player -->
+        <com.google.android.material.card.MaterialCardView
+            android:id="@+id/btnClose"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:clickable="true"
+            android:focusable="true"
+            android:contentDescription="@string/cd_close_player"
+            app:cardBackgroundColor="@color/surface_2"
+            app:cardCornerRadius="24dp"
+            app:cardElevation="0dp"
+            app:strokeWidth="0dp"
+            app:layout_constraintTop_toTopOf="parent"
+            app:layout_constraintStart_toStartOf="parent">
 
-    </com.google.android.material.card.MaterialCardView>
+            <ImageView
+                android:layout_width="24dp"
+                android:layout_height="24dp"
+                android:layout_gravity="center"
+                android:src="@drawable/ic_chevron_down"
+                android:importantForAccessibility="no"
+                app:tint="@color/text_primary" />
 
-    <!-- A book's header opens its page (3b); PlayerFragment makes it clickable only then -->
-    <LinearLayout
-        android:id="@+id/playerContext"
-        android:layout_width="0dp"
-        android:layout_height="wrap_content"
-        android:layout_marginHorizontal="8dp"
-        android:orientation="vertical"
-        android:gravity="center_horizontal"
-        android:background="?attr/selectableItemBackground"
-        app:layout_constraintTop_toTopOf="@id/btnClose"
-        app:layout_constraintBottom_toBottomOf="@id/btnClose"
-        app:layout_constraintStart_toEndOf="@id/btnClose"
-        app:layout_constraintEnd_toStartOf="@id/btnEqualiser">
+        </com.google.android.material.card.MaterialCardView>
 
-        <TextView
-            android:id="@+id/tvContextLabel"
-            android:layout_width="wrap_content"
+        <!-- A book's header opens its page (3b); PlayerFragment makes it clickable only then -->
+        <LinearLayout
+            android:id="@+id/playerContext"
+            android:layout_width="0dp"
             android:layout_height="wrap_content"
-            android:text="@string/player_playing_from_album"
-            android:textColor="@color/muted"
-            android:textSize="12sp"
-            android:fontFamily="@font/hk_regular"
-            android:singleLine="true"
-            android:ellipsize="end" />
-
-        <TextView
-            android:id="@+id/tvAlbumName"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:textColor="@color/text_primary"
-            android:textSize="14sp"
-            android:fontFamily="@font/hk_extrabold"
-            android:singleLine="true"
-            android:ellipsize="end" />
-
-    </LinearLayout>
-
-    <!-- Opens the Equaliser; the accent while it's on (5). Ends with the art, so the header
-         text stays centred over it. -->
-    <ImageButton
-        android:id="@+id/btnEqualiser"
-        android:layout_width="48dp"
-        android:layout_height="48dp"
-        android:padding="12dp"
-        android:scaleType="fitCenter"
-        android:src="@drawable/ic_equaliser"
-        android:background="?attr/selectableItemBackgroundBorderless"
-        android:contentDescription="@string/cd_equaliser_off"
-        app:tint="@color/text_primary"
-        app:layout_constraintTop_toTopOf="parent"
-        app:layout_constraintEnd_toEndOf="@id/trackSwipe" />
-
-    <!-- The art never takes more than half the width, leaving room for the controls -->
-    <androidx.constraintlayout.widget.Guideline
-        android:id="@+id/artMaxEnd"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:orientation="vertical"
-        app:layout_constraintGuide_percent="0.5" />
-
-    <!-- The largest square that fits under the header. A sideways drag moves to the next or
-         previous track, as in portrait; here the art slides within its own square, clear of
-         the details beside it. A tap does nothing. -->
-    <com.jpd.hz.ui.HorizontalSwipeLayout
-        android:id="@+id/trackSwipe"
-        android:layout_width="0dp"
-        android:layout_height="0dp"
-        android:layout_marginTop="12dp"
-        android:clickable="true"
-        android:focusable="false"
-        android:importantForAccessibility="no"
-        app:layout_constraintDimensionRatio="1:1"
-        app:layout_constraintHorizontal_bias="0"
-        app:layout_constraintVertical_bias="0"
-        app:layout_constraintTop_toBottomOf="@id/btnClose"
-        app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toStartOf="@id/artMaxEnd">
-
-        <!-- Follows a swipe -->
-        <androidx.constraintlayout.widget.ConstraintLayout
-            android:id="@+id/trackInfo"
-            android:layout_width="match_parent"
-            android:layout_height="match_parent">
-
-            <!-- On surface_2 when there's no art -->
-            <com.google.android.material.card.MaterialCardView
-                android:id="@+id/artCard"
-                android:layout_width="0dp"
-                android:layout_height="0dp"
-                app:cardBackgroundColor="@color/surface_2"
-                app:cardCornerRadius="16dp"
-                app:cardElevation="0dp"
-                app:strokeWidth="0dp"
-                app:layout_constraintTop_toTopOf="parent"
-                app:layout_constraintBottom_toBottomOf="parent"
-                app:layout_constraintStart_toStartOf="parent"
-                app:layout_constraintEnd_toEndOf="parent">
-
-                <ImageView
-                    android:id="@+id/ivArt"
-                    android:layout_width="match_parent"
-                    android:layout_height="match_parent"
-                    android:scaleType="centerCrop"
-                    android:importantForAccessibility="no" />
-
-            </com.google.android.material.card.MaterialCardView>
-
-        </androidx.constraintlayout.widget.ConstraintLayout>
-    </com.jpd.hz.ui.HorizontalSwipeLayout>
-
-    <!-- The track's details and the controls, centred beside the art: one packed chain from
-         the title down to the pills. It scrolls only when they can't fit, as on a small phone
-         or with a large font. -->
-    <ScrollView
-        android:layout_width="0dp"
-        android:layout_height="0dp"
-        android:layout_marginStart="32dp"
-        android:fillViewport="true"
-        app:layout_constraintTop_toTopOf="parent"
-        app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintStart_toEndOf="@id/trackSwipe"
-        app:layout_constraintEnd_toEndOf="parent">
-
-        <androidx.constraintlayout.widget.ConstraintLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content">
-
-            <com.jpd.hz.ui.ScrollingTitleView
-                android:id="@+id/tvTitle"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_marginBottom="8dp"
-                app:layout_constraintVertical_chainStyle="packed"
-                app:layout_constraintTop_toTopOf="parent"
-                app:layout_constraintBottom_toTopOf="@id/chips"
-                app:layout_constraintStart_toStartOf="parent"
-                app:layout_constraintEnd_toEndOf="parent">
-
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:gravity="center"
-                    android:singleLine="true"
-                    android:ellipsize="end"
-                    android:textColor="@color/text_primary"
-                    android:textSize="22sp"
-                    android:fontFamily="@font/hk_extrabold" />
-
-            </com.jpd.hz.ui.ScrollingTitleView>
-
-            <LinearLayout
-                android:id="@+id/chips"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_marginBottom="8dp"
-                android:orientation="horizontal"
-                android:gravity="center"
-                app:layout_constraintTop_toBottomOf="@id/tvTitle"
-                app:layout_constraintBottom_toTopOf="@id/tvInfo"
-                app:layout_constraintStart_toStartOf="parent"
-                app:layout_constraintEnd_toEndOf="parent">
-
-                <!-- Opens the album artist's page; not clickable for a book or an album with no
-                     album artist -->
-                <TextView
-                    android:id="@+id/chipArtist"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:maxWidth="160dp"
-                    android:singleLine="true"
-                    android:ellipsize="end"
-                    android:background="@drawable/bg_chip"
-                    android:foreground="?attr/selectableItemBackground"
-                    android:clickable="true"
-                    android:focusable="true"
-                    android:paddingHorizontal="12dp"
-                    android:paddingVertical="6dp"
-                    android:textColor="@color/text_primary"
-                    android:textSize="13sp"
-                    android:fontFamily="@font/hk_regular" />
-
-                <TextView
-                    android:id="@+id/chipAlbum"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginStart="8dp"
-                    android:maxWidth="160dp"
-                    android:singleLine="true"
-                    android:ellipsize="end"
-                    android:background="@drawable/bg_chip"
-                    android:foreground="?attr/selectableItemBackground"
-                    android:clickable="true"
-                    android:focusable="true"
-                    android:paddingHorizontal="12dp"
-                    android:paddingVertical="6dp"
-                    android:textColor="@color/text_primary"
-                    android:textSize="13sp"
-                    android:fontFamily="@font/hk_regular" />
-
-            </LinearLayout>
+            android:layout_marginHorizontal="8dp"
+            android:orientation="vertical"
+            android:gravity="center_horizontal"
+            android:background="?attr/selectableItemBackground"
+            app:layout_constraintTop_toTopOf="@id/btnClose"
+            app:layout_constraintBottom_toBottomOf="@id/btnClose"
+            app:layout_constraintStart_toEndOf="@id/btnClose"
+            app:layout_constraintEnd_toStartOf="@id/btnEqualiser">
 
             <TextView
-                android:id="@+id/tvInfo"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_marginBottom="16dp"
-                android:gravity="center"
-                android:textColor="@color/muted"
-                android:textSize="12sp"
-                android:fontFamily="@font/hk_regular"
-                app:layout_constraintTop_toBottomOf="@id/chips"
-                app:layout_constraintBottom_toTopOf="@id/seekBar"
-                app:layout_constraintStart_toStartOf="parent"
-                app:layout_constraintEnd_toEndOf="parent" />
-
-            <SeekBar
-                android:id="@+id/seekBar"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:progressTint="?attr/colorPrimary"
-                android:progressBackgroundTint="@color/surface_2"
-                android:thumbTint="?attr/colorPrimary"
-                app:layout_constraintTop_toBottomOf="@id/tvInfo"
-                app:layout_constraintBottom_toTopOf="@id/times"
-                app:layout_constraintStart_toStartOf="parent"
-                app:layout_constraintEnd_toEndOf="parent" />
-
-            <!-- With music, tvBookLeft is gone and the gone margin keeps the gap to the controls -->
-            <LinearLayout
-                android:id="@+id/times"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_marginBottom="4dp"
-                android:orientation="horizontal"
-                android:paddingHorizontal="16dp"
-                app:layout_goneMarginBottom="12dp"
-                app:layout_constraintTop_toBottomOf="@id/seekBar"
-                app:layout_constraintBottom_toTopOf="@id/tvBookLeft"
-                app:layout_constraintStart_toStartOf="parent"
-                app:layout_constraintEnd_toEndOf="parent">
-
-                <TextView
-                    android:id="@+id/tvElapsed"
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:textColor="@color/muted"
-                    android:textSize="12sp"
-                    android:fontFamily="@font/hk_regular" />
-
-                <TextView
-                    android:id="@+id/tvTotal"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:textColor="@color/muted"
-                    android:textSize="12sp"
-                    android:fontFamily="@font/hk_regular" />
-
-            </LinearLayout>
-
-            <!-- "8 h 28 min left in book" under a book's chapter times (3b) -->
-            <TextView
-                android:id="@+id/tvBookLeft"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_marginBottom="12dp"
-                android:gravity="center"
-                android:textColor="@color/muted"
-                android:textSize="12sp"
-                android:fontFamily="@font/hk_regular"
-                android:visibility="gone"
-                app:layout_constraintTop_toBottomOf="@id/times"
-                app:layout_constraintBottom_toTopOf="@id/controls"
-                app:layout_constraintStart_toStartOf="parent"
-                app:layout_constraintEnd_toEndOf="parent" />
-
-            <!-- Music: repeat, previous, play/pause, next, shuffle. A book (3b): previous chapter, −15,
-                 play/pause, +30, next chapter. Each optional control hides with one spacer, so the five
-                 visible controls keep music's spacing. -->
-            <LinearLayout
-                android:id="@+id/controls"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_marginBottom="12dp"
-                android:orientation="horizontal"
-                android:gravity="center_vertical"
-                app:layout_constraintTop_toBottomOf="@id/tvBookLeft"
-                app:layout_constraintBottom_toTopOf="@id/pills"
-                app:layout_constraintStart_toStartOf="parent"
-                app:layout_constraintEnd_toEndOf="parent">
-
-                <ImageButton
-                    android:id="@+id/btnRepeat"
-                    android:layout_width="48dp"
-                    android:layout_height="48dp"
-                    android:padding="12dp"
-                    android:scaleType="fitCenter"
-                    android:src="@drawable/ic_repeat"
-                    android:background="?attr/selectableItemBackgroundBorderless"
-                    android:contentDescription="@string/cd_repeat"
-                    app:tint="@color/muted" />
-
-                <Space
-                    android:id="@+id/spaceAfterRepeat"
-                    android:layout_width="0dp"
-                    android:layout_height="1dp"
-                    android:layout_weight="1" />
-
-                <ImageButton
-                    android:id="@+id/btnPrevious"
-                    android:layout_width="56dp"
-                    android:layout_height="56dp"
-                    android:padding="12dp"
-                    android:scaleType="fitCenter"
-                    android:src="@drawable/ic_skip_previous"
-                    android:background="?attr/selectableItemBackgroundBorderless"
-                    android:contentDescription="@string/cd_previous"
-                    app:tint="@color/text_primary" />
-
-                <Space
-                    android:layout_width="0dp"
-                    android:layout_height="1dp"
-                    android:layout_weight="1" />
-
-                <TextView
-                    android:id="@+id/btnSkipBack"
-                    android:layout_width="56dp"
-                    android:layout_height="56dp"
-                    android:gravity="center"
-                    android:text="@string/skip_back_label"
-                    android:textColor="@color/text_primary"
-                    android:textSize="16sp"
-                    android:fontFamily="@font/hk_extrabold"
-                    android:clickable="true"
-                    android:focusable="true"
-                    android:background="?attr/selectableItemBackgroundBorderless"
-                    android:contentDescription="@string/cd_skip_back"
-                    android:visibility="gone" />
-
-                <Space
-                    android:id="@+id/spaceAfterSkipBack"
-                    android:layout_width="0dp"
-                    android:layout_height="1dp"
-                    android:layout_weight="1"
-                    android:visibility="gone" />
-
-                <FrameLayout
-                    android:id="@+id/btnPlayPause"
-                    android:layout_width="72dp"
-                    android:layout_height="72dp"
-                    android:background="@drawable/circle_accent"
-                    android:clickable="true"
-                    android:focusable="true"
-                    android:contentDescription="@string/cd_play">
-
-                    <ImageView
-                        android:id="@+id/ivPlayPause"
-                        android:layout_width="32dp"
-                        android:layout_height="32dp"
-                        android:layout_gravity="center"
-                        android:src="@drawable/ic_play"
-                        android:importantForAccessibility="no"
-                        app:tint="?attr/colorOnPrimary" />
-
-                </FrameLayout>
-
-                <Space
-                    android:id="@+id/spaceBeforeSkipForward"
-                    android:layout_width="0dp"
-                    android:layout_height="1dp"
-                    android:layout_weight="1"
-                    android:visibility="gone" />
-
-                <TextView
-                    android:id="@+id/btnSkipForward"
-                    android:layout_width="56dp"
-                    android:layout_height="56dp"
-                    android:gravity="center"
-                    android:text="@string/skip_forward_label"
-                    android:textColor="@color/text_primary"
-                    android:textSize="16sp"
-                    android:fontFamily="@font/hk_extrabold"
-                    android:clickable="true"
-                    android:focusable="true"
-                    android:background="?attr/selectableItemBackgroundBorderless"
-                    android:contentDescription="@string/cd_skip_forward"
-                    android:visibility="gone" />
-
-                <Space
-                    android:layout_width="0dp"
-                    android:layout_height="1dp"
-                    android:layout_weight="1" />
-
-                <ImageButton
-                    android:id="@+id/btnNext"
-                    android:layout_width="56dp"
-                    android:layout_height="56dp"
-                    android:padding="12dp"
-                    android:scaleType="fitCenter"
-                    android:src="@drawable/ic_skip_next"
-                    android:background="?attr/selectableItemBackgroundBorderless"
-                    android:contentDescription="@string/cd_next"
-                    app:tint="@color/text_primary" />
-
-                <Space
-                    android:id="@+id/spaceBeforeShuffle"
-                    android:layout_width="0dp"
-                    android:layout_height="1dp"
-                    android:layout_weight="1" />
-
-                <ImageButton
-                    android:id="@+id/btnShuffle"
-                    android:layout_width="48dp"
-                    android:layout_height="48dp"
-                    android:padding="12dp"
-                    android:scaleType="fitCenter"
-                    android:src="@drawable/ic_shuffle"
-                    android:background="?attr/selectableItemBackgroundBorderless"
-                    android:contentDescription="@string/cd_shuffle"
-                    app:tint="@color/muted" />
-
-            </LinearLayout>
-
-            <!-- Music: Output and Queue. A book (3b): Chapters, the speed and Output. The divider
-                 spaces the visible pills evenly and skips hidden ones. -->
-            <LinearLayout
-                android:id="@+id/pills"
+                android:id="@+id/tvContextLabel"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:orientation="horizontal"
-                android:divider="@drawable/divider_pill_gap"
-                android:showDividers="middle"
-                app:layout_constraintTop_toBottomOf="@id/controls"
-                app:layout_constraintBottom_toBottomOf="parent"
-                app:layout_constraintStart_toStartOf="parent"
-                app:layout_constraintEnd_toEndOf="parent">
+                android:text="@string/player_playing_from_album"
+                android:textColor="@color/muted"
+                android:textSize="12sp"
+                android:fontFamily="@font/hk_regular"
+                android:singleLine="true"
+                android:ellipsize="end" />
 
+            <TextView
+                android:id="@+id/tvAlbumName"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:textColor="@color/text_primary"
+                android:textSize="14sp"
+                android:fontFamily="@font/hk_extrabold"
+                android:singleLine="true"
+                android:ellipsize="end" />
+
+        </LinearLayout>
+
+        <!-- Opens the Equaliser; the accent while it's on (5). Ends with the art, so the header
+             text stays centred over it. -->
+        <ImageButton
+            android:id="@+id/btnEqualiser"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:padding="12dp"
+            android:scaleType="fitCenter"
+            android:src="@drawable/ic_equaliser"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:contentDescription="@string/cd_equaliser_off"
+            app:tint="@color/text_primary"
+            app:layout_constraintTop_toTopOf="parent"
+            app:layout_constraintEnd_toEndOf="@id/trackSwipe" />
+
+        <!-- The art never takes more than half the width, leaving room for the controls -->
+        <androidx.constraintlayout.widget.Guideline
+            android:id="@+id/artMaxEnd"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            app:layout_constraintGuide_percent="0.5" />
+
+        <!-- The largest square that fits under the header. A sideways drag moves to the next or
+             previous track, as in portrait; here the art slides within its own square, clear of
+             the details beside it. A tap does nothing. -->
+        <com.jpd.hz.ui.HorizontalSwipeLayout
+            android:id="@+id/trackSwipe"
+            android:layout_width="0dp"
+            android:layout_height="0dp"
+            android:layout_marginTop="12dp"
+            android:clickable="true"
+            android:focusable="false"
+            android:importantForAccessibility="no"
+            app:layout_constraintDimensionRatio="1:1"
+            app:layout_constraintHorizontal_bias="0"
+            app:layout_constraintVertical_bias="0"
+            app:layout_constraintTop_toBottomOf="@id/btnClose"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toStartOf="@id/artMaxEnd">
+
+            <!-- Follows a swipe -->
+            <androidx.constraintlayout.widget.ConstraintLayout
+                android:id="@+id/trackInfo"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent">
+
+                <!-- On surface_2 when there's no art -->
                 <com.google.android.material.card.MaterialCardView
-                    android:id="@+id/btnChapters"
-                    android:layout_width="wrap_content"
-                    android:layout_height="40dp"
-                    android:clickable="true"
-                    android:focusable="true"
-                    android:visibility="gone"
+                    android:id="@+id/artCard"
+                    android:layout_width="0dp"
+                    android:layout_height="0dp"
                     app:cardBackgroundColor="@color/surface_2"
-                    app:cardCornerRadius="20dp"
+                    app:cardCornerRadius="16dp"
                     app:cardElevation="0dp"
-                    app:strokeWidth="0dp">
+                    app:strokeWidth="0dp"
+                    app:layout_constraintTop_toTopOf="parent"
+                    app:layout_constraintBottom_toBottomOf="parent"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintEnd_toEndOf="parent">
 
-                    <LinearLayout
-                        android:layout_width="wrap_content"
+                    <ImageView
+                        android:id="@+id/ivArt"
+                        android:layout_width="match_parent"
                         android:layout_height="match_parent"
-                        android:orientation="horizontal"
-                        android:gravity="center_vertical"
-                        android:paddingHorizontal="16dp">
+                        android:scaleType="centerCrop"
+                        android:importantForAccessibility="no" />
 
-                        <ImageView
-                            android:layout_width="18dp"
-                            android:layout_height="18dp"
-                            android:src="@drawable/ic_chapters"
-                            android:importantForAccessibility="no"
-                            app:tint="@color/text_primary" />
-
-                        <TextView
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:layout_marginStart="8dp"
-                            android:text="@string/player_chapters"
-                            android:textColor="@color/text_primary"
-                            android:textSize="14sp"
-                            android:fontFamily="@font/hk_regular" />
-
-                    </LinearLayout>
                 </com.google.android.material.card.MaterialCardView>
 
-                <com.google.android.material.card.MaterialCardView
-                    android:id="@+id/btnSpeed"
-                    android:layout_width="wrap_content"
-                    android:layout_height="40dp"
-                    android:clickable="true"
-                    android:focusable="true"
-                    android:contentDescription="@string/cd_speed"
-                    android:visibility="gone"
-                    app:cardBackgroundColor="@color/surface_2"
-                    app:cardCornerRadius="20dp"
-                    app:cardElevation="0dp"
-                    app:strokeWidth="0dp">
+            </androidx.constraintlayout.widget.ConstraintLayout>
+        </com.jpd.hz.ui.HorizontalSwipeLayout>
+
+        <!-- The track's details and the controls, centred beside the art: one packed chain from
+             the title down to the pills. It scrolls only when they can't fit, as on a small phone
+             or with a large font. -->
+        <ScrollView
+            android:layout_width="0dp"
+            android:layout_height="0dp"
+            android:layout_marginStart="32dp"
+            android:fillViewport="true"
+            app:layout_constraintTop_toTopOf="parent"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintStart_toEndOf="@id/trackSwipe"
+            app:layout_constraintEnd_toEndOf="parent">
+
+            <androidx.constraintlayout.widget.ConstraintLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content">
+
+                <com.jpd.hz.ui.ScrollingTitleView
+                    android:id="@+id/tvTitle"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginBottom="8dp"
+                    app:layout_constraintVertical_chainStyle="packed"
+                    app:layout_constraintTop_toTopOf="parent"
+                    app:layout_constraintBottom_toTopOf="@id/chips"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintEnd_toEndOf="parent">
 
                     <TextView
-                        android:id="@+id/tvSpeed"
                         android:layout_width="wrap_content"
-                        android:layout_height="match_parent"
+                        android:layout_height="wrap_content"
                         android:gravity="center"
-                        android:paddingHorizontal="16dp"
+                        android:singleLine="true"
+                        android:ellipsize="end"
                         android:textColor="@color/text_primary"
-                        android:textSize="14sp"
+                        android:textSize="22sp"
+                        android:fontFamily="@font/hk_extrabold" />
+
+                </com.jpd.hz.ui.ScrollingTitleView>
+
+                <LinearLayout
+                    android:id="@+id/chips"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginBottom="8dp"
+                    android:orientation="horizontal"
+                    android:gravity="center"
+                    app:layout_constraintTop_toBottomOf="@id/tvTitle"
+                    app:layout_constraintBottom_toTopOf="@id/tvInfo"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintEnd_toEndOf="parent">
+
+                    <!-- Opens the album artist's page; not clickable for a book or an album with no
+                         album artist -->
+                    <TextView
+                        android:id="@+id/chipArtist"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:maxWidth="160dp"
+                        android:singleLine="true"
+                        android:ellipsize="end"
+                        android:background="@drawable/bg_chip"
+                        android:foreground="?attr/selectableItemBackground"
+                        android:clickable="true"
+                        android:focusable="true"
+                        android:paddingHorizontal="12dp"
+                        android:paddingVertical="6dp"
+                        android:textColor="@color/text_primary"
+                        android:textSize="13sp"
                         android:fontFamily="@font/hk_regular" />
 
-                </com.google.android.material.card.MaterialCardView>
-
-                <com.google.android.material.card.MaterialCardView
-                    android:id="@+id/btnOutput"
-                    android:layout_width="wrap_content"
-                    android:layout_height="40dp"
-                    android:clickable="true"
-                    android:focusable="true"
-                    app:cardBackgroundColor="@color/surface_2"
-                    app:cardCornerRadius="20dp"
-                    app:cardElevation="0dp"
-                    app:strokeWidth="0dp">
-
-                    <LinearLayout
+                    <TextView
+                        android:id="@+id/chipAlbum"
                         android:layout_width="wrap_content"
-                        android:layout_height="match_parent"
-                        android:orientation="horizontal"
-                        android:gravity="center_vertical"
-                        android:paddingHorizontal="16dp">
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="8dp"
+                        android:maxWidth="160dp"
+                        android:singleLine="true"
+                        android:ellipsize="end"
+                        android:background="@drawable/bg_chip"
+                        android:foreground="?attr/selectableItemBackground"
+                        android:clickable="true"
+                        android:focusable="true"
+                        android:paddingHorizontal="12dp"
+                        android:paddingVertical="6dp"
+                        android:textColor="@color/text_primary"
+                        android:textSize="13sp"
+                        android:fontFamily="@font/hk_regular" />
+
+                </LinearLayout>
+
+                <TextView
+                    android:id="@+id/tvInfo"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginBottom="16dp"
+                    android:gravity="center"
+                    android:textColor="@color/muted"
+                    android:textSize="12sp"
+                    android:fontFamily="@font/hk_regular"
+                    app:layout_constraintTop_toBottomOf="@id/chips"
+                    app:layout_constraintBottom_toTopOf="@id/seekBar"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintEnd_toEndOf="parent" />
+
+                <SeekBar
+                    android:id="@+id/seekBar"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:progressTint="?attr/colorPrimary"
+                    android:progressBackgroundTint="@color/surface_2"
+                    android:thumbTint="?attr/colorPrimary"
+                    app:layout_constraintTop_toBottomOf="@id/tvInfo"
+                    app:layout_constraintBottom_toTopOf="@id/times"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintEnd_toEndOf="parent" />
+
+                <!-- With music, tvBookLeft is gone and the gone margin keeps the gap to the controls -->
+                <LinearLayout
+                    android:id="@+id/times"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginBottom="4dp"
+                    android:orientation="horizontal"
+                    android:paddingHorizontal="16dp"
+                    app:layout_goneMarginBottom="12dp"
+                    app:layout_constraintTop_toBottomOf="@id/seekBar"
+                    app:layout_constraintBottom_toTopOf="@id/tvBookLeft"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintEnd_toEndOf="parent">
+
+                    <TextView
+                        android:id="@+id/tvElapsed"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:textColor="@color/muted"
+                        android:textSize="12sp"
+                        android:fontFamily="@font/hk_regular" />
+
+                    <TextView
+                        android:id="@+id/tvTotal"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:textColor="@color/muted"
+                        android:textSize="12sp"
+                        android:fontFamily="@font/hk_regular" />
+
+                </LinearLayout>
+
+                <!-- "8 h 28 min left in book" under a book's chapter times (3b) -->
+                <TextView
+                    android:id="@+id/tvBookLeft"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginBottom="12dp"
+                    android:gravity="center"
+                    android:textColor="@color/muted"
+                    android:textSize="12sp"
+                    android:fontFamily="@font/hk_regular"
+                    android:visibility="gone"
+                    app:layout_constraintTop_toBottomOf="@id/times"
+                    app:layout_constraintBottom_toTopOf="@id/controls"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintEnd_toEndOf="parent" />
+
+                <!-- Music: repeat, previous, play/pause, next, shuffle. A book (3b): previous chapter, −15,
+                     play/pause, +30, next chapter. Each optional control hides with one spacer, so the five
+                     visible controls keep music's spacing. -->
+                <LinearLayout
+                    android:id="@+id/controls"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginBottom="12dp"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical"
+                    app:layout_constraintTop_toBottomOf="@id/tvBookLeft"
+                    app:layout_constraintBottom_toTopOf="@id/pills"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintEnd_toEndOf="parent">
+
+                    <ImageButton
+                        android:id="@+id/btnRepeat"
+                        android:layout_width="48dp"
+                        android:layout_height="48dp"
+                        android:padding="12dp"
+                        android:scaleType="fitCenter"
+                        android:src="@drawable/ic_repeat"
+                        android:background="?attr/selectableItemBackgroundBorderless"
+                        android:contentDescription="@string/cd_repeat"
+                        app:tint="@color/muted" />
+
+                    <Space
+                        android:id="@+id/spaceAfterRepeat"
+                        android:layout_width="0dp"
+                        android:layout_height="1dp"
+                        android:layout_weight="1" />
+
+                    <ImageButton
+                        android:id="@+id/btnPrevious"
+                        android:layout_width="56dp"
+                        android:layout_height="56dp"
+                        android:padding="12dp"
+                        android:scaleType="fitCenter"
+                        android:src="@drawable/ic_skip_previous"
+                        android:background="?attr/selectableItemBackgroundBorderless"
+                        android:contentDescription="@string/cd_previous"
+                        app:tint="@color/text_primary" />
+
+                    <Space
+                        android:layout_width="0dp"
+                        android:layout_height="1dp"
+                        android:layout_weight="1" />
+
+                    <TextView
+                        android:id="@+id/btnSkipBack"
+                        android:layout_width="56dp"
+                        android:layout_height="56dp"
+                        android:gravity="center"
+                        android:text="@string/skip_back_label"
+                        android:textColor="@color/text_primary"
+                        android:textSize="16sp"
+                        android:fontFamily="@font/hk_extrabold"
+                        android:clickable="true"
+                        android:focusable="true"
+                        android:background="?attr/selectableItemBackgroundBorderless"
+                        android:contentDescription="@string/cd_skip_back"
+                        android:visibility="gone" />
+
+                    <Space
+                        android:id="@+id/spaceAfterSkipBack"
+                        android:layout_width="0dp"
+                        android:layout_height="1dp"
+                        android:layout_weight="1"
+                        android:visibility="gone" />
+
+                    <FrameLayout
+                        android:id="@+id/btnPlayPause"
+                        android:layout_width="72dp"
+                        android:layout_height="72dp"
+                        android:background="@drawable/circle_accent"
+                        android:clickable="true"
+                        android:focusable="true"
+                        android:contentDescription="@string/cd_play">
 
                         <ImageView
-                            android:layout_width="18dp"
-                            android:layout_height="18dp"
-                            android:src="@drawable/ic_speaker"
+                            android:id="@+id/ivPlayPause"
+                            android:layout_width="32dp"
+                            android:layout_height="32dp"
+                            android:layout_gravity="center"
+                            android:src="@drawable/ic_play"
                             android:importantForAccessibility="no"
-                            app:tint="@color/text_primary" />
+                            app:tint="?attr/colorOnPrimary" />
+
+                    </FrameLayout>
+
+                    <Space
+                        android:id="@+id/spaceBeforeSkipForward"
+                        android:layout_width="0dp"
+                        android:layout_height="1dp"
+                        android:layout_weight="1"
+                        android:visibility="gone" />
+
+                    <TextView
+                        android:id="@+id/btnSkipForward"
+                        android:layout_width="56dp"
+                        android:layout_height="56dp"
+                        android:gravity="center"
+                        android:text="@string/skip_forward_label"
+                        android:textColor="@color/text_primary"
+                        android:textSize="16sp"
+                        android:fontFamily="@font/hk_extrabold"
+                        android:clickable="true"
+                        android:focusable="true"
+                        android:background="?attr/selectableItemBackgroundBorderless"
+                        android:contentDescription="@string/cd_skip_forward"
+                        android:visibility="gone" />
+
+                    <Space
+                        android:layout_width="0dp"
+                        android:layout_height="1dp"
+                        android:layout_weight="1" />
+
+                    <ImageButton
+                        android:id="@+id/btnNext"
+                        android:layout_width="56dp"
+                        android:layout_height="56dp"
+                        android:padding="12dp"
+                        android:scaleType="fitCenter"
+                        android:src="@drawable/ic_skip_next"
+                        android:background="?attr/selectableItemBackgroundBorderless"
+                        android:contentDescription="@string/cd_next"
+                        app:tint="@color/text_primary" />
+
+                    <Space
+                        android:id="@+id/spaceBeforeShuffle"
+                        android:layout_width="0dp"
+                        android:layout_height="1dp"
+                        android:layout_weight="1" />
+
+                    <ImageButton
+                        android:id="@+id/btnShuffle"
+                        android:layout_width="48dp"
+                        android:layout_height="48dp"
+                        android:padding="12dp"
+                        android:scaleType="fitCenter"
+                        android:src="@drawable/ic_shuffle"
+                        android:background="?attr/selectableItemBackgroundBorderless"
+                        android:contentDescription="@string/cd_shuffle"
+                        app:tint="@color/muted" />
+
+                </LinearLayout>
+
+                <!-- Music: Output and Queue. A book (3b): Chapters, the speed and Output. The divider
+                     spaces the visible pills evenly and skips hidden ones. -->
+                <LinearLayout
+                    android:id="@+id/pills"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:divider="@drawable/divider_pill_gap"
+                    android:showDividers="middle"
+                    app:layout_constraintTop_toBottomOf="@id/controls"
+                    app:layout_constraintBottom_toBottomOf="parent"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintEnd_toEndOf="parent">
+
+                    <com.google.android.material.card.MaterialCardView
+                        android:id="@+id/btnChapters"
+                        android:layout_width="wrap_content"
+                        android:layout_height="40dp"
+                        android:clickable="true"
+                        android:focusable="true"
+                        android:visibility="gone"
+                        app:cardBackgroundColor="@color/surface_2"
+                        app:cardCornerRadius="20dp"
+                        app:cardElevation="0dp"
+                        app:strokeWidth="0dp">
+
+                        <LinearLayout
+                            android:layout_width="wrap_content"
+                            android:layout_height="match_parent"
+                            android:orientation="horizontal"
+                            android:gravity="center_vertical"
+                            android:paddingHorizontal="16dp">
+
+                            <ImageView
+                                android:layout_width="18dp"
+                                android:layout_height="18dp"
+                                android:src="@drawable/ic_chapters"
+                                android:importantForAccessibility="no"
+                                app:tint="@color/text_primary" />
+
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:layout_marginStart="8dp"
+                                android:text="@string/player_chapters"
+                                android:textColor="@color/text_primary"
+                                android:textSize="14sp"
+                                android:fontFamily="@font/hk_regular" />
+
+                        </LinearLayout>
+                    </com.google.android.material.card.MaterialCardView>
+
+                    <com.google.android.material.card.MaterialCardView
+                        android:id="@+id/btnSpeed"
+                        android:layout_width="wrap_content"
+                        android:layout_height="40dp"
+                        android:clickable="true"
+                        android:focusable="true"
+                        android:contentDescription="@string/cd_speed"
+                        android:visibility="gone"
+                        app:cardBackgroundColor="@color/surface_2"
+                        app:cardCornerRadius="20dp"
+                        app:cardElevation="0dp"
+                        app:strokeWidth="0dp">
 
                         <TextView
+                            android:id="@+id/tvSpeed"
                             android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:layout_marginStart="8dp"
-                            android:text="@string/player_output"
+                            android:layout_height="match_parent"
+                            android:gravity="center"
+                            android:paddingHorizontal="16dp"
                             android:textColor="@color/text_primary"
                             android:textSize="14sp"
                             android:fontFamily="@font/hk_regular" />
 
-                    </LinearLayout>
-                </com.google.android.material.card.MaterialCardView>
+                    </com.google.android.material.card.MaterialCardView>
 
-                <com.google.android.material.card.MaterialCardView
-                    android:id="@+id/btnQueue"
-                    android:layout_width="wrap_content"
-                    android:layout_height="40dp"
-                    android:clickable="true"
-                    android:focusable="true"
-                    app:cardBackgroundColor="@color/surface_2"
-                    app:cardCornerRadius="20dp"
-                    app:cardElevation="0dp"
-                    app:strokeWidth="0dp">
-
-                    <LinearLayout
+                    <com.google.android.material.card.MaterialCardView
+                        android:id="@+id/btnOutput"
                         android:layout_width="wrap_content"
-                        android:layout_height="match_parent"
-                        android:orientation="horizontal"
-                        android:gravity="center_vertical"
-                        android:paddingHorizontal="16dp">
+                        android:layout_height="40dp"
+                        android:clickable="true"
+                        android:focusable="true"
+                        app:cardBackgroundColor="@color/surface_2"
+                        app:cardCornerRadius="20dp"
+                        app:cardElevation="0dp"
+                        app:strokeWidth="0dp">
 
-                        <ImageView
-                            android:layout_width="18dp"
-                            android:layout_height="18dp"
-                            android:src="@drawable/ic_queue"
-                            android:importantForAccessibility="no"
-                            app:tint="@color/text_primary" />
-
-                        <TextView
+                        <LinearLayout
                             android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:layout_marginStart="8dp"
-                            android:text="@string/player_queue"
-                            android:textColor="@color/text_primary"
-                            android:textSize="14sp"
-                            android:fontFamily="@font/hk_regular" />
+                            android:layout_height="match_parent"
+                            android:orientation="horizontal"
+                            android:gravity="center_vertical"
+                            android:paddingHorizontal="16dp">
 
-                    </LinearLayout>
-                </com.google.android.material.card.MaterialCardView>
-            </LinearLayout>
+                            <ImageView
+                                android:layout_width="18dp"
+                                android:layout_height="18dp"
+                                android:src="@drawable/ic_speaker"
+                                android:importantForAccessibility="no"
+                                app:tint="@color/text_primary" />
 
-        </androidx.constraintlayout.widget.ConstraintLayout>
-    </ScrollView>
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:layout_marginStart="8dp"
+                                android:text="@string/player_output"
+                                android:textColor="@color/text_primary"
+                                android:textSize="14sp"
+                                android:fontFamily="@font/hk_regular" />
 
-</androidx.constraintlayout.widget.ConstraintLayout>
+                        </LinearLayout>
+                    </com.google.android.material.card.MaterialCardView>
+
+                    <com.google.android.material.card.MaterialCardView
+                        android:id="@+id/btnQueue"
+                        android:layout_width="wrap_content"
+                        android:layout_height="40dp"
+                        android:clickable="true"
+                        android:focusable="true"
+                        app:cardBackgroundColor="@color/surface_2"
+                        app:cardCornerRadius="20dp"
+                        app:cardElevation="0dp"
+                        app:strokeWidth="0dp">
+
+                        <LinearLayout
+                            android:layout_width="wrap_content"
+                            android:layout_height="match_parent"
+                            android:orientation="horizontal"
+                            android:gravity="center_vertical"
+                            android:paddingHorizontal="16dp">
+
+                            <ImageView
+                                android:layout_width="18dp"
+                                android:layout_height="18dp"
+                                android:src="@drawable/ic_queue"
+                                android:importantForAccessibility="no"
+                                app:tint="@color/text_primary" />
+
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:layout_marginStart="8dp"
+                                android:text="@string/player_queue"
+                                android:textColor="@color/text_primary"
+                                android:textSize="14sp"
+                                android:fontFamily="@font/hk_regular" />
+
+                        </LinearLayout>
+                    </com.google.android.material.card.MaterialCardView>
+                </LinearLayout>
+
+            </androidx.constraintlayout.widget.ConstraintLayout>
+        </ScrollView>
+
+    </androidx.constraintlayout.widget.ConstraintLayout>
+
+</com.jpd.hz.ui.SwipeDownLayout>

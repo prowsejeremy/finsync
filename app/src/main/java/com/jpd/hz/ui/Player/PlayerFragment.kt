@@ -68,6 +68,9 @@ class PlayerFragment : Fragment() {
         super.onViewCreated(view, savedInstanceState)
         val backDispatcher = requireActivity().onBackPressedDispatcher
         binding.btnClose.setOnClickListener { backDispatcher.onBackPressed() }
+        // Swiping the Player down closes it too.
+        binding.root.listener =
+            PlayerDismiss(binding.root, binding.playerContent) { backDispatcher.onBackPressed() }
         binding.btnEqualiser.setOnClickListener {
             navigateSafely(R.id.playerFragment, R.id.action_player_to_equaliser)
         }
