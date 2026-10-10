@@ -3,11 +3,15 @@ package com.jpd.hz.auth
 import android.content.Context
 import com.jpd.hz.api.DeviceIdentity
 import com.jpd.hz.api.JellyfinClient
+import com.jpd.hz.api.QuickConnectPoll
+import com.jpd.hz.api.QuickConnectStart
 import com.jpd.hz.api.RefusedSignInInterceptor
 import com.jpd.hz.api.ServerCheck
 import com.jpd.hz.model.AuthenticateRequest
+import com.jpd.hz.model.AuthenticateResponse
 import com.jpd.hz.model.ItemsResponse
 import com.jpd.hz.model.MediaItem
+import com.jpd.hz.model.QuickConnectRequest
 import com.jpd.hz.model.ServerCatalogue
 import com.jpd.hz.model.ServerConfig
 import com.jpd.hz.model.ServerInfo
@@ -19,6 +23,7 @@ import okhttp3.ResponseBody
 import android.util.Log
 import kotlinx.coroutines.CancellationException
 import java.io.IOException
+import java.net.HttpURLConnection.HTTP_UNAUTHORIZED
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicReference
 
@@ -105,8 +110,66 @@ class JellyfinRepository(private val context: Context) {
         if (!response.isSuccessful) {
             return@safeCall Result.Error("Login failed (${response.code()}): ${response.message()}")
         }
-        val body = response.body()!!
+        saveSignIn(serverUrl, response.body()!!)
+    }
 
+    /** A Quick Connect code for [serverUrl] (spec "Quick Connect sign-in", decision 7). */
+    suspend fun startQuickConnect(serverUrl: String): QuickConnectStart = try {
+        val response = authApi(serverUrl).initiateQuickConnect(
+            JellyfinClient.buildAuthHeader(deviceId)
+        )
+        val body = response.body()
+        when {
+            response.code() == HTTP_UNAUTHORIZED -> QuickConnectStart.Off
+            response.isSuccessful && body != null ->
+                QuickConnectStart.Started(body.code, body.secret)
+            else -> QuickConnectStart.Failed(
+                "Server returned ${response.code()}: ${response.message()}"
+            )
+        }
+    } catch (e: CancellationException) {
+        throw e
+    } catch (e: Exception) {
+        Log.w(TAG, "Quick Connect start failed: ${e.message}")
+        QuickConnectStart.Failed(e.message ?: "Unknown error")
+    }
+
+    /** One check on the code [secret] names (decision 5); no response counts as failed. */
+    suspend fun checkQuickConnect(serverUrl: String, secret: String): QuickConnectPoll = try {
+        val response = readApi(serverUrl).getQuickConnectState(
+            JellyfinClient.buildAuthHeader(deviceId),
+            secret
+        )
+        QuickConnectPoll.from(response.code(), response.body()?.authenticated)
+    } catch (e: CancellationException) {
+        throw e
+    } catch (e: Exception) {
+        Log.w(TAG, "Quick Connect check failed: ${e.message}")
+        QuickConnectPoll.from(null, null)
+    }
+
+    /** Signs in with an approved code's [secret], and saves it as [login] does (decision 4). */
+    suspend fun signInWithQuickConnect(
+        serverUrl: String,
+        secret: String
+    ): Result<ServerConfig> = safeCall {
+        val response = authApi(serverUrl).authenticateWithQuickConnect(
+            JellyfinClient.buildAuthHeader(deviceId),
+            QuickConnectRequest(secret)
+        )
+        if (!response.isSuccessful) {
+            return@safeCall Result.Error(
+                "Sign-in failed (${response.code()}): ${response.message()}"
+            )
+        }
+        saveSignIn(serverUrl, response.body()!!)
+    }
+
+    // Both sign-ins end here: the server's name, then the saved sign-in.
+    private suspend fun saveSignIn(
+        serverUrl: String,
+        body: AuthenticateResponse
+    ): Result<ServerConfig> {
         val serverInfoResp = readApi(serverUrl).getPublicServerInfo()
         val serverName = if (serverInfoResp.isSuccessful)
             serverInfoResp.body()?.serverName ?: "Jellyfin"
@@ -121,7 +184,7 @@ class JellyfinRepository(private val context: Context) {
             serverName  = serverName
         )
         credentialStore.save(config)
-        Result.Success(config)
+        return Result.Success(config)
     }
 
     // Logout will clear saved credentials, but it won't delete any of the synced files or DB entries.

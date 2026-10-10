@@ -22,6 +22,19 @@ data class JellyfinUser(
     @SerializedName("Name") val name: String
 )
 
+// ── Quick Connect ───────────────────────────────────────────────────────────
+
+/** A Quick Connect request (Jellyfin 12.1's `QuickConnectResult`); only these fields are read. */
+data class QuickConnectResult(
+    @SerializedName("Authenticated") val authenticated: Boolean,
+    @SerializedName("Secret") val secret: String,
+    @SerializedName("Code") val code: String
+)
+
+data class QuickConnectRequest(
+    @SerializedName("Secret") val secret: String
+)
+
 // ── Server info ──────────────────────────────────────────────────────────────
 
 data class ServerInfo(

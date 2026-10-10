@@ -83,26 +83,32 @@ class ReadOnlyInterceptor(private val allowLoginPost: Boolean) : Interceptor {
 
     companion object {
         private val READ_ONLY_METHODS = setOf("GET", "HEAD")
-        private const val AUTH_PATH   = "Users/AuthenticateByName"
+
+        // The sign-in requests (spec "Quick Connect sign-in", decision 2): by password, then
+        // Quick Connect's code and its sign-in. None changes the library or the user.
+        // QuickConnect/Authorize, which approves another device's code, isn't one.
+        private val SIGN_IN_PATHS = listOf(
+            "Users/AuthenticateByName",
+            "QuickConnect/Initiate",
+            "Users/AuthenticateWithQuickConnect"
+        )
+
+        /** Whether a [method] to [path] may go out; the sign-in client may also sign in. */
+        fun allows(method: String, path: String, allowLoginPost: Boolean): Boolean {
+            val verb = method.uppercase()
+            if (verb in READ_ONLY_METHODS) return true
+            return allowLoginPost && verb == "POST" &&
+                SIGN_IN_PATHS.any { path.contains(it, ignoreCase = true) }
+        }
     }
 
     override fun intercept(chain: Interceptor.Chain): Response {
         val request = chain.request()
-        val method  = request.method.uppercase()
-
-        if (method in READ_ONLY_METHODS) {
+        if (allows(request.method, request.url.encodedPath, allowLoginPost)) {
             return chain.proceed(request)
         }
-
-        if (allowLoginPost && method == "POST") {
-            val path = request.url.encodedPath
-            if (path.contains(AUTH_PATH, ignoreCase = true)) {
-                return chain.proceed(request)
-            }
-        }
-
         throw ReadOnlyViolationException(
-            "Blocked outgoing $method request to ${request.url} — " +
+            "Blocked outgoing ${request.method} request to ${request.url} — " +
             "this app is read-only and must not modify the Jellyfin server."
         )
     }

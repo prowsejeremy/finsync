@@ -3,6 +3,8 @@ package com.jpd.hz.api
 import com.jpd.hz.model.AuthenticateRequest
 import com.jpd.hz.model.AuthenticateResponse
 import com.jpd.hz.model.ItemsResponse
+import com.jpd.hz.model.QuickConnectRequest
+import com.jpd.hz.model.QuickConnectResult
 import com.jpd.hz.model.ServerInfo
 import okhttp3.ResponseBody
 import retrofit2.Response
@@ -18,6 +20,29 @@ interface JellyfinApi {
     suspend fun authenticateByName(
         @Header("Authorization") authorization: String,
         @Body body: AuthenticateRequest
+    ): Response<AuthenticateResponse>
+
+    /**
+     * A new Quick Connect code (spec "Quick Connect sign-in", decision 3); 401 when Quick Connect
+     * is off on the server. Sent with no body.
+     */
+    @POST("QuickConnect/Initiate")
+    suspend fun initiateQuickConnect(
+        @Header("Authorization") authorization: String
+    ): Response<QuickConnectResult>
+
+    /** The code's state; 404 once the server has forgotten it. */
+    @GET("QuickConnect/Connect")
+    suspend fun getQuickConnectState(
+        @Header("Authorization") authorization: String,
+        @Query("secret") secret: String
+    ): Response<QuickConnectResult>
+
+    @POST("Users/AuthenticateWithQuickConnect")
+    @Headers("Content-Type: application/json")
+    suspend fun authenticateWithQuickConnect(
+        @Header("Authorization") authorization: String,
+        @Body body: QuickConnectRequest
     ): Response<AuthenticateResponse>
 
     @GET("System/Info/Public")

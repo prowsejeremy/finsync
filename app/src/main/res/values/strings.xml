@@ -10,6 +10,18 @@
     <string name="btn_login">Sign In</string>
     <string name="error_empty_fields">Please fill in all fields</string>
     <string name="error_login_failed">Login failed. Check your server URL and credentials.</string>
+    <!-- Quick Connect, the sign-in screen's first form (spec "Quick Connect sign-in") -->
+    <string name="btn_get_code">Get code</string>
+    <string name="btn_cancel_code">Cancel</string>
+    <string name="quick_connect_hint">In a signed-in Jellyfin app, open your profile → Quick
+        Connect and enter this code.</string>
+    <string name="link_use_password">Sign in with a username and password</string>
+    <string name="link_use_quick_connect">Use Quick Connect instead</string>
+    <string name="quick_connect_url_required">Enter your server\'s URL</string>
+    <string name="quick_connect_off">Quick Connect is off on this server. Sign in with your
+        username and password.</string>
+    <string name="quick_connect_expired">That code expired. Get a new code.</string>
+    <string name="quick_connect_unreachable">Couldn\'t reach the server. Get a new code.</string>
 
     <!-- Main screen -->
     <string name="btn_sync_now">Sync Now</string>
