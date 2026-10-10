@@ -33,14 +33,6 @@ private const val TAG = "PlaybackService"
 // "Process death while playing: the saved position is at most 10 s old" (spec). A book's
 // progress saves on the same tick (3b "Progress").
 private const val SAVE_INTERVAL_MS = 10_000L
-private val SAVE_EVENTS = intArrayOf(
-    Player.EVENT_PLAY_WHEN_READY_CHANGED,
-    Player.EVENT_MEDIA_ITEM_TRANSITION,
-    Player.EVENT_POSITION_DISCONTINUITY,
-    Player.EVENT_TIMELINE_CHANGED,
-    Player.EVENT_REPEAT_MODE_CHANGED,
-    Player.EVENT_SHUFFLE_MODE_ENABLED_CHANGED
-)
 
 /** A saved queue, already resolved to playable items. */
 private class RestoredQueue(
@@ -77,11 +69,7 @@ class PlaybackService : MediaSessionService() {
 
     private val saveListener = object : Player.Listener {
         override fun onEvents(player: Player, events: Player.Events) {
-            // Reaching the end marks a book Finished (spec "Finishing"). Other state changes,
-            // such as logout's stop, don't save, so they can't undo logout's clearing.
-            val ended = events.contains(Player.EVENT_PLAYBACK_STATE_CHANGED) &&
-                player.playbackState == Player.STATE_ENDED
-            if (ended || events.containsAny(*SAVE_EVENTS)) saveResume()
+            if (savesResume(events::contains, player.playbackState)) saveResume()
         }
 
         override fun onPositionDiscontinuity(

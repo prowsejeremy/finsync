@@ -442,8 +442,9 @@ Fragments ──▶ PlaybackViewModel (activity-scoped, wraps one MediaControlle
   gap. Seeking moves the position in place without reopening the file, so book skips are quick.
 - **Order.** `QueueOrder` (pure) holds the repeat and shuffle rules. Shuffle starts with the
   current track. Repeat cycles off → all → one. Previous restarts the track after 3 s.
-- **Resume.** The queue is saved on play/pause, track change, seek, repeat and shuffle, and every
-  10 s while playing. A service starting with an empty queue restores it paused.
+- **Resume.** The queue is saved on play/pause, track change, seek, repeat and shuffle, a book's
+  new chapter, and every 10 s while playing; `ResumeSaves` (pure) holds which events save. A
+  service starting with an empty queue restores it paused.
   `onPlaybackResumption` gives Bluetooth or lock-screen Play the same queue.
 - **Lifecycle.** Swiped away while playing, the app keeps playing; while paused, the service
   stops. Signing out of Jellyfin leaves playback, the queue and book progress alone (D10).
