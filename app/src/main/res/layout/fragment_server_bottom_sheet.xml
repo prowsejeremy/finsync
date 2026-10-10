@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:orientation="vertical"
@@ -17,7 +18,7 @@
         android:layout_marginBottom="28dp"
         android:background="@color/muted" />
 
-    <!-- Server icon + name row -->
+    <!-- The connection's icon and name -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
@@ -47,14 +48,14 @@
             android:id="@+id/tvSheetServerName"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="Server Name"
+            tools:text="kurage"
             android:textColor="@color/text_primary"
             android:textSize="18sp"
             android:fontFamily="@font/hk_extrabold" />
 
     </LinearLayout>
 
-    <!-- URL row with green status dot -->
+    <!-- Its details (the platform's: a server's address and user) with the status dot -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
@@ -74,7 +75,7 @@
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
-            android:text="https://jellyfin.jpd.com"
+            tools:text="https://jellyfin.example.com · Jeremy"
             android:textColor="@color/muted"
             android:textSize="14sp"
             android:fontFamily="@font/hk_regular"
@@ -83,7 +84,7 @@
 
     </LinearLayout>
 
-    <!-- Sign out: Jellyfin's sign-in and server data go; the files and the player stay (T4) -->
+    <!-- Sign out: the connection's sign-in and catalogue go; files and the player stay (T4) -->
     <com.google.android.material.button.MaterialButton
         android:id="@+id/btnLogout"
         android:layout_width="match_parent"

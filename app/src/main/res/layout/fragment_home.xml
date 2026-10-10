@@ -129,12 +129,12 @@
                     app:cornerRadius="24dp" />
 
                 <com.google.android.material.button.MaterialButton
-                    android:id="@+id/btnSetUpJellyfin"
+                    android:id="@+id/btnSetUpAdapter"
                     style="@style/Widget.Material3.Button.OutlinedButton"
                     android:layout_width="match_parent"
                     android:layout_height="48dp"
                     android:layout_marginTop="8dp"
-                    android:text="@string/home_set_up_jellyfin"
+                    android:text="@string/home_set_up_adapter"
                     android:textColor="@color/text_primary"
                     android:textSize="15sp"
                     android:fontFamily="@font/hk_regular"

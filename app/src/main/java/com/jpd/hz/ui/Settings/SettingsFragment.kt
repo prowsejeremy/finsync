@@ -5,11 +5,10 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import androidx.fragment.app.Fragment
-import androidx.fragment.app.activityViewModels
-import androidx.lifecycle.asLiveData
 import androidx.navigation.fragment.findNavController
 import androidx.navigation.navGraphViewModels
 import com.jpd.hz.R
+import com.jpd.hz.adapter.Platforms
 import com.jpd.hz.appearance.nameRes
 import com.jpd.hz.databinding.FragmentSettingsBinding
 import com.jpd.hz.equaliser.EqualiserStore
@@ -17,14 +16,14 @@ import com.jpd.hz.home.HomeLayoutStore
 
 /**
  * Settings' top level (spec "Settings → Adapters"): Library, Adapters, Appearance, Home screen and
- * Equaliser. The server pill and the sync cards live on Jellyfin's page ([SyncSettingsFragment]).
+ * Equaliser. The server pill and the sync cards live on each platform's page
+ * ([ConnectionFragment]).
  */
 class SettingsFragment : Fragment() {
 
     private var _binding: FragmentSettingsBinding? = null
     private val binding get() = _binding!!
     private val viewModel: SettingsViewModel by navGraphViewModels(R.id.settings_graph)
-    private val mainViewModel: MainViewModel by activityViewModels()
     private val libraryViewModel: LibrarySettingsViewModel by
         navGraphViewModels(R.id.settings_graph)
 
@@ -87,11 +86,13 @@ class SettingsFragment : Fragment() {
         binding.rowAdapters.ivRowIcon.setImageResource(R.drawable.ic_sync)
         binding.rowAdapters.tvRowTitle.setText(R.string.settings_adapters_title)
         // "Jellyfin · Synced · 1,400 of 1,400 songs", live while Settings is open, as the Sync
-        // row was (spec "Sync row summary").
-        val jellyfin = mainViewModel.jellyfin
-        jellyfin.status.asLiveData().observe(viewLifecycleOwner) { status ->
-            binding.rowAdapters.tvRowSummary.text =
-                requireContext().adapterSummary(status, listOf(jellyfin.name))
+        // row was (spec "Sync row summary"): the first platform signed in, else the first.
+        val platform = Platforms.all.firstOrNull { it.connections().isNotEmpty() }
+            ?: Platforms.all.firstOrNull()
+        platform?.let {
+            showAdapterSummary(it, before = { _ -> listOf(it.name) }) { summary ->
+                binding.rowAdapters.tvRowSummary.text = summary
+            }
         }
         binding.rowAdapters.root.setOnClickListener {
             navigateSafely(R.id.settingsFragment, R.id.action_settings_to_adapters)

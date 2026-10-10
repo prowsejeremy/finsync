@@ -47,10 +47,12 @@ class HomeFragment : Fragment() {
         binding.btnChooseFolder.setOnClickListener {
             openThroughSettings(R.id.action_settings_to_library)
         }
-        binding.btnSetUpJellyfin.setOnClickListener {
-            openThroughSettings(R.id.action_settings_to_adapters, R.id.action_adapters_to_jellyfin)
+        binding.btnSetUpAdapter.setOnClickListener {
+            openThroughSettings(R.id.action_settings_to_adapters)
         }
-        viewModel.uiState.observe(viewLifecycleOwner) { renderSyncRing(SyncDisplay.from(it)) }
+        viewModel.runningSync.observe(viewLifecycleOwner) { sync ->
+            renderSyncRing(SyncDisplay.from(ConnectionUiState(syncState = sync)))
+        }
         libraryViewModel.homeState.observe(viewLifecycleOwner) { renderLibrary(it) }
     }
 

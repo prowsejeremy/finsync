@@ -54,7 +54,8 @@ class MainActivity : AppCompatActivity() {
 
         setUpMiniPlayer()
         observePlaybackMessages()
-        viewModel.checkServerConnection() // Initial check; will also be triggered by network callback and ServerBottomSheet.
+        // Also creates the view model, whose launch settle and scan run whichever screen opens.
+        viewModel.checkConnections()
     }
 
     // One controller per visible activity: built here, released in onStop.
@@ -70,16 +71,15 @@ class MainActivity : AppCompatActivity() {
 
     private val networkCallback = object : ConnectivityManager.NetworkCallback() {
         override fun onAvailable(network: Network) {
-            runOnUiThread { viewModel.checkServerConnection() }
+            runOnUiThread { viewModel.checkConnections() }
         }
         override fun onLost(network: Network) {
-            runOnUiThread { viewModel.checkServerConnection() }
+            runOnUiThread { viewModel.checkConnections() }
         }
     }
 
     override fun onResume() {
         super.onResume()
-        viewModel.refreshConfig()
         val cm = getSystemService(ConnectivityManager::class.java)
         cm.registerDefaultNetworkCallback(networkCallback)
     }

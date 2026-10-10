@@ -1,15 +1,22 @@
 package com.jpd.hz.ui
 
-import com.jpd.hz.model.SyncState
-import com.jpd.hz.sync.SyncCounts
+import com.jpd.hz.adapter.run.SyncCounts
+import com.jpd.hz.adapter.run.SyncState
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Test
 
+// A run that didn't start because nothing is chosen (SyncRun). A message, if one came with it,
+// would still not show as an error.
+private val NOTHING_CHOSEN_STATE =
+    SyncState(errorMessage = "Choose what to sync first.", nothingChosen = true)
+
 /**
- * SyncDisplay's rules. The 3b refinements replaced the track total with SyncCounts and a running
- * sync's own item counts, and the counts now decide SYNCED whenever anything is selected.
+ * SyncDisplay's rules, from one connection's state. The 3b refinements replaced the track total
+ * with SyncCounts and a running sync's own item counts, and the counts decide SYNCED whenever
+ * anything is chosen; the harness added Waiting and Nothing chosen (adapter harness spec, H4 and
+ * H9.4).
  */
 class SyncDisplayTest {
 
@@ -19,7 +26,7 @@ class SyncDisplayTest {
         serverConnected: Boolean = true,
         signInRefused: Boolean = false
     ): SyncDisplay = SyncDisplay.from(
-        MainViewModel.UiState(
+        ConnectionUiState(
             syncState = syncState,
             syncCounts = counts,
             serverConnected = serverConnected,
@@ -29,10 +36,14 @@ class SyncDisplayTest {
 
     @Test
     fun `offline wins over a running sync and shows no error`() {
-        val display = displayFor(
-            SyncState(isRunning = true, totalItems = 10, downloadedItems = 4, errorMessage = "boom"),
-            serverConnected = false
+        val running = SyncState(
+            isRunning = true,
+            totalItems = 10,
+            downloadedItems = 4,
+            errorMessage = "boom"
         )
+
+        val display = displayFor(running, serverConnected = false)
 
         assertEquals(SyncDisplay.Status.OFFLINE, display.status)
         assertNull(display.errorMessage)
@@ -78,6 +89,34 @@ class SyncDisplayTest {
     }
 
     @Test
+    fun `a run queued behind another is waiting, not syncing, with no progress yet`() {
+        val display = displayFor(
+            SyncState(isRunning = true, waiting = true),
+            counts = SyncCounts(30, 180, 0, 0)
+        )
+
+        assertEquals(SyncDisplay.Status.WAITING, display.status)
+        assertEquals(0, display.runDone)
+        assertEquals(0, display.runTotal)
+        assertNull(display.progress)
+        assertNull(display.errorMessage)
+    }
+
+    @Test
+    fun `offline and a refused sign-in still win over waiting`() {
+        val waiting = SyncState(isRunning = true, waiting = true)
+
+        assertEquals(
+            SyncDisplay.Status.OFFLINE,
+            displayFor(waiting, serverConnected = false).status
+        )
+        assertEquals(
+            SyncDisplay.Status.SIGN_IN_AGAIN,
+            displayFor(waiting, signInRefused = true).status
+        )
+    }
+
+    @Test
     fun `running before the total is known has no progress yet`() {
         val display = displayFor(SyncState(isRunning = true, totalItems = 0))
 
@@ -114,6 +153,24 @@ class SyncDisplayTest {
     }
 
     @Test
+    fun `nothing chosen comes after stopped and before failed`() {
+        assertEquals(SyncDisplay.Status.NOTHING_CHOSEN, displayFor(NOTHING_CHOSEN_STATE).status)
+        assertEquals(
+            SyncDisplay.Status.STOPPED,
+            displayFor(NOTHING_CHOSEN_STATE.copy(wasStopped = true)).status
+        )
+        assertProgress(0f, displayFor(NOTHING_CHOSEN_STATE).progress)
+    }
+
+    @Test
+    fun `nothing chosen shows no error, even with a message`() {
+        val display = displayFor(NOTHING_CHOSEN_STATE)
+
+        assertEquals(SyncDisplay.Status.NOTHING_CHOSEN, display.status)
+        assertNull(display.errorMessage)
+    }
+
+    @Test
     fun `failed sync passes the error through and keeps the counts`() {
         val counts = SyncCounts(10, 100, 0, 0)
         val display = displayFor(SyncState(errorMessage = "boom"), counts = counts)
@@ -124,7 +181,7 @@ class SyncDisplayTest {
     }
 
     @Test
-    fun `failed sync with nothing selected has no counts`() {
+    fun `failed sync with nothing chosen has no counts`() {
         val display = displayFor(SyncState(errorMessage = "boom"))
 
         assertEquals(SyncDisplay.Status.FAILED, display.status)
@@ -143,7 +200,7 @@ class SyncDisplayTest {
     }
 
     @Test
-    fun `completed sync with nothing selected is synced`() {
+    fun `completed sync with nothing chosen is synced`() {
         val display = displayFor(SyncState(syncComplete = true))
 
         assertEquals(SyncDisplay.Status.SYNCED, display.status)
@@ -151,7 +208,7 @@ class SyncDisplayTest {
     }
 
     @Test
-    fun `completed sync then a newly selected playlist or book is not synced`() {
+    fun `completed sync then a newly chosen playlist or book is not synced`() {
         val newPlaylist = displayFor(
             SyncState(syncComplete = true),
             counts = SyncCounts(100, 120, 0, 0)
@@ -167,7 +224,7 @@ class SyncDisplayTest {
     }
 
     @Test
-    fun `idle with every selected item on the device is synced`() {
+    fun `idle with every chosen item on the device is synced`() {
         val display = displayFor(SyncState(), counts = SyncCounts(100, 100, 1, 1))
 
         assertEquals(SyncDisplay.Status.SYNCED, display.status)
@@ -184,7 +241,7 @@ class SyncDisplayTest {
     }
 
     @Test
-    fun `never synced with nothing selected is not synced`() {
+    fun `never synced with nothing chosen is not synced`() {
         val display = displayFor(SyncState())
 
         assertEquals(SyncDisplay.Status.NOT_SYNCED, display.status)
@@ -193,7 +250,7 @@ class SyncDisplayTest {
 
     @Test
     fun `a completed sync with failed items is incomplete and counts them`() {
-        // Every selected item can be on the device while a playlist's fetch failed.
+        // Every chosen item can be on the device while a playlist's fetch failed.
         val display = displayFor(
             SyncState(syncComplete = true, failedItems = 2),
             counts = SyncCounts(100, 100, 0, 0)

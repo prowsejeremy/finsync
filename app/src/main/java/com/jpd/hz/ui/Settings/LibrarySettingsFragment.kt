@@ -17,10 +17,12 @@ import androidx.navigation.fragment.findNavController
 import androidx.navigation.navGraphViewModels
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.jpd.hz.R
+import com.jpd.hz.adapter.folders.AdapterFolder
+import com.jpd.hz.adapter.folders.LibraryChange
+import com.jpd.hz.adapter.folders.LibraryChangePlan
+import com.jpd.hz.adapter.folders.PlannedFolder
 import com.jpd.hz.databinding.FragmentLibrarySettingsBinding
 import com.jpd.hz.library.scan.ScanState
-import com.jpd.hz.sync.LibraryChange
-import com.jpd.hz.sync.LibraryChangePlan
 import kotlinx.coroutines.launch
 import java.io.File
 
@@ -94,34 +96,49 @@ class LibrarySettingsFragment : Fragment() {
                     getString(R.string.home_library_unreadable, viewModel.displayPathOf(path))
                 )
                 LibraryChangePlan.Refused -> showMessage(getString(R.string.library_refused))
-                LibraryChangePlan.NotFound -> showMessage(
-                    getString(R.string.library_not_found, viewModel.displayPathOf(path))
+                is LibraryChangePlan.NotFound -> showMessage(
+                    getString(
+                        R.string.library_not_found,
+                        nameOf(plan.folder),
+                        viewModel.displayPathOf(path)
+                    )
                 )
                 is LibraryChangePlan.Ready -> when {
                     plan.movesFiles -> confirmMove(path, plan)
-                    plan.found != null -> confirmFound(path, plan.found!!.target)
+                    plan.found != null -> confirmFound(path, plan.found!!)
                     else -> viewModel.change(path)
                 }
             }
         }
     }
 
-    // "Jellyfin's files will move to …" (spec "Changing the Library folder").
+    // "kurage's files will move to …", or "Files from kurage, home will move to …" (spec
+    // "Changing the Library folder"; adapter harness spec H9.3).
     private fun confirmMove(path: String, plan: LibraryChangePlan.Ready) {
-        val target = plan.folders.first { it.rename }.target
+        val moving = plan.folders.filter { it.rename }
+        val into = viewModel.displayPathOf(path)
+        val message = if (moving.size == 1) {
+            getString(R.string.library_move_confirm, nameOf(moving.single().folder), into)
+        } else {
+            val names = moving.joinToString { nameOf(it.folder) }
+            getString(R.string.library_move_confirm_many, names, into)
+        }
         MaterialAlertDialogBuilder(requireContext())
-            .setMessage(getString(R.string.library_move_confirm, viewModel.displayPathOf(target)))
+            .setMessage(message)
             .setPositiveButton(R.string.library_move) { _, _ -> viewModel.change(path) }
             .setNegativeButton(android.R.string.cancel, null)
             .show()
     }
 
-    // A folder found by searching is Jellyfin's from now on, and sync's cleanup works there, so
-    // the user says so first (A4).
-    private fun confirmFound(path: String, target: String) {
+    // A folder found by searching is the connection's from now on, and sync's cleanup works
+    // there, so the user says so first (A4).
+    private fun confirmFound(path: String, found: PlannedFolder) {
+        val name = nameOf(found.folder)
         MaterialAlertDialogBuilder(requireContext())
-            .setTitle(getString(R.string.library_found_title, viewModel.displayPathOf(target)))
-            .setMessage(R.string.library_found_confirm)
+            .setTitle(
+                getString(R.string.library_found_title, name, viewModel.displayPathOf(found.target))
+            )
+            .setMessage(getString(R.string.library_found_confirm, name))
             .setPositiveButton(R.string.library_use_folder) { _, _ -> viewModel.change(path) }
             .setNegativeButton(android.R.string.cancel, null)
             .show()
@@ -134,11 +151,15 @@ class LibrarySettingsFragment : Fragment() {
             LibraryChange.MoveFailed -> getString(R.string.library_move_failed)
             LibraryChange.MoveUnfinished -> getString(R.string.library_move_unfinished)
             LibraryChange.Refused -> getString(R.string.library_refused)
-            LibraryChange.NotFound -> getString(R.string.library_not_found_any)
+            is LibraryChange.NotFound ->
+                getString(R.string.library_not_found_any, nameOf(change.folder))
             LibraryChange.Unreadable -> getString(R.string.library_unreadable_picked)
         }
         showMessage(message)
     }
+
+    // A connection's folder is named after it ("kurage"), signed in or not.
+    private fun nameOf(folder: AdapterFolder): String = File(folder.path).name
 
     private fun showMessage(message: String) {
         MaterialAlertDialogBuilder(requireContext())

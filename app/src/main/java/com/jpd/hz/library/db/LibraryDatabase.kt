@@ -5,7 +5,7 @@ import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
 import androidx.room.TypeConverters
-import com.jpd.hz.db.StringListConverter
+import com.jpd.hz.library.db.StringListConverter
 
 /**
  * The player's database (A3): what the scanner found in the Library folder, and book progress. A

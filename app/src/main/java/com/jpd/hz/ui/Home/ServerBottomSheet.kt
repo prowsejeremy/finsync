@@ -4,17 +4,23 @@ import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
-import androidx.fragment.app.activityViewModels
+import androidx.navigation.navGraphViewModels
 import com.jpd.hz.R
 import com.jpd.hz.databinding.FragmentServerBottomSheetBinding
 import com.google.android.material.bottomsheet.BottomSheetDialogFragment
 
+private const val DETAIL_SEPARATOR = " · "
+
+/**
+ * A connection's details, opened from its page's server pill (spec "Screens"): its name, the
+ * platform's detail lines (a server's address and user) and Sign out.
+ */
 class ServerBottomSheet : BottomSheetDialogFragment() {
 
     private var _binding: FragmentServerBottomSheetBinding? = null
     private val binding get() = _binding!!
 
-    private val viewModel: MainViewModel by activityViewModels()
+    private val viewModel: ConnectionViewModel by navGraphViewModels(R.id.connection_graph)
 
     override fun getTheme(): Int = R.style.Theme_Hz_BottomSheet
 
@@ -37,17 +43,15 @@ class ServerBottomSheet : BottomSheetDialogFragment() {
         )
         bottomSheetView?.setBackgroundResource(android.R.color.transparent)
 
-
-        viewModel.config.observe(viewLifecycleOwner) { config ->
-            config ?: return@observe
-            binding.tvSheetServerName.text = config.serverName
-            binding.tvSheetServerUrl.text  = config.serverUrl
-            viewModel.checkServerConnection()
+        viewModel.connection.observe(viewLifecycleOwner) { connection ->
+            connection ?: return@observe
+            binding.tvSheetServerName.text = connection.name
+            binding.tvSheetServerUrl.text = connection.details.joinToString(DETAIL_SEPARATOR)
+            viewModel.checkAvailability()
         }
 
         viewModel.uiState.observe(viewLifecycleOwner) { state ->
-            val statusDot = binding.root.findViewById<View>(R.id.serverStatusDot)
-            statusDot?.setBackgroundResource(
+            binding.serverStatusDot.setBackgroundResource(
                 if (state.serverConnected && !state.signInRefused) {
                     R.drawable.circle_status_good
                 } else {
@@ -56,10 +60,10 @@ class ServerBottomSheet : BottomSheetDialogFragment() {
             )
         }
 
-        // The Jellyfin page stays open and shows its Sign in card. Playback, the queue and book
-        // progress stay (D10).
+        // The page stays open and shows its Sign in card. Playback, the queue and book progress
+        // stay (D10).
         binding.btnLogout.setOnClickListener {
-            viewModel.jellyfin.signOut()
+            viewModel.signOut()
             dismiss()
         }
     }

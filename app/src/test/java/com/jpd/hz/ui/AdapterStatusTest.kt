@@ -1,19 +1,19 @@
 package com.jpd.hz.ui
 
-import com.jpd.hz.model.ServerConfig
-import com.jpd.hz.model.SyncState
-import com.jpd.hz.sync.SyncCounts
+import com.jpd.hz.adapter.Connection
+import com.jpd.hz.adapter.run.SyncCounts
+import com.jpd.hz.adapter.run.SyncState
 import org.junit.Assert.assertEquals
 import org.junit.Test
 
-/** Jellyfin's row in Settings → Adapters: signed out, or the Sync card's state (T4). */
+/**
+ * A platform's row in Settings → Adapters: signed out, or its connection's Sync card state
+ * (adapter harness spec, "Screens"; T4).
+ */
 class AdapterStatusTest {
 
-    private val config = ServerConfig(
-        serverUrl = "http://kurage", serverId = "server-1", serverName = "kurage",
-        userId = "user", username = "me", accessToken = "token"
-    )
-    private val syncing = MainViewModel.UiState(
+    private val kurage = Connection(platform = "jellyfin", sourceId = "server-1", name = "kurage")
+    private val syncing = ConnectionUiState(
         syncState = SyncState(isRunning = true, totalItems = 4, downloadedItems = 1),
         syncCounts = SyncCounts.NONE
     )
@@ -27,7 +27,7 @@ class AdapterStatusTest {
     fun `signed in, the row shows what the Sync card shows`() {
         assertEquals(
             AdapterStatus.SignedIn(SyncDisplay.from(syncing)),
-            adapterStatusOf(config, syncing)
+            adapterStatusOf(kurage, syncing)
         )
     }
 }

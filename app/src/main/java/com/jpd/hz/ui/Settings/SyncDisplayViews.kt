@@ -7,7 +7,7 @@ import androidx.annotation.PluralsRes
 import androidx.annotation.StringRes
 import com.google.android.material.progressindicator.BaseProgressIndicator
 import com.jpd.hz.R
-import com.jpd.hz.sync.SyncCounts
+import com.jpd.hz.adapter.run.SyncCounts
 import java.text.NumberFormat
 import kotlin.math.roundToInt
 
@@ -18,8 +18,10 @@ val SyncDisplay.Status.labelRes: Int
     get() = when (this) {
         SyncDisplay.Status.SIGN_IN_AGAIN -> R.string.status_sign_in_again
         SyncDisplay.Status.OFFLINE       -> R.string.status_offline
+        SyncDisplay.Status.WAITING       -> R.string.status_waiting
         SyncDisplay.Status.SYNCING       -> R.string.status_syncing
         SyncDisplay.Status.STOPPED       -> R.string.status_sync_stopped
+        SyncDisplay.Status.NOTHING_CHOSEN -> R.string.status_not_synced
         SyncDisplay.Status.FAILED        -> R.string.status_sync_failed
         SyncDisplay.Status.INCOMPLETE    -> R.string.status_sync_incomplete
         SyncDisplay.Status.SYNCED        -> R.string.status_synced
@@ -33,7 +35,7 @@ val SyncDisplay.Status.labelColorRes: Int
 @get:StringRes
 val SyncDisplay.buttonLabelRes: Int
     get() = when (status) {
-        SyncDisplay.Status.SYNCING -> R.string.btn_stop_sync
+        SyncDisplay.Status.SYNCING, SyncDisplay.Status.WAITING -> R.string.btn_stop_sync
         SyncDisplay.Status.SIGN_IN_AGAIN -> R.string.btn_sign_in
         else -> R.string.btn_sync_now
     }

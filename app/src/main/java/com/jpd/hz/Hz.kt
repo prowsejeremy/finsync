@@ -2,9 +2,11 @@ package com.jpd.hz
 
 import android.app.Application
 import android.content.Context
+import com.jpd.hz.adapter.Platforms
 import com.jpd.hz.appearance.AppearanceStore
 import com.jpd.hz.appearance.applyThemeMode
 import com.jpd.hz.library.scan.LibraryScanner
+import com.jpd.hz.platform.jellyfin.JellyfinPlatform
 
 class Hz : Application() {
     override fun onCreate() {
@@ -13,6 +15,9 @@ class Hz : Application() {
         // other mode first (spec "No flash on launch"). On Android 12+ it also tells Android,
         // which keeps it for the launch screen it draws before this runs.
         applyThemeMode(AppearanceStore(this).themeMode())
+        // The adapters' platforms, before any screen, service or worker reads them (adapter
+        // harness spec, H6). The only place a platform is named outside its own package.
+        Platforms.install(listOf(JellyfinPlatform(this)))
     }
 }
 

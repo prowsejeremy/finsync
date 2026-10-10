@@ -1,7 +1,7 @@
 package com.jpd.hz.ui
 
-import com.jpd.hz.model.SyncState
-import com.jpd.hz.sync.SyncCounts
+import com.jpd.hz.adapter.run.SyncState
+import com.jpd.hz.adapter.run.SyncCounts
 
 /**
  * What the Sync card and Home's sync ring show for the current sync and server state. It has no
@@ -26,14 +26,15 @@ data class SyncDisplay(
     val untaggedFiles: Int = 0
 ) {
     enum class Status {
-        SIGN_IN_AGAIN, OFFLINE, SYNCING, STOPPED, FAILED, INCOMPLETE, SYNCED, NOT_SYNCED
+        SIGN_IN_AGAIN, OFFLINE, WAITING, SYNCING, STOPPED, NOTHING_CHOSEN, FAILED, INCOMPLETE,
+        SYNCED, NOT_SYNCED
     }
 
     companion object {
 
         private val FINISHED = setOf(Status.INCOMPLETE, Status.SYNCED, Status.NOT_SYNCED)
 
-        fun from(state: MainViewModel.UiState): SyncDisplay {
+        fun from(state: ConnectionUiState): SyncDisplay {
             val counts = state.syncCounts
             if (state.signInRefused) {
                 // A refused sign-in overrides offline and every sync state, and shows no error
@@ -45,16 +46,20 @@ data class SyncDisplay(
                 return SyncDisplay(Status.OFFLINE, counts, 0, 0, 0f, null)
             }
 
-            // Null until SyncEngine's first emission; treat that as idle.
+            // Null until the connection's first state; treat that as idle.
             val sync = state.syncState ?: SyncState()
 
             fun display(status: Status, progress: Float?) =
                 SyncDisplay(status, counts, 0, 0, progress, sync.errorMessage)
 
             val shown = when {
+                // Queued behind another connection's run (adapter harness spec, H9.4).
+                sync.waiting -> display(Status.WAITING, null)
                 sync.isRunning -> display(Status.SYNCING, runningProgress(sync))
                     .copy(runDone = sync.downloadedItems, runTotal = sync.totalItems)
                 sync.wasStopped -> display(Status.STOPPED, 0f)
+                // Not a failure: the run didn't start (adapter harness spec, H4).
+                sync.nothingChosen -> display(Status.NOTHING_CHOSEN, 0f).copy(errorMessage = null)
                 sync.errorMessage != null -> display(Status.FAILED, 0f)
                 // Before SYNCED, which a full device would otherwise win.
                 sync.failedItems > 0 ->

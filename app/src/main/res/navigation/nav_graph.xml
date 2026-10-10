@@ -175,9 +175,9 @@
         android:name="com.jpd.hz.ui.EqualiserFragment" />
 
     <!-- Nested so SettingsViewModel lives exactly as long as you're in Settings. The sync
-         notification's deep link opens Jellyfin's page; each nested graph adds its start screen,
-         so the back stack is Home → Settings → Adapters → Jellyfin. Home's empty-state buttons
-         navigate through the same screens. -->
+         notification's deep link opens the running connection's page; each nested graph adds its
+         start screen, so the back stack is Home → Settings → Adapters → the platform's page.
+         Home's empty-state buttons navigate through the same screens. -->
     <navigation
         android:id="@+id/settings_graph"
         app:startDestination="@id/settingsFragment">
@@ -218,7 +218,7 @@
             android:id="@+id/homeScreenFragment"
             android:name="com.jpd.hz.ui.HomeScreenFragment" />
 
-        <!-- Settings → Adapters: one row per adapter (T4) -->
+        <!-- Settings → Adapters: one row per installed platform (T4; adapter harness spec) -->
         <navigation
             android:id="@+id/adapters_graph"
             app:startDestination="@id/adaptersFragment">
@@ -227,52 +227,48 @@
                 android:id="@+id/adaptersFragment"
                 android:name="com.jpd.hz.ui.AdaptersFragment">
                 <action
-                    android:id="@+id/action_adapters_to_jellyfin"
-                    app:destination="@id/sync_graph" />
+                    android:id="@+id/action_adapters_to_connection"
+                    app:destination="@id/connection_graph" />
             </fragment>
 
-            <!-- Adapters → Jellyfin and its choice screens, whose Back and Cancel / Apply return
-                 to it. They still use SettingsViewModel: settings_graph stays on the back
-                 stack. -->
+            <!-- A platform's page and its choice and Auto-sync screens, whose Back and Cancel /
+                 Apply return to it. ConnectionViewModel lives as long as this graph, and reads
+                 its platform argument. -->
             <navigation
-                android:id="@+id/sync_graph"
-                app:startDestination="@id/syncSettingsFragment">
+                android:id="@+id/connection_graph"
+                app:startDestination="@id/connectionFragment">
+
+                <argument
+                    android:name="platform"
+                    app:argType="string" />
 
                 <fragment
-                    android:id="@+id/syncSettingsFragment"
-                    android:name="com.jpd.hz.ui.SyncSettingsFragment">
+                    android:id="@+id/connectionFragment"
+                    android:name="com.jpd.hz.ui.ConnectionFragment">
+                    <argument
+                        android:name="platform"
+                        app:argType="string" />
                     <action
-                        android:id="@+id/action_settings_to_album_selection"
-                        app:destination="@id/albumSelectionFragment" />
+                        android:id="@+id/action_connection_to_choices"
+                        app:destination="@id/choicesFragment" />
                     <action
-                        android:id="@+id/action_settings_to_auto_sync"
+                        android:id="@+id/action_connection_to_auto_sync"
                         app:destination="@id/autoSyncFragment" />
-                    <action
-                        android:id="@+id/action_settings_to_playlist_selection"
-                        app:destination="@id/playlistSelectionFragment" />
-                    <action
-                        android:id="@+id/action_settings_to_book_selection"
-                        app:destination="@id/bookSelectionFragment" />
                 </fragment>
 
                 <fragment
-                    android:id="@+id/albumSelectionFragment"
-                    android:name="com.jpd.hz.ui.AlbumSelectionFragment" />
+                    android:id="@+id/choicesFragment"
+                    android:name="com.jpd.hz.ui.ChoicesFragment">
+                    <argument
+                        android:name="kind"
+                        app:argType="string" />
+                </fragment>
 
                 <fragment
                     android:id="@+id/autoSyncFragment"
                     android:name="com.jpd.hz.ui.AutoSyncFragment" />
 
-                <fragment
-                    android:id="@+id/playlistSelectionFragment"
-                    android:name="com.jpd.hz.ui.PlaylistSelectionFragment" />
-
-                <fragment
-                    android:id="@+id/bookSelectionFragment"
-                    android:name="com.jpd.hz.ui.BookSelectionFragment" />
-
             </navigation>
-
         </navigation>
 
     </navigation>

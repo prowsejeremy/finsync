@@ -9,13 +9,13 @@ import androidx.recyclerview.widget.RecyclerView
 import com.jpd.hz.databinding.FragmentAlbumSelectionBinding
 import com.jpd.hz.databinding.ItemAlbumSelectionBinding
 
-/** A row in Playlists to Sync or Books to Sync. */
+/** A row in a choice screen: an album, a playlist, a book or a folder. */
 data class SyncChoice(val id: String, val title: String, val subtitle: String)
 
 /**
- * Runs Albums to Sync's layout as the Playlists to Sync or Books to Sync checklist (3b). The
- * choice applies at the next sync: Select saves the ticked IDs and Cancel drops them. Select All
- * ticks every listed ID by name, so something added on the server later isn't chosen by itself.
+ * The choice screens' checklist (3b; adapter harness spec, "Screens"). The choice applies at the
+ * next sync: Select saves the ticked IDs and Cancel drops them. Select All ticks every listed ID;
+ * what that saves depends on the kind (ChoiceRules.idsToSave).
  */
 class SyncChoicesController(
     private val binding: FragmentAlbumSelectionBinding,
@@ -39,17 +39,21 @@ class SyncChoicesController(
     }
 
     /**
-     * Shows the latest choices. The saved selection is applied only the first time, so a
-     * catalogue refresh that lands mid-edit keeps the user's ticks.
+     * Shows the latest choices. The saved selection, [tickedIds], is applied to the first list
+     * that isn't empty, so a catalogue refresh that lands mid-edit keeps the user's ticks, and a
+     * saved `all` ticks the groups once they've loaded.
      */
-    fun submit(newChoices: List<SyncChoice>, savedIds: Set<String>) {
+    fun submit(newChoices: List<SyncChoice>, tickedIds: (List<String>) -> Set<String>) {
         choices = newChoices
-        if (!savedSelectionApplied) {
-            checkedIds.addAll(savedIds)
+        if (!savedSelectionApplied && newChoices.isNotEmpty()) {
+            checkedIds.addAll(tickedIds(newChoices.map { it.id }))
             savedSelectionApplied = true
         }
         render()
     }
+
+    /** The listed choices' IDs, for what Select saves. */
+    val listedIds: List<String> get() = choices.map { it.id }
 
     private fun toggle(id: String) {
         if (!checkedIds.remove(id)) checkedIds.add(id)

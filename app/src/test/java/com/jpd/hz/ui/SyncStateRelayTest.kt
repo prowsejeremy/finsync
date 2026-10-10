@@ -1,6 +1,6 @@
 package com.jpd.hz.ui
 
-import com.jpd.hz.model.SyncState
+import com.jpd.hz.adapter.run.SyncState
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.flowOf

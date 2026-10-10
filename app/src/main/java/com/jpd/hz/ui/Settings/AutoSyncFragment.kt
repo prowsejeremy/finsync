@@ -10,11 +10,12 @@ import androidx.navigation.navGraphViewModels
 import com.jpd.hz.R
 import com.jpd.hz.databinding.FragmentAutoSyncBinding
 
+/** A connection's Auto-sync: its own schedule (adapter harness spec, "Running connections"). */
 class AutoSyncFragment : Fragment() {
 
     private var _binding: FragmentAutoSyncBinding? = null
     private val binding get() = _binding!!
-    private val viewModel: SettingsViewModel by navGraphViewModels(R.id.settings_graph)
+    private val viewModel: ConnectionViewModel by navGraphViewModels(R.id.connection_graph)
 
     override fun onCreateView(
         inflater: LayoutInflater,
@@ -32,7 +33,7 @@ class AutoSyncFragment : Fragment() {
         binding.header.btnBack.setOnClickListener { findNavController().navigateUp() }
 
         // Pre-select the current interval
-        val current = viewModel.getAutoSyncInterval()
+        val current = viewModel.autoSyncInterval()
         binding.radioGroupAutoSync.check(
             when (current) {
                 "1"  -> R.id.rbEvery1h

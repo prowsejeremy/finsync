@@ -2,6 +2,7 @@
 <androidx.constraintlayout.widget.ConstraintLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="@color/bg_primary">
@@ -52,7 +53,7 @@
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
-                    android:text="Select Albums to Sync"
+                    tools:text="@string/selection_title_albums"
                     android:textColor="@color/text_primary"
                     android:textSize="17sp"
                     android:fontFamily="@font/hk_extrabold" />
@@ -61,7 +62,7 @@
                     android:id="@+id/tvSelectionCount"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="0/0"
+                    tools:text="0/0"
                     android:textColor="@color/muted"
                     android:textSize="14sp"
                     android:fontFamily="@font/hk_regular" />
@@ -95,7 +96,7 @@
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="Select All"
+                    android:text="@string/selection_select_all"
                     android:textColor="@color/text_primary"
                     android:textSize="15sp"
                     android:fontFamily="@font/hk_regular"
@@ -153,7 +154,7 @@
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
-                    android:text="Cancel"
+                    android:text="@string/btn_cancel"
                     android:textColor="@color/muted"
                     android:textSize="15sp"
                     android:fontFamily="@font/hk_regular"
@@ -166,7 +167,7 @@
                     android:id="@+id/btnSelect"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="Select"
+                    android:text="@string/btn_select"
                     android:textColor="@color/text_primary"
                     android:textSize="15sp"
                     android:fontFamily="@font/hk_extrabold"

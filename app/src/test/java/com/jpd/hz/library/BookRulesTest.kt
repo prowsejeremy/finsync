@@ -1,17 +1,16 @@
 package com.jpd.hz.library
 
-import com.jpd.hz.db.CatalogueBook
 import com.jpd.hz.library.db.BookProgress
 import com.jpd.hz.library.db.LibraryBook
 import com.jpd.hz.library.db.LibraryBookChapter
-import com.jpd.hz.model.MediaItem
-import com.jpd.hz.model.MediaSource
-import com.jpd.hz.model.MediaStream
-import com.jpd.hz.model.PersonInfo
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertNull
 import org.junit.Test
 
+/**
+ * The player's book rules: chapters, progress, Resume, the Audio Books order and the book page.
+ * The author and catalogue cases moved to Jellyfin's tests with their code (adapter harness spec,
+ * "Where the code goes").
+ */
 class BookRulesTest {
 
     private val hourMs = 3_600_000L
@@ -36,19 +35,6 @@ class BookRulesTest {
         finished: Boolean = false,
         lastPlayedAt: Long = 0L
     ) = BookProgress(id, positionMs, finished, lastPlayedAt)
-
-    private fun audioBook(
-        albumArtist: String? = null,
-        artists: List<String>? = null,
-        people: List<PersonInfo>? = null
-    ) = MediaItem(
-        id = "b",
-        name = "Book",
-        type = "AudioBook",
-        albumArtist = albumArtist,
-        artists = artists,
-        people = people
-    )
 
     @Test
     fun `the current chapter is the last started, the first before any start, the last after`() {
@@ -76,67 +62,13 @@ class BookRulesTest {
     }
 
     @Test
-    fun `the author comes from People, then the album artist, then the artists`() {
-        val people = listOf(
-            PersonInfo("Stephen Fry", "Narrator"),
-            PersonInfo("J. K. Rowling", "Author")
-        )
-        assertEquals(
-            "J. K. Rowling",
-            bookAuthorOf(audioBook(albumArtist = "Someone", people = people))
-        )
-        assertEquals(
-            "Someone",
-            bookAuthorOf(audioBook(albumArtist = "Someone", artists = listOf("X")))
-        )
-        assertEquals("Ann, Bo", bookAuthorOf(audioBook(artists = listOf("Ann", "Bo"))))
-        assertNull(bookAuthorOf(audioBook(people = listOf(PersonInfo("Nell", "Narrator")))))
-    }
-
-    @Test
-    fun `catalogue books hold the source's details in milliseconds`() {
-        val item = MediaItem(
-            id = "b1",
-            name = "Dune",
-            type = "AudioBook",
-            runTimeTicks = 36_000_000_000L,
-            mediaSources = listOf(
-                MediaSource(
-                    id = "s1",
-                    container = "m4b",
-                    size = 412_000_000L,
-                    mediaStreams = listOf(
-                        MediaStream(
-                            type = "Audio",
-                            codec = "aac",
-                            bitRate = 64_000,
-                            sampleRate = 44_100
-                        )
-                    )
-                )
-            )
-        )
-        val expected = CatalogueBook(
-            bookId = "b1",
-            name = "Dune",
-            author = null,
-            durationMs = 3_600_000L,
-            codec = "aac",
-            bitDepth = null,
-            sampleRate = 44_100,
-            bitrate = 64_000,
-            size = 412_000_000L
-        )
-        assertEquals(listOf(expected), catalogueBooksFrom(listOf(item)))
-    }
-
-    @Test
     fun `progress reads not started, in progress with its chapter and time left, or finished`() {
         val starts = listOf(0L, hourMs, 2 * hourMs)
         val length = 10 * hourMs
         assertEquals(BookStatus.NotStarted(length), bookStatusOf(null, length, starts))
         assertEquals(BookStatus.NotStarted(length), bookStatusOf(progress("b", 0L), length, starts))
-        val reading = bookStatusOf(progress("b", hourMs + 1L), length, starts) as BookStatus.InProgress
+        val reading =
+            bookStatusOf(progress("b", hourMs + 1L), length, starts) as BookStatus.InProgress
         assertEquals(2, reading.chapterNumber)
         assertEquals(9 * hourMs - 1L, reading.leftMs)
         assertEquals(

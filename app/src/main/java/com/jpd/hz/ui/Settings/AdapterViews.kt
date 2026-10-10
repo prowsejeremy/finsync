@@ -5,7 +5,12 @@ import android.text.SpannableString
 import android.text.Spanned
 import android.text.style.ForegroundColorSpan
 import androidx.core.content.ContextCompat
+import androidx.fragment.app.Fragment
+import androidx.lifecycle.asLiveData
+import androidx.lifecycle.lifecycleScope
 import com.jpd.hz.R
+import com.jpd.hz.adapter.Connection
+import com.jpd.hz.adapter.Platform
 
 /**
  * An adapter's summary line (spec "Settings → Adapters"): [before], then "Not signed in", or its
@@ -26,4 +31,27 @@ fun Context.adapterSummary(status: AdapterStatus, before: List<String>): CharSeq
         Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
     )
     return text
+}
+
+/**
+ * Shows [platform]'s summary through [show], live while this fragment's view lives: its
+ * connection's sync status after [before], or "Not signed in". The connection is read once per
+ * view; coming back to the screen makes a new one.
+ */
+fun Fragment.showAdapterSummary(
+    platform: Platform,
+    before: (Connection?) -> List<String>,
+    show: (CharSequence) -> Unit
+) {
+    val connection = platform.connections().firstOrNull()
+    if (connection == null) {
+        show(requireContext().adapterSummary(AdapterStatus.SignedOut, before(null)))
+        return
+    }
+    val scope = viewLifecycleOwner.lifecycleScope
+    val monitor = ConnectionMonitor(requireActivity().application, connection, scope)
+    monitor.state.asLiveData().observe(viewLifecycleOwner) { state ->
+        val status = adapterStatusOf(connection, state)
+        show(requireContext().adapterSummary(status, before(connection)))
+    }
 }

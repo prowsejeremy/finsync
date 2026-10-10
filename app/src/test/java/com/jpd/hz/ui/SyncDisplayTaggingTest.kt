@@ -1,13 +1,14 @@
 package com.jpd.hz.ui
 
-import com.jpd.hz.model.SyncState
-import com.jpd.hz.sync.SyncCounts
+import com.jpd.hz.adapter.run.SyncCounts
+import com.jpd.hz.adapter.run.SyncState
 import org.junit.Assert.assertEquals
 import org.junit.Test
 
 /**
  * The tagging line (T2): "2 files couldn't be tagged." follows a finished sync's line, and never
- * changes its status.
+ * changes its status. Waiting and Nothing chosen aren't finished syncs (adapter harness spec, H4
+ * and H9.4).
  */
 class SyncDisplayTaggingTest {
 
@@ -16,7 +17,7 @@ class SyncDisplayTaggingTest {
         counts: SyncCounts = SyncCounts(10, 10, 0, 0),
         serverConnected: Boolean = true
     ): SyncDisplay = SyncDisplay.from(
-        MainViewModel.UiState(
+        ConnectionUiState(
             syncState = syncState,
             syncCounts = counts,
             serverConnected = serverConnected
@@ -47,5 +48,16 @@ class SyncDisplayTaggingTest {
         assertEquals(0, displayFor(finished.copy(wasStopped = true)).untaggedFiles)
         assertEquals(0, displayFor(finished.copy(errorMessage = "boom")).untaggedFiles)
         assertEquals(0, displayFor(finished, serverConnected = false).untaggedFiles)
+    }
+
+    @Test
+    fun `a waiting or nothing-chosen display has no tagging line`() {
+        val waiting = displayFor(finished.copy(isRunning = true, waiting = true))
+        val nothingChosen = displayFor(finished.copy(syncComplete = false, nothingChosen = true))
+
+        assertEquals(SyncDisplay.Status.WAITING, waiting.status)
+        assertEquals(0, waiting.untaggedFiles)
+        assertEquals(SyncDisplay.Status.NOTHING_CHOSEN, nothingChosen.status)
+        assertEquals(0, nothingChosen.untaggedFiles)
     }
 }

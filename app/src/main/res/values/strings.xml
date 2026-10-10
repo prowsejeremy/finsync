@@ -33,10 +33,16 @@
 
     <!-- Notifications -->
     <string name="notification_channel_name">Hz</string>
-    <string name="notification_channel_desc">Syncing music library from Jellyfin</string>
+    <string name="notification_channel_desc">Syncing your library</string>
     <string name="notification_sync_title">Hz</string>
     <string name="notification_stop">Stop</string>
     <string name="notification_sync_complete">Sync complete</string>
+    <!-- The sync notification's words, as before the adapter harness; the title adds the
+         connection: "hz · kurage" -->
+    <string name="notification_title">hz</string>
+    <string name="notification_starting">Starting sync...</string>
+    <string name="notification_syncing">Syncing...</string>
+    <string name="notification_error">Error: %1$s</string>
 
     <!-- Screen headers -->
     <string name="cd_back">Back</string>
@@ -307,27 +313,46 @@
         <item quantity="other">%1$s files couldn\'t be read</item>
     </plurals>
     <!-- Changing the Library folder -->
-    <string name="library_move_confirm">Jellyfin\'s files will move to %1$s.</string>
+    <!-- %1$s names a connection by its folder, such as "kurage" -->
+    <string name="library_move_confirm">%1$s\'s files will move to %2$s.</string>
+    <string name="library_move_confirm_many">Files from %1$s will move to %2$s.</string>
     <string name="library_move">Move</string>
-    <string name="library_refused">Choose a folder outside Jellyfin\'s folder.</string>
-    <string name="library_move_failed">Jellyfin\'s files couldn\'t move. Nothing changed.</string>
+    <string name="library_refused">Choose a folder outside the adapters\' folders.</string>
+    <string name="library_move_failed">Adapter files couldn\'t move. Nothing changed.</string>
     <string name="library_move_unfinished">Part of the move failed; hz finishes it later.</string>
-    <string name="library_not_found">Can\'t find Jellyfin\'s files in %1$s.</string>
-    <string name="library_not_found_any">Can\'t find Jellyfin\'s files there.</string>
-    <string name="library_found_title">Jellyfin\'s files are in %1$s</string>
-    <string name="library_found_confirm">Files there Jellyfin didn\'t sync will be removed.</string>
+    <string name="library_not_found">Can\'t find %1$s\'s files in %2$s.</string>
+    <string name="library_not_found_any">Can\'t find %1$s\'s files there.</string>
+    <string name="library_found_title">%1$s\'s files are in %2$s</string>
+    <string name="library_found_confirm">Files there %1$s didn\'t sync will be removed.</string>
     <string name="library_use_folder">Use this folder</string>
     <string name="library_busy">A sync is running. Try again when it finishes.</string>
     <string name="library_unreadable_picked">Can\'t read that folder.</string>
-    <!-- Adapters → Jellyfin: where Jellyfin syncs, "Syncs to kurage/" -->
+    <!-- A platform's page: where its connection syncs, "Syncs to kurage/" -->
     <string name="sync_target">Syncs to %1$s/</string>
 
-    <!-- Settings → Adapters, the Jellyfin page's Sign in card, Home's empty state (T4) -->
+    <!-- Settings → Adapters, a platform page's Sign in card, Home's empty state (T4) -->
     <string name="settings_adapters_title">Adapters</string>
     <string name="adapter_not_signed_in">Not signed in</string>
     <string name="jellyfin_sign_in_detail">Sign in to sync from your Jellyfin server.</string>
     <string name="btn_sign_in">Sign in</string>
     <string name="btn_sign_out">Sign out</string>
     <string name="home_choose_folder">Choose library folder</string>
-    <string name="home_set_up_jellyfin">Set up Jellyfin</string>
+    <string name="home_set_up_adapter">Set up an adapter</string>
+
+    <!-- The adapter harness: Waiting, nothing chosen, and the shared choice screen -->
+    <string name="status_waiting">Waiting</string>
+    <string name="sync_detail_waiting">Waiting for %1$s to finish</string>
+    <string name="sync_detail_nothing_chosen">Choose what to sync first.</string>
+    <string name="choice_no_album">Songs with no album</string>
+    <string name="selection_title_albums">Select Albums to Sync</string>
+    <string name="selection_title_folders">Select Folders to Sync</string>
+    <string name="selection_select_all">Select All</string>
+    <string name="btn_cancel">Cancel</string>
+    <string name="btn_select">Select</string>
+    <string name="settings_folders_title">Folders to Sync</string>
+    <string name="settings_folders_summary">%1$d of %2$d folders selected</string>
+    <plurals name="file_count">
+        <item quantity="one">%d file</item>
+        <item quantity="other">%d files</item>
+    </plurals>
 </resources>

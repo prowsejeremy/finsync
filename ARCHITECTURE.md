@@ -87,6 +87,7 @@ its own spec, plan and alpha build, and each left the app working.
 | T2 | Player and adapter split, T2: the adapter writes the format | Done | `3fa93a8`, `2ca5ece` | `2026-10-07-player-adapter-split-design.md` |
 | T3 | Player and adapter split, T3: the player reads the Library folder | Done | `5be7d56`, `6849e60`, `af84426` | `2026-10-07-player-adapter-split-design.md` |
 | T4 | Player and adapter split, T4: Settings, launch and sign-out | Done | `d56fcd5`, `44af185` | `2026-10-07-player-adapter-split-design.md` |
+| — | The adapter harness: any number of platforms and storage devices (Plex step 1) | Done | `9cbdc4e` | `2026-10-10-adapter-harness-design.md` |
 | 4 | Search | Not designed | — | Overview row 4 only |
 
 Sub-project 5 was built before 4 at the user's request. The plans are in `docs/superpowers/plans/`
@@ -117,20 +118,46 @@ overview's streaming seams 1 and 3 when T3 landed. These four rules hold:
 
 Streaming, if it comes, becomes an adapter feature.
 
+### The adapter harness
+
+The adapter side is a harness with platforms plugged into it (spec
+`2026-10-10-adapter-harness-design.md`, H1–H9):
+
+1. **The harness owns the write side; each platform owns the read side.** `adapter/` runs one
+   generic sync for every connection (`SyncRun`): where a file lands, `.part` → tag → rename,
+   records, the keep set, cleanup, folder moves, sync state, the service, schedules and
+   sign-out's order. A platform supplies a `Source`: what's there, where each item lands, its
+   bytes, its tags (or none) and its extras. A platform never writes file-handling code; if one
+   doesn't fit, the harness gains a call.
+2. **Connections, not platforms.** Each signed-in source is a `Connection`, `<platform>:<source
+   ID>` (`jellyfin:3f2a…`), with its own folder, choices, records, catalogue, sync state and
+   schedule. Connections sync one at a time under `FolderSetup.lock`. The UI allows one per
+   platform for now.
+3. **The boundary is a test.** `ArchitectureBoundaryTest` reads every main file's imports: the
+   player imports nothing of `adapter/` or `platform/`; the harness imports no platform, and of
+   the player only `LibraryFolderStore`; the shell's screens import no platform (only `Hz.kt`
+   installs them); a platform imports nothing of the player. `appearance/`, `R`, view binding and
+   `:tags` are shared. The harness's code names no platform.
+4. **Every choice is a group; empty means none; `all` means every group.** Albums, playlists,
+   books and folders alike. A connection with nothing chosen doesn't run, so an empty plan never
+   reaches cleanup.
+5. **Future installs are fresh installs.** `SyncDatabase` is rebuilt on a schema change, and no
+   saved setting is converted (the user, 2026-10-10).
+
 ### Server and auth
 
-- **hz never changes anything on the server.** API calls pass through `ReadOnlyInterceptor`
-  (`app/src/main/java/com/jpd/hz/api/JellyfinClient.kt`). It allows GET and HEAD, plus three
-  sign-in POSTs on the sign-in client only (`Users/AuthenticateByName`, `QuickConnect/Initiate`,
-  `Users/AuthenticateWithQuickConnect`; `ReadOnlyInterceptor.allows`), and throws on anything
-  else. `QuickConnect/Authorize`, which approves another device's code, stays blocked. There is
-  no play reporting. Adding some (play counts, now playing, book positions) would need a
-  deliberate exception.
+- **hz never changes anything on a server.** Every HTTP adapter's clients add the harness's
+  `ReadOnlyInterceptor` (`adapter/net/ReadOnlyInterceptor.kt`). It allows GET and HEAD, plus the
+  POSTs its platform lists for its sign-in client only, and throws on anything else. Jellyfin's
+  are `JellyfinClient.SIGN_IN_PATHS`: `Users/AuthenticateByName`, `QuickConnect/Initiate` and
+  `Users/AuthenticateWithQuickConnect`. `QuickConnect/Authorize`, which approves another device's
+  code, stays blocked. There is no play reporting. Adding some (play counts, now playing, book
+  positions) would need a deliberate exception.
 - **Jellyfin 12 auth.** Every request sends `Authorization: MediaBrowser Client=…, Token=…`
   (`JellyfinClient.buildAuthHeader`). Its `DeviceId` is the install's, a UUID kept in
-  `noBackupFilesDir/device_id` (`api/DeviceIdentity.kt`): Jellyfin ends a device's other
-  sessions when it signs in again. Jellyfin 12 disables the old Emby headers and `api_key`
-  URLs by default, so streaming must send this header too.
+  `noBackupFilesDir/device_id` (`platform/jellyfin/api/DeviceIdentity.kt`): Jellyfin ends a
+  device's other sessions when it signs in again. Jellyfin 12 disables the old Emby headers and
+  `api_key` URLs by default, so streaming must send this header too.
 - New requests should use the documented `GET /Items?userId=…` routes, as 3b's do. A local copy
   of Jellyfin 12.1.0's OpenAPI is at `.superpowers/jellyfin-openapi-stable.json`.
 
@@ -139,8 +166,8 @@ Streaming, if it comes, becomes an adapter feature.
 - Keep rules and value tables in plain Kotlin with **no Android imports**: palettes, enums,
   saved-setting keys and pure decision functions. Kotlin Multiplatform could then reuse them, or
   they're short to rewrite in Swift. Examples: `appearance/Appearance.kt`, `appearance/Palette.kt`,
-  `equaliser/Equaliser.kt`, `home/HomeLayout.kt`, `sync/SyncPlan.kt`, `sync/SyncCounts.kt`,
-  `playback/QueueOrder.kt` and `ui/Settings/SyncDisplay.kt`.
+  `equaliser/Equaliser.kt`, `home/HomeLayout.kt`, `adapter/run/SyncPlan.kt`,
+  `adapter/choices/ChoiceRules.kt`, `playback/QueueOrder.kt` and `ui/Settings/SyncDisplay.kt`.
 - Android wiring sits beside the rules, usually as `*Store.kt` for SharedPreferences and
   `*Android.kt` for framework mapping.
 - Name resources by role (`surface_2`, `status_good`), not by colour.
@@ -165,27 +192,33 @@ Streaming, if it comes, becomes an adapter feature.
 All paths are under `app/src/main/java/com/jpd/hz/`.
 
 ```
-Hz.kt                     Application: applies the saved night mode before any activity starts
-api/                      Retrofit interface, OkHttp client, auth header and device ID,
-                          ReadOnlyInterceptor, SignInStatus (a refused sign-in), ServerCheck,
-                          QuickConnect (a code's start and poll)
-auth/                     CredentialStore (encrypted prefs), JellyfinRepository (every server call)
-model/Models.kt           Server DTOs (MediaItem, MediaStream…), ServerConfig, SyncState
-db/                       Room: the Jellyfin adapter's SyncDatabase v9 (sync records, catalogue)
+Hz.kt                     Application: applies the saved night mode, installs the platforms
+                          (Platforms.install), the rescan hook
+adapter/                  THE HARNESS (names no platform): the contract (Platform, Connection,
+                          Source, SourceCatalogue, SourceItem, ChoiceGroup, ChoiceKind)
+  choices/                ChoiceRules (pure: empty = none, all = every group), ChoiceStore
+  db/                     Room: SyncDatabase v10, records and catalogue keyed by connection
+  files/                  .part → tag → rename (AdapterFiles), FileTagger, cleanup, playlist
+                          files, LibraryLayout (shared paths for server platforms)
+  folders/                adapter_folders, each connection's folder (ConnectionFolders), the
+                          Library folder and its changes (FolderSetup, FolderMoves), the guard
+  net/                    ReadOnlyInterceptor, with each platform's own sign-in POSTs
+  run/                    SyncRun (the generic run), its pure plan, keep set, stored catalogue
+                          and counts, Catalogue, SyncStates, extras, ConnectionSignOut
+  service/                SyncService (the queue), SyncScheduler and SyncWorker, AutoSync
+platform/jellyfin/        JELLYFIN: JellyfinPlatform, JellyfinSource, its catalogue mapping,
+                          layout and tag mapping, JellyfinRepository (every server call)
+  api/                    Retrofit interface, OkHttp client, auth header and device ID, SignInStatus
+                          (a refused sign-in), ServerCheck, QuickConnect, the server DTOs
+  ui/                     JellyfinSignInActivity and its view model (Quick Connect, password)
+auth/                     CredentialStore (encrypted prefs): Jellyfin's, but agents can't read it,
+                          so it stays here with model/ServerConfig.kt (spec H8)
 library/                  Repositories for screens and playback, plus pure rules: grouping,
                           ordering, book chapters; the Library folder setting
 library/db/               Room: the player's LibraryDatabase (what the scan found, and book
                           progress)
 library/scan/             LibraryScanner and its parts: walk, file rules, TagLib reads, playlist
                           reading, deriving albums and artists, embedded covers
-adapter/                  Code any adapter shares (T2, D12): folder naming and adapter_folders,
-                          FileTagger in front of TagLibBridge, tag-then-rename, playlist files,
-                          cleanup scoped to the adapter's folder, folder moves (T3)
-sync/                     SyncEngine and its pure parts: SyncPlan, SyncPaths, SyncCounts,
-                          JellyfinTagMapping; JellyfinCatalogue; artist photos, covers and
-                          playlist files; FolderSetup (the Library folder and its moves);
-                          JellyfinSignOut (T4)
-service/                  SyncService (foreground sync), BootReceiver and SyncWorker (WorkManager)
 playback/                 PlaybackService, BassPlayer, BassEngine, TrackResolver, QueueOrder,
                           resume, audio focus, book controls, speed and progress
 equaliser/                EQ rules and presets (pure) and EqualiserStore
@@ -201,9 +234,9 @@ Native libraries are in `app/src/main/jniLibs/<abi>/` for arm64-v8a, armeabi-v7a
 only, and hz is never sold.
 
 The tag engine is its own Gradle module, `tags/` (package `com.jpd.hz.tags`), which the app
-depends on. Sync writes tags through it (T2), always behind `adapter/FileTagger.kt`: the JVM has
-no `libhztags.so`, so code that unit tests reach takes the interface and tests pass fakes. The
-scanner reads through `library/scan/TagSource.kt` the same way.
+depends on. Sync writes tags through it (T2), always behind `adapter/files/FileTagger.kt`: the
+JVM has no `libhztags.so`, so code that unit tests reach takes the interface and tests pass
+fakes. The scanner reads through `library/scan/TagSource.kt` the same way.
 - `src/main/cpp/`:
   - TagLib 2.3.2, vendored unmodified in `taglib/` with its licences;
   - hz's bridge: `hz_tags.cpp` holds the logic, and `hz_tags_jni.cpp` is the JNI glue;
@@ -244,7 +277,7 @@ Each adapter syncs into its own folder inside the Library folder, named after th
 | Database | Tables | Notes |
 |---|---|---|
 | `LibraryDatabase` (`hz_library.db`, v1, player) | `library_files` (`fileId`, relative `path`, stamps), `library_tracks`, `library_albums`, `library_artists`, `library_album_artists`, `library_track_artists`, `library_genres`, `library_track_genres`, `library_playlists`, `library_playlist_items`, `library_books`, `library_book_chapters`, `book_progress` | What the last scan found, and book progress by `fileId`. A scan updates it in place: one transaction replaces the scan's tables and keeps progress, except for books that have gone. **Every schema change needs a real migration** (A3). |
-| `SyncDatabase` (`hz_sync.db`, v9, Jellyfin adapter) | `synced_tracks`, `synced_albums`, `catalogue_tracks`, `catalogue_playlists`, `catalogue_playlist_items`, `catalogue_books` | Sync records (a `synced_tracks` row per file sync wrote, with `tagFingerprint`), and the server's catalogue, which sync plans from and the Sync card and choice screens read. |
+| `SyncDatabase` (`hz_sync.db`, v10, the adapters') | `synced_files`, `catalogue_items`, `catalogue_groups`, `catalogue_group_items`, every row keyed by `connectionId` | Each connection's sync records (a `synced_files` row per file a run wrote: path, `version`, size after tagging, `tagFingerprint`), and its copy of its source's catalogue: items, and the groups the user chooses from (albums, playlists, books, folders). A run plans from it; the Sync card and the choice screens read it. Rebuilt on a schema change (spec H5). |
 
 - **Scanning** (`library/scan/LibraryScanner.kt`, one app-wide instance): walk the folder, stat
   each audio file (size, mtime, ctime, inode), and read only new or changed ones through TagLib,
@@ -264,22 +297,20 @@ Each adapter syncs into its own folder inside the Library folder, named after th
   throws is left out of that pass only; Rescan also re-reads unreadable files.
   Triggers: the app opens, a sync ends, the Library folder changes, and Rescan. One scan runs at
   a time; a request during one runs one more pass.
-- **Migrations.** `SyncDatabase`: `MIGRATION_4_5`, `MIGRATION_7_8` (T2, `tagFingerprint`) and
-  `MIGRATION_8_9` (T3, drops the eight tables the adapter no longer reads, `book_progress`
-  among them). Versions 6 and 7 rebuilt it through `fallbackToDestructiveMigration()`. The next
-  sync re-links files already on disk without downloading them again.
-  - **No effort goes into preserving data from earlier versions** (the user, 2026-10-08): hz has
-    one user, so T3 carried no queue or book progress over. The schema isn't exported, so
-    `SyncDatabaseMigrationTest` builds old database files by hand. `LibraryDatabase` is the
-    exception from T3 on: it holds book progress, so every change to it gets a real migration.
+- **Migrations.** `SyncDatabase` has none: every version change rebuilds it
+  (`fallbackToDestructiveMigration()`, spec H5), and the next sync re-links the files already on
+  disk without downloading them, re-tagging each once.
+  - **No effort goes into preserving data from earlier versions** (the user, 2026-10-08 and
+    2026-10-10): future installs are treated as fresh. `LibraryDatabase` is the exception from T3
+    on: it holds book progress, so every change to it gets a real migration.
 
 ### SharedPreferences
 
 | File | Keys | Owner |
 |---|---|---|
-| `settings` | `selected_albums`, `selected_playlists`, `selected_books` (string sets); `auto_sync_interval`, `auto_sync_on_boot`. Sign-out keeps the selections and sets `auto_sync_interval` to `disabled` (T4). `selections_server`: whose selections they are; another server's wait under `selected_albums:<serverId>` and so on (T4). | Settings view models, `library/SyncSelections.kt`, `SyncEngine`, `BootReceiver`, `sync/JellyfinSignOut.kt` |
-| `settings` | `adapter_folders` (T2): one `<adapter>:<serverId>\|<path>` per line, kept on sign-out. From T3 the path is relative to the Library folder (`kurage`); a full path is a pre-T3 one, until the first launch settles it. `sync_directory` (before T2) is read only to fill the first entry, and removed once settled. | `adapter/AdapterFolderStore.kt`, `SyncEngine.getSyncDirectory` |
-| `settings` | `library_folder` (T3): the Library folder's full path, the only one hz saves. `library_move`: a change of folder begun and not yet finished. `scanned_folder` (T4): the folder the last scan wrote the library from, saved just before the write; only it keeps the library when it looks empty. | `library/LibraryFolderStore.kt`, `sync/FolderSetup.kt`, `library/scan/LibraryScanner.kt` |
+| `settings` | `choices:<connectionId>:<kind>` (string sets of group IDs, or `all`; kinds `album`, `playlist`, `book`, `folder`). Empty means none. `auto_sync:<connectionId>`: an interval in hours, or `disabled`. Sign-out keeps the choices and sets its `auto_sync` to `disabled`. | `adapter/choices/ChoiceStore.kt`, `adapter/service/AutoSync.kt` |
+| `settings` | `adapter_folders` (T2): one `<connectionId>\|<path>` per line, the path relative to the Library folder (`kurage`), kept on sign-out. | `adapter/folders/AdapterFolderStore.kt`, `ConnectionFolders.folderFor` |
+| `settings` | `library_folder` (T3): the Library folder's full path, the only one hz saves. `library_move`: a change of folder begun and not yet finished. `scanned_folder` (T4): the folder the last scan wrote the library from, saved just before the write; only it keeps the library when it looks empty. | `library/LibraryFolderStore.kt`, `adapter/folders/FolderSetup.kt`, `library/scan/LibraryScanner.kt` |
 | `settings` | `theme_mode` (`dark`, `light`, `system`), `accent` (`green`, `blue`, `purple`, `pink`, `red`) | `appearance/AppearanceStore.kt` |
 | `settings` | `home_order` (comma-separated keys), `home_hidden` (string set) | `home/HomeLayoutStore.kt` |
 | `playback` | `resume_state` (source IDs, queue, index, position, repeat, shuffle), `book_speed` | `playback/ResumeStore.kt`, `playback/BookSpeedStore.kt` |
@@ -304,64 +335,71 @@ service's EQ listener.
 
 ## Sync
 
-Entry points: `SyncService` for a manual sync (a foreground service of type `dataSync`), and
-`SyncWorker` for scheduled syncs (in `service/BootReceiver.kt`, unique work
-`hz_periodic_sync`). Both run `SyncEngine.syncLibrary`, then call the shell's rescan hook,
-whatever the result. Its state flows into `MainViewModel.uiState`, which every screen that shows
-sync or server state reads.
+Every connection syncs through the harness's one run, `adapter/run/SyncRun.kt` (spec
+`2026-10-10-adapter-harness-design.md`, "The sync run"). Entry points: `SyncService` for a manual
+sync (a foreground service of type `dataSync`), which queues connections and runs them one at a
+time, and `SyncWorker` for each connection's schedule (unique work `hz_sync:<connectionId>`,
+`adapter/service/SyncScheduler.kt`; WorkManager keeps it across reboots). Both call the shell's
+rescan hook after each run, whatever the result. Each connection's state is in `SyncStates`,
+which its page, its Adapters row, the Settings row and Home's ring read.
 
-A sync holds `FolderSetup.lock` from start to end, so Jellyfin's folder never moves under it, and
-first settles the Library folder if that hasn't happened (see "The folder" below).
+A run holds `FolderSetup.lock` from start to end, so no connection's folder moves under it; a
+run waiting for it shows **Waiting**. Once it holds the lock, it reads the connection again and
+runs nothing if it has signed out, and first finishes a change of Library folder cut short.
 
-**Signing out** (`sync/JellyfinSignOut.kt`, T4) clears the sign-in, the catalogue and the
-auto-sync schedule. It keeps the files, `adapter_folders`, the sync records and the selections:
-an empty album selection means every album and an empty book selection none, so clearing them
-would make the next sync download the whole server and delete every book (the user's change to
-the spec, 2026-10-09). Signing in again to the same server downloads and re-tags nothing.
+**Signing out** (`adapter/run/ConnectionSignOut.kt`) clears the connection's sign-in (through its
+platform), its catalogue and its schedule. It keeps the files, its `adapter_folders` entry, its
+records and its choices, so signing in again to the same source downloads and re-tags nothing and
+finds the same choices.
 - The sign-in goes first, so nothing new starts; then the schedule. It then waits for
-  `FolderSetup.lock`, stopping any sync that runs meanwhile, and clears the catalogue, unless the
-  user has signed in again meanwhile. A new sign-in always refreshes the catalogue, so a
-  sign-out cut short leaves nothing wrong.
-- A sync re-reads the sign-in once it holds the lock and runs nothing if it has changed, and a
+  `FolderSetup.lock`, stopping that connection's run if it goes meanwhile (another connection's
+  run finishes first), and clears its catalogue, unless the user has signed in again meanwhile.
+  A new sign-in always refreshes the catalogue, so a sign-out cut short leaves nothing wrong.
+- A run re-reads its connection once it holds the lock and runs nothing if it has gone, and a
   catalogue refresh doesn't write once its sign-in has gone. So a sign-out is never undone.
-- **Each server has its own selections** (`SyncSelections.useFor`, at sign-in and at each sync's
-  start): another server's are put aside under `<key>:<serverId>`, and come back when it signs
-  in again. A server never signed in to starts as a fresh install does. Selections are server
-  IDs, so one server's in force for another would plan none of its albums, and cleanup would
-  delete its files.
-- **A sync's record pass** drops only the signed-in server's records of missing files, so another
-  server's stay, and signing in there again re-tags nothing. `synced_tracks.localPath` is unique,
-  so a relative path both servers record is held once; that file is re-tagged once.
+- **Each connection has its own choices** (`choices:<connectionId>:<kind>`) and its own records
+  (`synced_files` by connection). A run's record pass drops only its own connection's records of
+  missing files.
 
-One run:
+One run (Jellyfin's calls in brackets):
 
-1. **Fetch** the whole music library (`Users/{userId}/Items`, `Audio`, paged 500 at a time),
-   then the playlists and their entries, then `AudioBook` items with chapters, people and
-   genres.
-2. **Write the catalogue** (`JellyfinCatalogue`) before any download, so a cancelled sync still
-   leaves it current. A failed playlist or book fetch keeps that part of the old catalogue.
-3. **Plan** with `syncPlanOf`: selected albums' tracks, then tracks only selected playlists need,
-   then selected books. Books go last so new music isn't stuck behind a large book.
+1. **Checks.** Still signed in; **something chosen** (a connection with nothing chosen stops here
+   with "Choose what to sync first.", so an empty plan never reaches cleanup); the Library folder
+   settled.
+2. **Fetch and store the catalogue** before any download (`Source.catalogue()`; Jellyfin's whole
+   music library from `Users/{userId}/Items`, `Audio`, paged 500 at a time, then the playlists
+   and their entries, then `AudioBook` items with chapters, people and genres). A kind or group
+   whose fetch failed keeps its previous rows. A failure of the whole fetch ends the run with its
+   message.
+3. **Plan** (`planOf`, pure): chosen albums' and folders' items in the source's order, then items
+   only chosen playlists need, then chosen books, so new music isn't stuck behind a large book.
+   An empty choice means none; `all` means every group of the kind.
 4. **Download and tag** whatever is missing or changed (T2). Each file downloads to
-   `<file>.part`, is tagged there with our fields (`JellyfinTagMapping`, through `FileTagger`),
-   then is renamed into place (`adapter/AdapterFiles.kt`). Its record keeps the size after
-   tagging and the `tagFingerprint`, so a tagged file never downloads again.
-   - A file that is on disk but has no record is re-linked without downloading
-     (`SyncEngine.needsDownload`).
+   `<file>.part` (`Source.open`; Jellyfin's `Audio/{itemId}/stream?static=true`), is tagged there
+   with the item's fields, if it has any (Jellyfin's `JellyfinTagMapping`, through `FileTagger`),
+   then is renamed into place (`adapter/files/AdapterFiles.kt`). Its record keeps the size after
+   tagging, the source's `version` and the `tagFingerprint`, so a tagged file never downloads
+   again; a changed `version` downloads it again. A path that's absolute, holds `..`, or repeats
+   an earlier item's (ignoring case) is never written and counts as failed.
+   - A file that is on disk but has no record is re-linked without downloading.
    - A file on disk whose fingerprint differs from the server's fields is **re-tagged**, with no
      download: copied to `.part`, tagged there and renamed over the original. That's an edit on
      the server, or a file that was never tagged. The first sync after upgrading to T2 re-tags
      every file once: about 2–3 minutes for 21 GB on a Pixel 8.
-   - Downloads use `Audio/{itemId}/stream?static=true`, which fetches the original file with no
-     transcoding. Each album's `folder.jpg` downloads alongside its tracks.
-5. **Clean up.** Every file in the sync folder outside `filesToKeep` (`sync/SyncPaths.kt`) is
-   deleted, by `adapter/AdapterCleanup.kt`, which never touches anything outside the folder.
-   Deselecting an album, playlist or book therefore removes its files on the next sync. The keep
-   set also holds each album artist's `artist.jpg` and each selected playlist's file and cover.
-6. **Artist photos, covers and playlist files,** straight into the sync folder:
-   `ArtistPhotoSync` fetches each missing `artist.jpg`, `CoverSync` each missing playlist cover and
-   book `folder.jpg`, and `PlaylistFileSync` writes the `.m3u8` files. A failed photo, cover or
-   file is logged and retried next sync; it never fails the sync.
+   - Jellyfin's stream route fetches the original file with no transcoding.
+5. **Clean up** (`mayCleanUp`), only when step 2 stored the catalogue, no part the user chose
+   failed to load, and the plan isn't empty. Every file in the connection's folder outside the
+   keep set (`keepSetOf`) is deleted, by `adapter/files/AdapterCleanup.kt`, which never touches
+   anything outside the folder. Unchoosing an album, playlist or book therefore removes its files
+   on the next full sync. A chosen part that didn't load would otherwise lose its files: after a
+   sign-out or a rebuilt database, nothing else may know them.
+   The keep set also holds a `folder.jpg` beside each planned album or book item, each extra
+   (Jellyfin's `artist.jpg`) and each chosen playlist's file and cover.
+6. **Covers, extras and playlist files** (`adapter/run/Extras.kt`), straight into the folder,
+   beside files on the phone: each album's and book's missing cover beside its first planned
+   item (`Source.openGroupImage`; Jellyfin's primary image), each missing extra, each chosen
+   playlist's missing cover, and the `.m3u8` files. A failure is logged and retried next sync; it
+   never fails the sync.
 
 **Failures.** A failed item is skipped, not fatal. The sync ends **incomplete** ("Sync
 incomplete: 2 items couldn't sync. They'll retry next sync."), and cleanup never deletes a file
@@ -370,7 +408,8 @@ sync tries again. When TagLib's write fails on a new download, that download is 
 may be half-written, and a fresh one is kept untagged. The Sync card adds "2 files couldn't be
 tagged.", and that never makes the sync incomplete.
 
-**On disk:**
+**On disk** (Jellyfin's, through the shared `LibraryLayout`; a storage platform keeps its
+source's own paths):
 
 | What | Where |
 |---|---|
@@ -379,43 +418,37 @@ tagged.", and that never makes the sync incomplete.
 | Books | `<syncDir>/Audiobooks/<author>/<title>/`, the `.m4b` plus `folder.jpg` |
 | Playlists (T2) | `<syncDir>/Playlists/<name>.m3u8`, plus `<name>.jpg` for the cover |
 
-**The folder** (`SyncEngine.getSyncDirectory`) is the server's `adapter_folders` entry, fixed
+**The folder** (`ConnectionFolders.folderFor`) is the connection's `adapter_folders` entry, fixed
 the first time it's needed.
-- A new server gets `<server name>` in the Library folder, or beside the folder of a server whose
-  folder is the library or holds it, so no adapter's folder is ever inside another's. When that
-  folder holds anything, or holds another server's, it gets `<server name> (Jellyfin)`, then
-  `(Jellyfin 2)` (D4).
-- Without all-files access, the folder is `Media/hz/<server name>` in the app's own external files
+- A new connection gets `<its name>` in the Library folder, or beside the folder of a connection
+  whose folder is the library or holds it, so no adapter's folder is ever inside another's. When
+  that folder holds anything, or holds another connection's, it gets `<name> (<Platform>)`, then
+  `(<Platform> 2)` (D4).
+- Without all-files access, the folder is `Media/hz/<name>` in the app's own external files
   folder, and it isn't saved until access is granted. Public `Media/hz` is created only while no
-  Library folder is saved.
-- **The first launch after T3** (`FolderSetup.settle`, at app open or a sync's start) settles the
-  Library folder from where Jellyfin synced before. A folder in `Media/hz` keeps `Media/hz` as
-  the library. A folder picked by hand, as the user's `Media/hz` was, becomes the library, and
-  its `Music/`, `Audiobooks/` and `Playlists/` are renamed into `<it>/<server name>`. The same
-  step makes the sync records relative to Jellyfin's folder (A1). The change is saved
-  (`library_move`) before the first rename, so one cut short is finished by the next settle; a
-  failed rename puts the others back and saves nothing. Until the folder is settled, syncs stop
-  with an error, and so does a change of folder. Each sync also makes any record still saved with
-  a full path relative to its folder, as a backstop.
-- **Settings → Library** changes the Library folder (`FolderSetup.plan`, `changeLibrary`; A4). A
-  folder inside Jellyfin's is refused. Jellyfin's folder still where it was is kept if it's inside
-  the new one, and otherwise renamed into it, after asking (to a free name: a target that exists,
-  even empty, is taken). One moved by hand is found in the new folder by its files: 90% of the
-  records at their paths and sizes, and 90% of its audio recorded, so the user's own music is never
-  taken for it. Signed out, only a lone saved folder is looked for, by every record (T4). One
-  found by searching is confirmed first, since sync's cleanup works there. Not
-  found, the change says "Can't find Jellyfin's files" and changes nothing. Paths are relative, so
-  no record is rewritten, and a failed rename changes nothing. While a sync runs, the change waits
-  for it.
+  Library folder is saved; a fresh install's first settle saves it.
+- **Settings → Library** changes the Library folder (`FolderSetup.plan`, `changeLibrary`; A4),
+  for every saved connection folder. A folder inside one is refused. A connection's folder still
+  where it was is kept if it's inside the new one, and otherwise renamed into it, after asking
+  ("kurage's files will move to …"; to a free name: a target that exists, even empty, is taken).
+  One moved by hand is found in the new folder by that connection's own records, signed in or
+  not: 90% of them at their paths and sizes, and 90% of its audio recorded, so the user's own
+  music is never taken for it. One found by searching is confirmed first, since sync's cleanup
+  works there. A signed-in connection's folder not found stops the change ("Can't find kurage's
+  files"); a signed-out one's stays as saved, and its next sync's folder guard stops it. Paths
+  are relative, so no record is rewritten, and a failed rename changes nothing. While a sync
+  runs, the change waits for it.
 - **A sync also refuses** a folder that is, or holds, the Library folder, and a saved folder that's
   gone while the records name files in it (`syncFolderProblemOf`): recreating it would download
   everything again.
 
-**Sync card.** `ui/Settings/SyncDisplay.kt` is a pure, ordered rule table that turns the state
-into a status: OFFLINE, SYNCING, STOPPED, FAILED, INCOMPLETE, SYNCED or NOT_SYNCED. The counts
-come from `sync/SyncCounts.kt`, which applies the same selection rules as `syncPlanOf`, so
-choosing a new playlist shows that a sync is needed. `SyncRowSummary.kt` builds the one-line
-summary on the Adapters rows (`AdapterViews.kt`).
+**Sync card.** `ui/Settings/SyncDisplay.kt` is a pure, ordered rule table that turns a
+connection's state (`ConnectionUiState`) into a status: SIGN_IN_AGAIN, OFFLINE, WAITING, SYNCING,
+STOPPED, NOTHING_CHOSEN, FAILED, INCOMPLETE, SYNCED or NOT_SYNCED. The counts come from
+`adapter/run/SyncCounts.kt`, which applies the same choice rules as `planOf` to the stored
+catalogue, so choosing a new playlist shows that a sync is needed. `ConnectionMonitor` keeps a
+connection's state live for its page and rows. `SyncRowSummary.kt` builds the one-line summary
+on the Adapters rows (`AdapterViews.kt`).
 
 ## Playback
 
@@ -491,7 +524,8 @@ takes precedence.
 ## Screens and navigation
 
 **Activities.** `PermissionsActivity` is the launcher and goes on to `MainActivity`, signed in
-or not (D10). `LoginActivity` opens from Adapters → Jellyfin and returns there. It opens on
+or not (D10). `JellyfinSignInActivity` (`platform/jellyfin/ui/`, the platform's sign-in entry)
+opens from Adapters → Jellyfin and returns there. It opens on
 Quick Connect: Get code shows a code to approve in a signed-in Jellyfin app, checked every 5 s;
 a link swaps in the username and password form. `MainActivity` hosts every other screen through
 one `NavHostFragment`, above `miniPlayerContainer`. There's no tab bar: Home's header has a
@@ -515,23 +549,27 @@ nav_graph (start: homeFragment)
     ├── appearanceFragment
     ├── homeScreenFragment
     └── adapters_graph (start: adaptersFragment)      (T4)
-        ├── adaptersFragment
-        └── sync_graph (start: syncSettingsFragment)  Jellyfin's page
-            ├── syncSettingsFragment
-            ├── albumSelectionFragment, playlistSelectionFragment, bookSelectionFragment
+        ├── adaptersFragment                          one row per installed platform
+        └── connection_graph(platform) (start: connectionFragment)   a platform's page
+            ├── connectionFragment
+            ├── choicesFragment(kind)                 albums, playlists, books or folders
             └── autoSyncFragment
 ```
 
-The sync notification deep-links to `syncSettingsFragment`, with Home → Settings → Adapters behind
-it. Home's empty-state buttons navigate through the same screens, one step at a time.
+The sync notification deep-links to `connectionFragment` with the running connection's platform,
+with Home → Settings → Adapters behind it. Home's empty-state buttons navigate through the same
+screens, one step at a time.
 
 **View models.**
-- `MainViewModel` is activity-scoped. It holds the sign-in, server and sync state, sync counts
-  and sign-out, and at app open settles the Library folder, then starts a scan. Its `jellyfin` is
-  the `Adapter` (name, status `Flow`, folder, sign-out; `ui/Settings/Adapter.kt`, D12) that
-  Settings → Adapters lists.
+- `MainViewModel` is activity-scoped. At app open it finishes a change of Library folder cut
+  short, then starts a scan; it refreshes each connection's empty catalogue, checks each
+  connection's source (and again when the network changes) and gives Home's ring the running
+  sync.
+- `ConnectionViewModel` is scoped to `connection_graph`, with its `platform` argument: the
+  page's connection, Sync card state (through `ConnectionMonitor`), choices, Auto-sync and
+  sign-out. Its choice screens and the details sheet (`ServerBottomSheet`) share it.
 - `PlaybackViewModel` is activity-scoped and mirrors the media controller.
-- `SettingsViewModel` is scoped to `settings_graph` with `navGraphViewModels`.
+- `SettingsViewModel` is scoped to `settings_graph` with `navGraphViewModels`: Appearance.
 - `LibrarySettingsViewModel` is scoped to `settings_graph` too: the Library row and screen.
 - Each browse screen has its own view model reading the repositories' Room `Flow`s, so screens
   update when a scan finishes.
@@ -544,9 +582,9 @@ it. Home's empty-state buttons navigate through the same screens, one step at a 
   navigation action and count.
 - `HomeLibraryState` covers Building (an empty library before its first scan finishes), Failed
   ("Can't read Media/hz", with Retry) and Ready (with counts, or "No music found in Media/hz."
-  with Choose library folder and Set up Jellyfin, T4).
-  `MainViewModel` refreshes an empty catalogue for the Sync card and choice screens, without a
-  sync.
+  with Choose library folder and Set up an adapter, which opens Settings → Adapters).
+  `MainViewModel` refreshes each connection's empty catalogue for the Sync card and choice
+  screens, without a sync.
 
 **Shared pieces.**
 - Layouts: `view_screen_header.xml` (back and title), `view_settings_row.xml` (Settings rows),
@@ -678,22 +716,37 @@ Commands, run from the repo root:
 - Start playback through `PlaybackViewModel.playTracks(itemIds, startIndex, shuffle)` with
   `fileId`s.
 
-### Add a server request
+### Add an adapter (a platform)
 
-- Add a GET to `api/JellyfinApi.kt` that takes the `Authorization` header as a parameter, and
-  call it from `JellyfinRepository`. Prefer `GET Items` with `userId`.
+1. Make `platform/<name>/` with a `Platform` (its key, name, choice kinds, network need, sign-in
+   screen, connections from its own saved sign-ins, `clearSignIn`) and a `Source` (availability,
+   catalogue, `open`, group images, extras). Build server paths with `LibraryLayout`; a storage
+   source keeps its own paths and gives no fields.
+2. Its sign-in screen and any other screen of its own live in `platform/<name>/ui/`. An HTTP
+   platform's clients add `ReadOnlyInterceptor` with its own sign-in POSTs.
+3. Add it to `Platforms.install` in `Hz.kt`: the Adapters list, its page, the choice screens,
+   the service, schedules and the Library screen pick it up.
+4. Test its mapping on the JVM (as `JellyfinCatalogueMappingTest`), and run
+   `ArchitectureBoundaryTest`. If it needs the harness to change, change the harness, so every
+   adapter keeps the protections; never write file handling in a platform.
+
+### Add a server request (Jellyfin)
+
+- Add a GET to `platform/jellyfin/api/JellyfinApi.kt` that takes the `Authorization` header as a
+  parameter, and call it from `JellyfinRepository`. Prefer `GET Items` with `userId`.
 - `ReadOnlyInterceptor` refuses anything else. A non-GET needs the user's decision and an
   explicit exception.
 - The player never sees server data. If the player needs it, sync writes it into the files
-  (a tag, an image or a playlist). If only the adapter needs it, add it to `JellyfinCatalogue`'s
-  write and `CatalogueDao.replaceCatalogue`, bump `SyncDatabase` and decide about a migration.
+  (a tag, an image or a playlist). If only the adapter needs it, add it to
+  `JellyfinCatalogueMapping`; a new field in the harness's catalogue changes `SyncDatabase`, which
+  is rebuilt (H5).
 
 ### Add a setting
 
 - Put the pure value and its parsing (an enum with `fromKey` and a default) in plain Kotlin, and
   the SharedPreferences read and write in a small `*Store.kt`.
 - On the Settings screen, include `view_settings_row.xml` and refresh its summary in `onResume`.
-  Put sync-related screens in `sync_graph` and other settings in `settings_graph`.
+  Put a connection's screens in `connection_graph` and other settings in `settings_graph`.
 - If the playback service needs the value, use a separate prefs file and a listener, as
   `EqualiserStore` does.
 
@@ -702,28 +755,27 @@ Commands, run from the repo root:
 Each item was verified at `3863dee` or comes from a spec's "Noticed, not in scope" section.
 None is scheduled.
 
-- **Old library routes.** `getAudioItems`, `getAlbums` and `getAlbumTracks` use
-  `GET Users/{userId}/Items`, which Jellyfin 12.1.0's OpenAPI doesn't list. It still works, but a
-  later release may remove it. Move them to `GET Items?userId=`.
+- **Old library route.** `getAudioItems` uses `GET Users/{userId}/Items`, which Jellyfin
+  12.1.0's OpenAPI doesn't list. It still works, but a later release may remove it. Move it to
+  `GET Items?userId=`. (`getAlbums` and `getAlbumTracks` went with the harness: Albums to Sync
+  reads the catalogue.)
 - **Dead code.** `JellyfinApi.downloadAudio` is unused; real downloads use the client in
   `JellyfinClient`.
 - **HTTP logging** is always on at BASIC level (`JellyfinRepository`, `debug = true`).
-- **Cancellation.** `JellyfinRepository.safeCall` catches `CancellationException`;
-  `JellyfinCatalogue.refresh` works around it with `ensureActive()`. The fix is to rethrow it
+- **Cancellation.** `JellyfinRepository.safeCall` catches `CancellationException`; the
+  harness's `Catalogue.refresh` works around it with `ensureActive()`. The fix is to rethrow it
   there.
-- **Unticking every album** saves an empty selection, which means every album
-  (`selectsEveryAlbum`), so the next sync downloads the whole server. Needs a decision.
 - **Downloader.** The file downloader builds its own OkHttp client without
   `ReadOnlyInterceptor`. Its only request is a hard-coded GET, so it's safe, but routing it
   through the interceptor would add a backstop.
-- **Artwork.** `SyncEngine` swallows album-art download failures.
-- **Strings.** `fragment_album_selection.xml` hard-codes its English text.
-- **Stop waits for the current file** (found in T4). `cancelAudioDownload` cancels the download
-  of the `JellyfinRepository` it's called on, but a sync downloads through its own, and even
-  that one is registered only until the response's headers arrive. So Stop and sign-out wait for
-  the current file to finish downloading, which is then thrown away and fetched again next sync.
-  With `readTimeout(0)`, a server that stalls mid-file holds `FolderSetup.lock` until it resumes.
-- **`auto_sync_on_boot`** is read by `BootReceiver` but nothing writes it.
+- **Stop waits for the current file** (found in T4). Stop cancels the run's coroutine, but the
+  copy of the file being downloaded blocks until it ends. So Stop and sign-out wait for the
+  current file to finish downloading, which is then thrown away and fetched again next sync. With
+  Jellyfin's `readTimeout(0)`, a server that stalls mid-file holds `FolderSetup.lock` until it
+  resumes. A server that hasn't answered yet doesn't: the wait for its reply is cancelled at once
+  (`Call.executeCancellable`, `adapter/net/`).
+- **One connection per platform** in the UI: the harness allows several, and the page would then
+  take a connection ID, with "Add" on the Adapters screen.
 - **Not seen yet.** Home may open twice on the first Android 12+ launch after an upgrade. If it
   happens, the fix is `CLEAR_TOP|SINGLE_TOP` in `PermissionsActivity.proceed()`.
 - **README is stale** in places:
@@ -740,6 +792,9 @@ None is scheduled.
   playlists. Next, the optional T5, Gradle modules. Search builds after it.
 - **Sign-in health** (spec `2026-10-09-sign-in-health-design.md`): built; the phone check is
   next.
+- **The adapter harness** (spec `2026-10-10-adapter-harness-design.md`): done; the phone check
+  passed on 2026-10-11. Next, Plex: step 2 (its logic) and step 3 (its screens), once the user's
+  Plex server with test data is ready.
 - **Queue editing** (spec `2026-10-10-queue-editing-design.md`): built; the phone check is next.
 - **Quick Connect sign-in** (spec `2026-10-10-quick-connect-sign-in-design.md`): built; the
   phone check is next.
