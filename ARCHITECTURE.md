@@ -65,7 +65,7 @@ the rename and still say Finsync and `com/jpd/finsync`.
   under their own names. It applies to music and books alike.
 - **Settings:** Library, Adapters, Appearance, Home screen and Equaliser rows. Adapters →
   Jellyfin holds the server pill, the Sync card and the sync choices.
-- **Appearance:** Dark, Light or System mode, and five accent colours.
+- **Appearance:** Dark, Light or System mode, and six accent colours.
 
 ## Status by sub-project
 
@@ -601,14 +601,14 @@ from the Findroid app.
 ## Appearance and colour
 
 - **The values live in `appearance/Palette.kt`**, as seven base roles (`bg_primary`, `surface_1`,
-  `surface_2`, `text_primary`, `muted`, `status_good`, `error`) and five accents, each with dark and light
+  `surface_2`, `text_primary`, `muted`, `status_good`, `error`) and six accents, each with dark and light
   values. `values/colors.xml` (light) and `values-night/colors.xml` (dark) must match it, which
   `PaletteDriftTest` checks. The user tuned these values by hand, so treat them as final.
 - **Themes.**
   - `Theme.Hz` has the parent `Theme.Material3.DayNight.NoActionBar`. It sets `colorError` to
     the `error` role (`#FF0040` in both modes), and `colorSurfaceContainer` to `surface_2` for
     popup menus.
-  - Five overlays, `ThemeOverlay.Hz.Accent.<Name>`, each set only `colorPrimary` and
+  - Six overlays, `ThemeOverlay.Hz.Accent.<Name>`, each set only `colorPrimary` and
     `colorOnPrimary`.
   - `Activity.applyAccentOverlay()` applies the saved accent in each activity before
     `setContentView`.
@@ -778,10 +778,8 @@ None is scheduled.
   take a connection ID, with "Add" on the Adapters screen.
 - **Not seen yet.** Home may open twice on the first Android 12+ launch after an upgrade. If it
   happens, the fix is `CLEAR_TOP|SINGLE_TOP` in `PermissionsActivity.proceed()`.
-- **README is stale** in places:
-  - "No in-app playback" is no longer true;
-  - the API table lists `/Audio/{id}/file`;
-  - the architecture tree and the screenshots predate the overhaul.
+- **Screenshots** in `screenshots/` predate the overhaul and still show Finsync, so the README
+  leaves them out until new ones are taken.
 
 ## What's next
 
