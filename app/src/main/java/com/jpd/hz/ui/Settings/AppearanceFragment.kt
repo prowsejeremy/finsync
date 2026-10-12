@@ -135,6 +135,7 @@ class AppearanceFragment : Fragment() {
         Accent.BLUE to binding.accentBlue,
         Accent.PURPLE to binding.accentPurple,
         Accent.PINK to binding.accentPink,
-        Accent.RED to binding.accentRed
+        Accent.RED to binding.accentRed,
+        Accent.MONOCHROME to binding.accentMonochrome
     )
 }

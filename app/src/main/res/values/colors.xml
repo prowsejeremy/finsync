@@ -1,33 +1,35 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="white">#FFFFFF</color>
-    <color name="black">#000000</color>
+     <color name="white">#FFFFFF</color>
+     <color name="black">#000000</color>
 
-    <!-- ── Palette, light mode (dark mode: values-night/colors.xml) ─────────────
+     <!-- ── Palette, light mode (dark mode: values-night/colors.xml) ─────────────
          These must equal appearance/Palette.kt; PaletteDriftTest checks them. -->
 
-    <!-- Page, cards, raised cards and text: each layer on the page is darker -->
-    <color name="bg_primary">#F5FAFA</color>
-    <color name="surface_1">#F0F5F5</color>
-    <color name="surface_2">#E4ECEC</color>
-    <color name="text_primary">#030505</color>
-    <color name="muted">#506575</color>
-    <!-- Connected, Synced, Finished and granted; doesn't follow the accent -->
-    <color name="status_good">#00FFAA</color>
+     <!-- Page, cards, raised cards and text: each layer on the page is darker -->
+     <color name="bg_primary">#F5FAFA</color>
+     <color name="surface_1">#F0F5F5</color>
+     <color name="surface_2">#E4ECEC</color>
+     <color name="text_primary">#030505</color>
+     <color name="muted">#506575</color>
+     <!-- Connected, Synced, Finished and granted; doesn't follow the accent -->
+     <color name="status_good">#00FFAA</color>
 
-    <!-- Text fields' errors: the red accent's dark value, the same in both modes -->
-    <color name="error">#FF0040</color>
+     <!-- Text fields' errors: the red accent's dark value, the same in both modes -->
+     <color name="error">#FF0040</color>
 
-    <!-- Accents, for themes.xml only: everything else uses ?attr/colorPrimary and
+     <!-- Accents, for themes.xml only: everything else uses ?attr/colorPrimary and
          ?attr/colorOnPrimary. on_accent_* is black or white, whichever contrasts more. -->
-    <color name="accent_green">#05D18D</color>
-    <color name="on_accent_green">#030505</color>
-    <color name="accent_blue">#0E8DCD</color>
-    <color name="on_accent_blue">#030505</color>
-    <color name="accent_purple">#9429FF</color>
-    <color name="on_accent_purple">#FFFFFF</color>
-    <color name="accent_pink">#FF1F9E</color>
-    <color name="on_accent_pink">#030505</color>
-    <color name="accent_red">#FF0040</color>
-    <color name="on_accent_red">#030505</color>
+     <color name="accent_green">#05D18D</color>
+     <color name="on_accent_green">#030505</color>
+     <color name="accent_blue">#0E8DCD</color>
+     <color name="on_accent_blue">#030505</color>
+     <color name="accent_purple">#9429FF</color>
+     <color name="on_accent_purple">#FFFFFF</color>
+     <color name="accent_pink">#FF1F9E</color>
+     <color name="on_accent_pink">#030505</color>
+     <color name="accent_red">#FF0040</color>
+     <color name="on_accent_red">#030505</color>
+     <color name="accent_monochrome">#030505</color>
+     <color name="on_accent_monochrome">#FFFFFF</color>
 </resources>

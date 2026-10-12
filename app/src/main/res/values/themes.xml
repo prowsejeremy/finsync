@@ -89,6 +89,10 @@
         <item name="colorPrimary">@color/accent_red</item>
         <item name="colorOnPrimary">@color/on_accent_red</item>
     </style>
+    <style name="ThemeOverlay.Hz.Accent.Monochrome" parent="">
+        <item name="colorPrimary">@color/accent_monochrome</item>
+        <item name="colorOnPrimary">@color/on_accent_monochrome</item>
+    </style>
 
     <!-- Appearance's Dark · Light · System segments, in a MaterialButtonToggleGroup -->
     <style name="Widget.Hz.SegmentButton" parent="Widget.Material3.Button.OutlinedButton">

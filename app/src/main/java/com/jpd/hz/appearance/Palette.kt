@@ -36,5 +36,6 @@ object Palette {
         Accent.PURPLE -> ModeColours(dark = 0xFF9C49EE, light = 0xFF9429FF)
         Accent.PINK -> ModeColours(dark = 0xFFFF1F9E, light = 0xFFFF1F9E)
         Accent.RED -> ModeColours(dark = 0xFFFF0040, light = 0xFFFF0040)
+        Accent.MONOCHROME -> ModeColours(dark = 0xFFF0F5F5, light = 0xFF030505)
     }
 }

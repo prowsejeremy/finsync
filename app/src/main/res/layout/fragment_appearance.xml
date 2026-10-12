@@ -153,6 +153,10 @@
                             android:id="@+id/accentRed"
                             layout="@layout/view_accent_circle" />
 
+                        <include
+                            android:id="@+id/accentMonochrome"
+                            layout="@layout/view_accent_circle" />
+
                     </LinearLayout>
 
                 </LinearLayout>

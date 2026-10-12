@@ -60,9 +60,10 @@ val Accent.overlayRes: Int
         Accent.PURPLE -> R.style.ThemeOverlay_Hz_Accent_Purple
         Accent.PINK -> R.style.ThemeOverlay_Hz_Accent_Pink
         Accent.RED -> R.style.ThemeOverlay_Hz_Accent_Red
+        Accent.MONOCHROME -> R.style.ThemeOverlay_Hz_Accent_Monochrome
     }
 
-/** "Green", "Blue", "Purple", "Pink" or "Red". */
+/** "Green", "Blue", "Purple", "Pink", "Red" or "Monochrome". */
 @get:StringRes
 val Accent.nameRes: Int
     get() = when (this) {
@@ -71,6 +72,7 @@ val Accent.nameRes: Int
         Accent.PURPLE -> R.string.appearance_accent_purple
         Accent.PINK -> R.string.appearance_accent_pink
         Accent.RED -> R.string.appearance_accent_red
+        Accent.MONOCHROME -> R.string.appearance_accent_monochrome
     }
 
 /**

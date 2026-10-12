@@ -25,7 +25,8 @@ enum class Accent(val key: String) {
     BLUE("blue"),
     PURPLE("purple"),
     PINK("pink"),
-    RED("red");
+    RED("red"),
+    MONOCHROME("monochrome");
 
     companion object {
         /** The accent saved as [key]; GREEN, the default, for null or a value it doesn't know. */

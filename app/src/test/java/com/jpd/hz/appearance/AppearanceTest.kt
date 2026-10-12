@@ -25,6 +25,7 @@ class AppearanceTest {
         assertEquals(Accent.PURPLE, Accent.fromKey("purple"))
         assertEquals(Accent.PINK, Accent.fromKey("pink"))
         assertEquals(Accent.RED, Accent.fromKey("red"))
+        assertEquals(Accent.MONOCHROME, Accent.fromKey("monochrome"))
     }
 
     @Test

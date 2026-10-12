@@ -136,7 +136,8 @@
     <string name="status_sync_stopped">Sync stopped</string>
     <string name="status_synced">Synced</string>
     <string name="sync_detail_offline">Please reconnect to sync.</string>
-    <string name="sync_detail_sign_in_again">%1$s refused your sign-in. Your choices and files are kept.</string>
+    <string name="sync_detail_sign_in_again">%1$s refused your sign-in. Your choices and files are
+        kept.</string>
     <string name="sync_error">Sync error: %1$s</string>
     <string name="status_sync_incomplete">Sync incomplete</string>
     <plurals name="sync_incomplete_detail">
@@ -235,6 +236,7 @@
     <string name="appearance_accent_purple">Purple</string>
     <string name="appearance_accent_pink">Pink</string>
     <string name="appearance_accent_red">Red</string>
+    <string name="appearance_accent_monochrome">Monochrome</string>
     <!-- An accent circle's description for TalkBack: "Green, selected" -->
     <string name="appearance_accent_selected">%1$s, selected</string>
 
