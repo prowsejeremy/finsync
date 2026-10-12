@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Light mode: dark status-bar icons on the light surface_2 bar -->
+    <bool name="light_status_bar">true</bool>
+</resources>

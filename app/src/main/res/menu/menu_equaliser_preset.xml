@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- A saved preset's ⋮ menu (spec "The preset card") -->
+<menu xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <item
+        android:id="@+id/action_rename_preset"
+        android:title="@string/equaliser_rename" />
+
+    <item
+        android:id="@+id/action_delete_preset"
+        android:title="@string/equaliser_delete" />
+
+</menu>

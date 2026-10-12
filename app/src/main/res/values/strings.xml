@@ -1,17 +1,27 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">Finsync</string>
-    <string name="title_login">Finsync – Sign In</string>
-    <string name="title_library">Finsync – Library</string>
-    <string name="title_settings">Finsync – Settings</string>
+    <string name="app_name">Hz</string>
+    <string name="title_login">Hz – Sign In</string>
 
     <!-- Login screen -->
-    <string name="hint_server_url">Server URL (e.g. https://jellyfin.jpd.com)</string>
+    <string name="hint_server_url">Server URL (e.g. http://192.161.1.1:8096)</string>
     <string name="hint_username">Username</string>
     <string name="hint_password">Password</string>
     <string name="btn_login">Sign In</string>
     <string name="error_empty_fields">Please fill in all fields</string>
     <string name="error_login_failed">Login failed. Check your server URL and credentials.</string>
+    <!-- Quick Connect, the sign-in screen's first form (spec "Quick Connect sign-in") -->
+    <string name="btn_get_code">Get code</string>
+    <string name="btn_cancel_code">Cancel</string>
+    <string name="quick_connect_hint">In a signed-in Jellyfin app, open your profile → Quick
+        Connect and enter this code.</string>
+    <string name="link_use_password">Sign in with a username and password</string>
+    <string name="link_use_quick_connect">Use Quick Connect instead</string>
+    <string name="quick_connect_url_required">Enter your server\'s URL</string>
+    <string name="quick_connect_off">Quick Connect is off on this server. Sign in with your
+        username and password.</string>
+    <string name="quick_connect_expired">That code expired. Get a new code.</string>
+    <string name="quick_connect_unreachable">Couldn\'t reach the server. Get a new code.</string>
 
     <!-- Main screen -->
     <string name="btn_sync_now">Sync Now</string>
@@ -22,9 +32,329 @@
     <string name="status_sync_failed">Sync failed</string>
 
     <!-- Notifications -->
-    <string name="notification_channel_name">Finsync</string>
-    <string name="notification_channel_desc">Syncing music library from Jellyfin</string>
-    <string name="notification_sync_title">Finsync</string>
+    <string name="notification_channel_name">Hz</string>
+    <string name="notification_channel_desc">Syncing your library</string>
+    <string name="notification_sync_title">Hz</string>
     <string name="notification_stop">Stop</string>
     <string name="notification_sync_complete">Sync complete</string>
+    <!-- The sync notification's words, as before the adapter harness; the title adds the
+         connection: "hz · kurage" -->
+    <string name="notification_title">hz</string>
+    <string name="notification_starting">Starting sync...</string>
+    <string name="notification_syncing">Syncing...</string>
+    <string name="notification_error">Error: %1$s</string>
+
+    <!-- Screen headers -->
+    <string name="cd_back">Back</string>
+    <string name="header_home">Home</string>
+    <string name="cd_settings">Settings</string>
+
+    <!-- Home -->
+    <string name="home_library_building">Building your library…</string>
+    <string name="home_library_unreadable">Can\'t read %1$s</string>
+    <string name="btn_retry">Retry</string>
+    <string name="home_albums">Albums</string>
+    <string name="home_library_empty">No music found in %1$s.</string>
+    <string name="home_album_artists">Album Artists</string>
+    <string name="home_genres">Genres</string>
+    <string name="home_songs">Songs</string>
+
+    <!-- Albums and album detail -->
+    <string name="header_albums">Albums</string>
+    <string name="albums_empty">No downloaded albums</string>
+    <string name="album_not_downloaded">Album not downloaded</string>
+    <string name="unknown_artist">Unknown Artist</string>
+    <string name="btn_play">Play</string>
+    <string name="btn_shuffle">Shuffle</string>
+    <string name="album_length_minutes">%1$d min</string>
+    <string name="disc_heading">Disc %1$d</string>
+    <plurals name="track_count">
+        <item quantity="one">%d track</item>
+        <item quantity="other">%d tracks</item>
+    </plurals>
+
+    <!-- Album Artists, Genres, Songs and the artist and genre pages -->
+    <string name="header_album_artists">Album Artists</string>
+    <string name="header_genres">Genres</string>
+    <string name="header_songs">Songs</string>
+    <string name="songs_empty">No downloaded songs</string>
+    <string name="btn_shuffle_all">Shuffle all</string>
+    <string name="group_not_downloaded">Not downloaded</string>
+    <string name="group_all_songs">All songs</string>
+    <string name="group_albums_label">Albums</string>
+    <string name="list_length_hours">%1$d h</string>
+    <string name="list_length_hours_minutes">%1$d h %2$d min</string>
+    <plurals name="album_count">
+        <item quantity="one">%d album</item>
+        <item quantity="other">%d albums</item>
+    </plurals>
+    <plurals name="song_count">
+        <item quantity="one">%d song</item>
+        <item quantity="other">%d songs</item>
+    </plurals>
+
+    <!-- Settings -->
+    <string name="header_settings">Settings</string>
+    <string name="server_connected">Connected</string>
+    <string name="server_offline">Offline</string>
+    <string name="status_sign_in_again">Sign in again</string>
+    <string name="settings_sync_title">Sync</string>
+    <!-- The Sync card's counts (3b refinements). The numbers arrive with the locale's digit
+         grouping ("1,280"), so they're strings (%s); the total picks the plural. -->
+    <plurals name="sync_songs_of">
+        <item quantity="one">%1$s of %2$s song</item>
+        <item quantity="other">%1$s of %2$s songs</item>
+    </plurals>
+    <plurals name="sync_books_of">
+        <item quantity="one">%1$s of %2$s book</item>
+        <item quantity="other">%1$s of %2$s books</item>
+    </plurals>
+    <plurals name="sync_items_of">
+        <item quantity="one">%1$s of %2$s item</item>
+        <item quantity="other">%1$s of %2$s items</item>
+    </plurals>
+    <!-- "1,280 of 1,400 songs · 0 of 2 books" + " synced" -->
+    <string name="sync_counts_synced">%1$s synced</string>
+    <!-- The Settings Sync row's "Syncing… · 45%" (Settings restructure) -->
+    <string name="settings_sync_row_percent">%1$d%%</string>
+    <!-- The Sync screen's section labels, and text moved there from the Settings cards -->
+    <string name="settings_section_what_to_sync">What to sync</string>
+    <string name="settings_section_schedule_storage">Schedule and storage</string>
+    <string name="settings_albums_title">Albums to Sync</string>
+    <string name="settings_albums_summary">%1$d of %2$d albums selected</string>
+    <string name="settings_loading">Loading...</string>
+    <string name="settings_albums_failed">Couldn\'t load albums</string>
+    <string name="settings_auto_sync_title">Auto-sync</string>
+    <string name="settings_auto_sync_disabled">Disabled</string>
+    <plurals name="settings_auto_sync_every">
+        <item quantity="one">Every %d hour</item>
+        <item quantity="other">Every %d hours</item>
+    </plurals>
+
+    <!-- Sync status -->
+    <string name="status_offline">Lost connection to server</string>
+    <string name="status_sync_stopped">Sync stopped</string>
+    <string name="status_synced">Synced</string>
+    <string name="sync_detail_offline">Please reconnect to sync.</string>
+    <string name="sync_detail_sign_in_again">%1$s refused your sign-in. Your choices and files are
+        kept.</string>
+    <string name="sync_error">Sync error: %1$s</string>
+    <string name="status_sync_incomplete">Sync incomplete</string>
+    <plurals name="sync_incomplete_detail">
+        <item quantity="one">%d item couldn\'t sync. It\'ll retry next sync.</item>
+        <item quantity="other">%d items couldn\'t sync. They\'ll retry next sync.</item>
+    </plurals>
+    <string name="sync_incomplete_message">Sync incomplete: %1$s</string>
+    <!-- T2: files that play with their own tags; the sync isn't incomplete because of them -->
+    <plurals name="sync_untagged_detail">
+        <item quantity="one">%d file couldn\'t be tagged.</item>
+        <item quantity="other">%d files couldn\'t be tagged.</item>
+    </plurals>
+
+    <!-- Playback -->
+    <string name="files_missing">Files missing. Rescan your library.</string>
+    <string name="playback_unavailable">Playback unavailable</string>
+
+    <!-- Player, mini-player and queue -->
+    <string name="player_playing_from_album">Playing from album</string>
+    <string name="player_output">Output</string>
+    <string name="player_queue">Queue</string>
+    <string name="queue_title">Queue</string>
+    <string name="output_unavailable">The output switcher isn\'t available on this device</string>
+    <string name="cd_close_player">Close player</string>
+    <string name="cd_play">Play</string>
+    <string name="cd_pause">Pause</string>
+    <string name="cd_next">Next</string>
+    <string name="cd_previous">Previous</string>
+    <string name="cd_repeat">Repeat</string>
+    <string name="cd_shuffle">Shuffle</string>
+
+    <!-- Playlists (3b) -->
+    <string name="home_playlists">Playlists</string>
+    <string name="header_playlists">Playlists</string>
+    <string name="playlists_empty">No synced playlists</string>
+    <string name="playlists_empty_hint">Choose playlists to sync in Settings</string>
+    <string name="settings_playlists_title">Playlists to Sync</string>
+    <string name="settings_playlists_summary">%1$d of %2$d playlists selected</string>
+    <string name="settings_change_selection">Tap to change selection</string>
+    <string name="selection_title_playlists">Select Playlists to Sync</string>
+
+    <!-- Audio Books (3b) -->
+    <string name="home_audio_books">Audio Books</string>
+    <string name="header_audio_books">Audio Books</string>
+    <string name="books_empty">No synced books</string>
+    <string name="books_empty_hint">Choose books to sync in Settings</string>
+    <string name="settings_books_title">Books to Sync</string>
+    <string name="settings_books_summary">%1$d of %2$d books selected</string>
+    <string name="selection_title_books">Select Books to Sync</string>
+    <string name="unknown_author">Unknown Author</string>
+    <string name="book_chapter_number">Chapter %1$d</string>
+    <string name="book_time_left">%1$s left</string>
+    <string name="book_not_started">Not started</string>
+    <string name="book_finished">Finished</string>
+    <string name="btn_resume">Resume</string>
+    <string name="btn_start_over">Start over</string>
+    <plurals name="chapter_count">
+        <item quantity="one">%d chapter</item>
+        <item quantity="other">%d chapters</item>
+    </plurals>
+
+    <!-- Book playback (3b) -->
+    <string name="player_playing_book">Playing book</string>
+    <string name="player_chapters">Chapters</string>
+    <string name="player_book_left">%1$s left in book</string>
+    <string name="chapters_title">Chapters</string>
+    <string name="speed_title">Playback speed</string>
+    <string name="skip_back_label">−15</string>
+    <string name="skip_forward_label">+30</string>
+    <string name="cd_skip_back">Back 15 seconds</string>
+    <string name="cd_skip_forward">Forward 30 seconds</string>
+    <string name="cd_previous_chapter">Previous chapter</string>
+    <string name="cd_next_chapter">Next chapter</string>
+    <string name="cd_speed">Playback speed</string>
+
+    <!-- Home screen settings (3b refinements) -->
+    <string name="settings_home_screen_title">Home screen</string>
+    <string name="settings_home_screen_summary">%1$d of %2$d categories shown</string>
+    <string name="header_home_screen">Home screen</string>
+    <string name="home_screen_hint">At least one category stays on Home.</string>
+    <string name="cd_drag_to_reorder">Drag to reorder</string>
+    <string name="action_move_up">Move up</string>
+    <string name="action_move_down">Move down</string>
+
+    <!-- Appearance (Settings restructure and Appearance) -->
+    <string name="settings_appearance_title">Appearance</string>
+    <string name="appearance_theme_title">Theme</string>
+    <string name="appearance_mode_dark">Dark</string>
+    <string name="appearance_mode_light">Light</string>
+    <string name="appearance_mode_system">System</string>
+    <string name="appearance_accent_title">Accent colour</string>
+    <!-- After "Accent colour": "· Green" -->
+    <string name="appearance_accent_name">· %1$s</string>
+    <string name="appearance_accent_green">Green</string>
+    <string name="appearance_accent_blue">Blue</string>
+    <string name="appearance_accent_purple">Purple</string>
+    <string name="appearance_accent_pink">Pink</string>
+    <string name="appearance_accent_red">Red</string>
+    <string name="appearance_accent_monochrome">Monochrome</string>
+    <!-- An accent circle's description for TalkBack: "Green, selected" -->
+    <string name="appearance_accent_selected">%1$s, selected</string>
+
+    <!-- Equaliser (5) -->
+    <string name="equaliser_title">Equaliser</string>
+    <string name="equaliser_preset_flat">Flat</string>
+    <string name="equaliser_preset_bass_boost">Bass boost</string>
+    <string name="equaliser_preset_treble_boost">Treble boost</string>
+    <string name="equaliser_preset_vocal">Vocal</string>
+    <string name="equaliser_preset_rock">Rock</string>
+    <string name="equaliser_preset_pop">Pop</string>
+    <string name="equaliser_preset_jazz">Jazz</string>
+    <string name="equaliser_preset_classical">Classical</string>
+    <string name="equaliser_preset_spoken_word">Spoken word</string>
+    <string name="equaliser_preset_custom">Custom</string>
+    <!-- A preset row's description for TalkBack: "Bass boost, selected" -->
+    <string name="equaliser_preset_selected">%1$s, selected</string>
+    <string name="equaliser_band_hz">%1$d Hz</string>
+    <string name="equaliser_band_khz">%1$d kHz</string>
+    <!-- A band's gain; the code adds the sign and the decimal: "+6.5 dB", "0.0 dB", "−3.0 dB" -->
+    <string name="equaliser_gain">%1$s dB</string>
+    <!-- The Settings row's summary: "Off", or "On · Bass boost" -->
+    <string name="equaliser_summary_off">Off</string>
+    <string name="equaliser_summary_on">On</string>
+    <string name="cd_equaliser_on">Equaliser, on</string>
+    <string name="cd_equaliser_off">Equaliser, off</string>
+
+    <!-- Equaliser: saved presets -->
+    <string name="equaliser_preset_label">Preset</string>
+    <string name="equaliser_your_presets">Your presets</string>
+    <string name="equaliser_save_preset">Save preset</string>
+    <string name="equaliser_name_title_save">Name this preset</string>
+    <!-- The name editor's title while renaming: "Rename Night drive" -->
+    <string name="equaliser_name_title_rename">Rename %1$s</string>
+    <string name="equaliser_name_hint">Preset name</string>
+    <!-- Under the name field: two errors, then the note shown before Replace -->
+    <string name="equaliser_name_built_in">%1$s is a built-in preset</string>
+    <string name="equaliser_name_taken">You already have %1$s</string>
+    <string name="equaliser_name_replaces">Replaces your %1$s preset</string>
+    <string name="equaliser_save">Save</string>
+    <string name="equaliser_replace">Replace</string>
+    <string name="equaliser_rename">Rename</string>
+    <string name="equaliser_cancel">Cancel</string>
+    <string name="equaliser_delete">Delete</string>
+    <!-- The Undo bar after a delete: "Deleted Night drive" -->
+    <string name="equaliser_deleted">Deleted %1$s</string>
+    <string name="equaliser_undo">Undo</string>
+    <!-- TalkBack: the Preset card's header, "Preset, Bass boost", then its state -->
+    <string name="cd_equaliser_preset">Preset, %1$s</string>
+    <string name="cd_equaliser_list_expanded">Expanded</string>
+    <string name="cd_equaliser_list_collapsed">Collapsed</string>
+    <!-- TalkBack: a saved preset's ⋮ button, "Options for Night drive" -->
+    <string name="cd_equaliser_preset_options">Options for %1$s</string>
+    <!-- Settings → Library (T3): the folder the player reads, and its scan -->
+    <string name="settings_library_title">Library</string>
+    <string name="library_folder_title">Library folder</string>
+    <string name="library_change">Change</string>
+    <string name="library_scan_title">Scan</string>
+    <string name="library_rescan">Rescan</string>
+    <string name="library_scan_looking">Looking for files…</string>
+    <string name="library_scan_not_yet">Not scanned yet</string>
+    <plurals name="library_scan_progress">
+        <item quantity="one">Scanning %1$s of %2$s</item>
+        <item quantity="other">Scanning %1$s of %2$s</item>
+    </plurals>
+    <plurals name="library_songs">
+        <item quantity="one">%1$s song</item>
+        <item quantity="other">%1$s songs</item>
+    </plurals>
+    <plurals name="library_books">
+        <item quantity="one">%1$s book</item>
+        <item quantity="other">%1$s books</item>
+    </plurals>
+    <plurals name="library_unreadable_files">
+        <item quantity="one">%1$s file couldn\'t be read</item>
+        <item quantity="other">%1$s files couldn\'t be read</item>
+    </plurals>
+    <!-- Changing the Library folder -->
+    <!-- %1$s names a connection by its folder, such as "kurage" -->
+    <string name="library_move_confirm">%1$s\'s files will move to %2$s.</string>
+    <string name="library_move_confirm_many">Files from %1$s will move to %2$s.</string>
+    <string name="library_move">Move</string>
+    <string name="library_refused">Choose a folder outside the adapters\' folders.</string>
+    <string name="library_move_failed">Adapter files couldn\'t move. Nothing changed.</string>
+    <string name="library_move_unfinished">Part of the move failed; hz finishes it later.</string>
+    <string name="library_not_found">Can\'t find %1$s\'s files in %2$s.</string>
+    <string name="library_not_found_any">Can\'t find %1$s\'s files there.</string>
+    <string name="library_found_title">%1$s\'s files are in %2$s</string>
+    <string name="library_found_confirm">Files there %1$s didn\'t sync will be removed.</string>
+    <string name="library_use_folder">Use this folder</string>
+    <string name="library_busy">A sync is running. Try again when it finishes.</string>
+    <string name="library_unreadable_picked">Can\'t read that folder.</string>
+    <!-- A platform's page: where its connection syncs, "Syncs to kurage/" -->
+    <string name="sync_target">Syncs to %1$s/</string>
+
+    <!-- Settings → Adapters, a platform page's Sign in card, Home's empty state (T4) -->
+    <string name="settings_adapters_title">Adapters</string>
+    <string name="adapter_not_signed_in">Not signed in</string>
+    <string name="jellyfin_sign_in_detail">Sign in to sync from your Jellyfin server.</string>
+    <string name="btn_sign_in">Sign in</string>
+    <string name="btn_sign_out">Sign out</string>
+    <string name="home_choose_folder">Choose library folder</string>
+    <string name="home_set_up_adapter">Set up an adapter</string>
+
+    <!-- The adapter harness: Waiting, nothing chosen, and the shared choice screen -->
+    <string name="status_waiting">Waiting</string>
+    <string name="sync_detail_waiting">Waiting for %1$s to finish</string>
+    <string name="sync_detail_nothing_chosen">Choose what to sync first.</string>
+    <string name="choice_no_album">Songs with no album</string>
+    <string name="selection_title_albums">Select Albums to Sync</string>
+    <string name="selection_title_folders">Select Folders to Sync</string>
+    <string name="selection_select_all">Select All</string>
+    <string name="btn_cancel">Cancel</string>
+    <string name="btn_select">Select</string>
+    <string name="settings_folders_title">Folders to Sync</string>
+    <string name="settings_folders_summary">%1$d of %2$d folders selected</string>
+    <plurals name="file_count">
+        <item quantity="one">%d file</item>
+        <item quantity="other">%d files</item>
+    </plurals>
 </resources>

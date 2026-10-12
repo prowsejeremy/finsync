@@ -1,0 +1,4 @@
+# CMake's working files for libhztags.so
+/.cxx/
+# The test samples are audio files, which the root .gitignore excludes
+!/src/androidTest/assets/**

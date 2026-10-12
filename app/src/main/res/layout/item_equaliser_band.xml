@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- One band of the Equaliser card (spec "Equaliser"): label, slider and value. The row is as
+     tall as Material's slider, which is always 48dp. TalkBack reads the slider alone: its
+     description is the band, and its label formatter gives the value. -->
+<LinearLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="horizontal"
+    android:gravity="center_vertical"
+    android:paddingHorizontal="4dp">
+
+    <TextView
+        android:id="@+id/tvBandLabel"
+        android:layout_width="52dp"
+        android:layout_height="wrap_content"
+        android:importantForAccessibility="no"
+        android:textColor="@color/muted"
+        android:textSize="12sp"
+        android:fontFamily="@font/hk_regular" />
+
+    <FrameLayout
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_weight="1">
+
+        <!-- The 0 dB mark, behind the slider's centre, which is its track's centre -->
+        <View
+            android:layout_width="2dp"
+            android:layout_height="12dp"
+            android:layout_gravity="center"
+            android:background="@color/muted" />
+
+        <!-- MIN_GAIN_DB to MAX_GAIN_DB in 0.1 dB steps (Equaliser.kt). No coloured fill: both
+             parts of the track are surface_2; the thumb and halo take the accent by default.
+             Not saved with the view: the ten rows share ids, and the screen sets every value
+             from the store. -->
+        <com.google.android.material.slider.Slider
+            android:id="@+id/slider"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:saveEnabled="false"
+            android:valueFrom="-12"
+            android:valueTo="12"
+            android:stepSize="0.1"
+            android:value="0"
+            app:labelBehavior="gone"
+            app:tickVisible="false"
+            app:trackColorActive="@color/surface_2"
+            app:trackColorInactive="@color/surface_2" />
+
+    </FrameLayout>
+
+    <!-- At least 64dp, which holds the longest value, "−12.0 dB", with room to spare, so every
+         row's slider is the same width. With a large system font it grows rather than wrap. -->
+    <TextView
+        android:id="@+id/tvBandValue"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:minWidth="64dp"
+        android:maxLines="1"
+        android:gravity="end"
+        android:importantForAccessibility="no"
+        android:textColor="@color/text_primary"
+        android:textSize="12sp"
+        android:fontFamily="@font/hk_regular" />
+
+</LinearLayout>

@@ -1,0 +1,276 @@
+<?xml version="1.0" encoding="utf-8"?>
+<navigation
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/nav_graph"
+    app:startDestination="@id/homeFragment">
+
+    <fragment
+        android:id="@+id/homeFragment"
+        android:name="com.jpd.hz.ui.HomeFragment">
+        <action
+            android:id="@+id/action_home_to_settings"
+            app:destination="@id/settings_graph" />
+        <action
+            android:id="@+id/action_home_to_albums"
+            app:destination="@id/albumsFragment" />
+        <action
+            android:id="@+id/action_home_to_album_artists"
+            app:destination="@id/albumArtistsFragment" />
+        <action
+            android:id="@+id/action_home_to_genres"
+            app:destination="@id/genresFragment" />
+        <action
+            android:id="@+id/action_home_to_songs"
+            app:destination="@id/songsFragment" />
+        <action
+            android:id="@+id/action_home_to_playlists"
+            app:destination="@id/playlistsFragment" />
+        <action
+            android:id="@+id/action_home_to_audio_books"
+            app:destination="@id/audioBooksFragment" />
+    </fragment>
+
+    <fragment
+        android:id="@+id/albumsFragment"
+        android:name="com.jpd.hz.ui.AlbumsFragment">
+        <action
+            android:id="@+id/action_albums_to_album"
+            app:destination="@id/albumFragment" />
+    </fragment>
+
+    <fragment
+        android:id="@+id/albumFragment"
+        android:name="com.jpd.hz.ui.AlbumFragment">
+        <argument
+            android:name="albumId"
+            app:argType="string" />
+    </fragment>
+
+    <fragment
+        android:id="@+id/albumArtistsFragment"
+        android:name="com.jpd.hz.ui.AlbumArtistsFragment">
+        <action
+            android:id="@+id/action_album_artists_to_group"
+            app:destination="@id/groupFragment" />
+    </fragment>
+
+    <fragment
+        android:id="@+id/genresFragment"
+        android:name="com.jpd.hz.ui.GenresFragment">
+        <action
+            android:id="@+id/action_genres_to_group"
+            app:destination="@id/groupFragment" />
+    </fragment>
+
+    <fragment
+        android:id="@+id/songsFragment"
+        android:name="com.jpd.hz.ui.SongsFragment" />
+
+    <!-- An artist's or genre's page; groupType is "artist" or "genre" -->
+    <fragment
+        android:id="@+id/groupFragment"
+        android:name="com.jpd.hz.ui.GroupFragment">
+        <argument
+            android:name="groupType"
+            app:argType="string" />
+        <argument
+            android:name="groupId"
+            app:argType="string" />
+        <action
+            android:id="@+id/action_group_to_all_songs"
+            app:destination="@id/allSongsFragment" />
+        <action
+            android:id="@+id/action_group_to_album"
+            app:destination="@id/albumFragment" />
+    </fragment>
+
+    <fragment
+        android:id="@+id/allSongsFragment"
+        android:name="com.jpd.hz.ui.AllSongsFragment">
+        <argument
+            android:name="groupType"
+            app:argType="string" />
+        <argument
+            android:name="groupId"
+            app:argType="string" />
+    </fragment>
+
+    <!-- Opens the Player from the mini-player on any screen, including inside settings_graph.
+         Over the Equaliser opened from the Player, it replaces that Player rather than stacking
+         a second one (5); with no Player beneath, the pop does nothing. -->
+    <action
+        android:id="@+id/action_global_player"
+        app:destination="@id/playerFragment"
+        app:popUpTo="@id/playerFragment"
+        app:popUpToInclusive="true"
+        app:enterAnim="@anim/slide_up"
+        app:exitAnim="@anim/hold"
+        app:popEnterAnim="@anim/hold"
+        app:popExitAnim="@anim/slide_down" />
+
+    <fragment
+        android:id="@+id/playerFragment"
+        android:name="com.jpd.hz.ui.PlayerFragment">
+        <!-- The album replaces the Player rather than stacking above it -->
+        <action
+            android:id="@+id/action_player_to_album"
+            app:destination="@id/albumFragment"
+            app:popUpTo="@id/playerFragment"
+            app:popUpToInclusive="true" />
+        <!-- So does a book's page (3b) -->
+        <action
+            android:id="@+id/action_player_to_book"
+            app:destination="@id/bookFragment"
+            app:popUpTo="@id/playerFragment"
+            app:popUpToInclusive="true" />
+        <!-- And the album artist's page -->
+        <action
+            android:id="@+id/action_player_to_group"
+            app:destination="@id/groupFragment"
+            app:popUpTo="@id/playerFragment"
+            app:popUpToInclusive="true" />
+        <!-- The Equaliser stacks above the Player, so Back returns to it (5) -->
+        <action
+            android:id="@+id/action_player_to_equaliser"
+            app:destination="@id/equaliserFragment" />
+    </fragment>
+
+    <fragment
+        android:id="@+id/playlistsFragment"
+        android:name="com.jpd.hz.ui.PlaylistsFragment">
+        <action
+            android:id="@+id/action_playlists_to_playlist"
+            app:destination="@id/playlistFragment" />
+    </fragment>
+
+    <fragment
+        android:id="@+id/playlistFragment"
+        android:name="com.jpd.hz.ui.PlaylistFragment">
+        <argument
+            android:name="playlistId"
+            app:argType="string" />
+    </fragment>
+
+    <fragment
+        android:id="@+id/audioBooksFragment"
+        android:name="com.jpd.hz.ui.AudioBooksFragment">
+        <action
+            android:id="@+id/action_audio_books_to_book"
+            app:destination="@id/bookFragment" />
+    </fragment>
+
+    <fragment
+        android:id="@+id/bookFragment"
+        android:name="com.jpd.hz.ui.BookFragment">
+        <argument
+            android:name="bookId"
+            app:argType="string" />
+    </fragment>
+
+    <!-- The Equaliser (5): top level, outside settings_graph, so the Player opens it without
+         starting Settings. Back returns to the Player or to Settings. -->
+    <fragment
+        android:id="@+id/equaliserFragment"
+        android:name="com.jpd.hz.ui.EqualiserFragment" />
+
+    <!-- Nested so SettingsViewModel lives exactly as long as you're in Settings. The sync
+         notification's deep link opens the running connection's page; each nested graph adds its
+         start screen, so the back stack is Home → Settings → Adapters → the platform's page.
+         Home's empty-state buttons navigate through the same screens. -->
+    <navigation
+        android:id="@+id/settings_graph"
+        app:startDestination="@id/settingsFragment">
+
+        <fragment
+            android:id="@+id/settingsFragment"
+            android:name="com.jpd.hz.ui.SettingsFragment">
+            <action
+                android:id="@+id/action_settings_to_library"
+                app:destination="@id/librarySettingsFragment" />
+            <action
+                android:id="@+id/action_settings_to_adapters"
+                app:destination="@id/adapters_graph" />
+            <action
+                android:id="@+id/action_settings_to_appearance"
+                app:destination="@id/appearanceFragment" />
+            <action
+                android:id="@+id/action_settings_to_home_screen"
+                app:destination="@id/homeScreenFragment" />
+            <!-- To the top-level Equaliser, outside this graph (5) -->
+            <action
+                android:id="@+id/action_settings_to_equaliser"
+                app:destination="@id/equaliserFragment" />
+        </fragment>
+
+        <!-- Settings → Library: the Library folder and its scan (T3) -->
+        <fragment
+            android:id="@+id/librarySettingsFragment"
+            android:name="com.jpd.hz.ui.LibrarySettingsFragment" />
+
+        <!-- Settings → Appearance: Dark, Light or System, and the accent -->
+        <fragment
+            android:id="@+id/appearanceFragment"
+            android:name="com.jpd.hz.ui.AppearanceFragment" />
+
+        <!-- Settings → Home screen: Home's categories and their order (3b refinements) -->
+        <fragment
+            android:id="@+id/homeScreenFragment"
+            android:name="com.jpd.hz.ui.HomeScreenFragment" />
+
+        <!-- Settings → Adapters: one row per installed platform (T4; adapter harness spec) -->
+        <navigation
+            android:id="@+id/adapters_graph"
+            app:startDestination="@id/adaptersFragment">
+
+            <fragment
+                android:id="@+id/adaptersFragment"
+                android:name="com.jpd.hz.ui.AdaptersFragment">
+                <action
+                    android:id="@+id/action_adapters_to_connection"
+                    app:destination="@id/connection_graph" />
+            </fragment>
+
+            <!-- A platform's page and its choice and Auto-sync screens, whose Back and Cancel /
+                 Apply return to it. ConnectionViewModel lives as long as this graph, and reads
+                 its platform argument. -->
+            <navigation
+                android:id="@+id/connection_graph"
+                app:startDestination="@id/connectionFragment">
+
+                <argument
+                    android:name="platform"
+                    app:argType="string" />
+
+                <fragment
+                    android:id="@+id/connectionFragment"
+                    android:name="com.jpd.hz.ui.ConnectionFragment">
+                    <argument
+                        android:name="platform"
+                        app:argType="string" />
+                    <action
+                        android:id="@+id/action_connection_to_choices"
+                        app:destination="@id/choicesFragment" />
+                    <action
+                        android:id="@+id/action_connection_to_auto_sync"
+                        app:destination="@id/autoSyncFragment" />
+                </fragment>
+
+                <fragment
+                    android:id="@+id/choicesFragment"
+                    android:name="com.jpd.hz.ui.ChoicesFragment">
+                    <argument
+                        android:name="kind"
+                        app:argType="string" />
+                </fragment>
+
+                <fragment
+                    android:id="@+id/autoSyncFragment"
+                    android:name="com.jpd.hz.ui.AutoSyncFragment" />
+
+            </navigation>
+        </navigation>
+
+    </navigation>
+
+</navigation>

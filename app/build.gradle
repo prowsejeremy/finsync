@@ -6,15 +6,18 @@ plugins {
 }
 
 android {
-    namespace 'com.jpd.finsync'
+    namespace 'com.jpd.hz'
     compileSdk 34
+    // Lets AGP strip libhztags.so from :tags while packaging. AGP 8.5.2's default NDK isn't
+    // installed, and without one each ABI's copy would ship unstripped at about 16 MB.
+    ndkVersion '28.2.13676358'
 
     defaultConfig {
-        applicationId "com.jpd.finsync"
+        applicationId "com.jpd.hz"
         minSdk 26
         targetSdk 34
         versionCode 1
-        versionName "0.0.2"
+        versionName "0.0.3"
 
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -33,6 +36,14 @@ android {
         viewBinding true
     }
 
+    packaging {
+        jniLibs {
+            // Extract native libraries on install, so BASS plugins can be loaded by full path
+            // from nativeLibraryDir (BASS_PluginLoad has no Android-specific lookup).
+            useLegacyPackaging = true
+        }
+    }
+
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_17
         targetCompatibility JavaVersion.VERSION_17
@@ -40,6 +51,13 @@ android {
 
     kotlinOptions {
         jvmTarget = '17'
+    }
+
+    testOptions {
+        unitTests {
+            // Robolectric reads the merged manifest and resources from here.
+            includeAndroidResources = true
+        }
     }
 }
 
@@ -56,6 +74,7 @@ dependencies {
     implementation 'androidx.preference:preference-ktx:1.2.1'
     implementation 'androidx.security:security-crypto:1.1.0-alpha06'
     implementation 'androidx.swiperefreshlayout:swiperefreshlayout:1.1.0'
+    implementation 'androidx.navigation:navigation-fragment-ktx:2.7.7'
 
     // Networking
     implementation 'com.squareup.retrofit2:retrofit:2.9.0'
@@ -81,8 +100,23 @@ dependencies {
     implementation "androidx.room:room-ktx:$room_version"
     ksp "androidx.room:room-compiler:$room_version"
 
+    // Playback: Media3's session layer over BASS. 1.4.1 is the last release built against
+    // compileSdk 34; 1.5.0 needs 35. Brings media3-common, media3-datasource and Guava.
+    implementation 'androidx.media3:media3-session:1.4.1'
+
+    // Output pill: opens Android's system output switcher. 1.7.0 predates AndroidX's move to
+    // compileSdk 35 (1.8.x's minimum compile SDK is unverified).
+    implementation 'androidx.mediarouter:mediarouter:1.7.0'
+
+    // hz's tag engine: TagLib behind a JNI bridge. Nothing calls it until T2.
+    implementation project(':tags')
+
     // Testing
     testImplementation 'junit:junit:4.13.2'
+    // Robolectric simulates Android on the JVM, so Room tests run against an in-memory
+    // database. robolectric.properties pins SDK 34, because SDK 35 would need JDK 21.
+    testImplementation 'org.robolectric:robolectric:4.13'
+    testImplementation 'androidx.test:core:1.6.1'
     androidTestImplementation 'androidx.test.ext:junit:1.1.5'
     androidTestImplementation 'androidx.test.espresso:espresso-core:3.5.1'
 }
